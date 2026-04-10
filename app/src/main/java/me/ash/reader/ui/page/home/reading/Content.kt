@@ -38,6 +38,10 @@ import me.ash.reader.ui.ext.roundClick
 fun Content(
     modifier: Modifier = Modifier,
     content: String,
+    aiSummary: String?,
+    isAiSummaryLoading: Boolean,
+    aiSummaryError: String?,
+    isAiSummaryExpanded: Boolean,
     feedName: String,
     title: String,
     author: String? = null,
@@ -48,6 +52,7 @@ fun Content(
     isLoading: Boolean,
     contentPadding: PaddingValues = PaddingValues(),
     onImageClick: ((imgUrl: String, altText: String) -> Unit)? = null,
+    onAiSummaryToggleExpand: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val subheadUpperCase = LocalReadingSubheadUpperCase.current
@@ -67,6 +72,21 @@ fun Content(
                         author = author,
                         publishedDate = publishedDate,
                         modifier = Modifier.roundClick { link?.let { uriHandler.openUri(it) } },
+                    )
+                }
+            }
+        }
+
+    val summarySection =
+        @Composable {
+            if (aiSummary != null || isAiSummaryLoading || aiSummaryError != null) {
+                Column(modifier = Modifier.then(maxWidthModifier).padding(horizontal = 12.dp)) {
+                    AiSummaryCard(
+                        summary = aiSummary.orEmpty(),
+                        isLoading = isAiSummaryLoading,
+                        error = aiSummaryError,
+                        isExpanded = isAiSummaryExpanded,
+                        onToggleExpanded = onAiSummaryToggleExpand,
                     )
                 }
             }
@@ -94,6 +114,7 @@ fun Content(
                             Spacer(modifier = Modifier.height(64.dp))
                             // padding
                             headline()
+                            summarySection()
 
                             RYWebView(
                                 modifier = Modifier.fillMaxSize(),
@@ -123,6 +144,7 @@ fun Content(
                             // padding
                             Spacer(modifier = Modifier.height(contentPadding.calculateTopPadding()))
                             headline()
+                            summarySection()
                         }
 
                         Reader(

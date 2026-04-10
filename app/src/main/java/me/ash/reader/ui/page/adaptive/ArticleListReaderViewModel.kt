@@ -35,6 +35,7 @@ import me.ash.reader.domain.model.article.ArticleFlowItem
 import me.ash.reader.domain.model.article.ArticleWithFeed
 import me.ash.reader.domain.model.feed.Feed
 import me.ash.reader.domain.model.general.MarkAsReadConditions
+import me.ash.reader.domain.repository.ArticleDao
 import me.ash.reader.domain.repository.AiSummaryRepository
 import me.ash.reader.domain.service.GoogleReaderRssService
 import me.ash.reader.domain.service.LocalRssService
@@ -50,6 +51,11 @@ import me.ash.reader.infrastructure.rss.ReaderCacheHelper
 import timber.log.Timber
 
 private const val TAG = "FlowViewModel"
+
+private enum class SummaryTrigger {
+    MANUAL,
+    AUTO,
+}
 
 @OptIn(FlowPreview::class)
 @HiltViewModel()
@@ -67,6 +73,7 @@ constructor(
     val textToSpeechManager: TextToSpeechManager,
     private val imageDownloader: AndroidImageDownloader,
     private val articleListUseCase: ArticlePagingListUseCase,
+    private val articleDao: ArticleDao,
     private val aiSummaryRepository: AiSummaryRepository,
     workManager: WorkManager,
 ) : ViewModel() {
@@ -291,16 +298,28 @@ constructor(
                 }
 
             val item =
-                itemByIndex?.articleWithFeed
-                    ?: (itemFromList?.articleWithFeed
-                        ?: rssService.get().findArticleById(articleId)!!)
+                rssService.get().findArticleById(articleId)
+                    ?: itemByIndex?.articleWithFeed
+                    ?: itemFromList?.articleWithFeed
+                    ?: error("Article $articleId not found")
 
             if (diffMapHolder.checkIfUnread(item)) {
                 diffMapHolder.updateDiff(item, isUnread = false)
             }
             item.run {
                 _readingUiState.update {
-                    it.copy(articleWithFeed = this, isStarred = article.isStarred, isUnread = false)
+                    it.copy(
+                        articleWithFeed = this,
+                        isStarred = article.isStarred,
+                        isUnread = false,
+                        aiSummary = article.aiSummary,
+                        isAiSummaryLoading = false,
+                        aiSummaryError = null,
+                        isAiSummaryExpanded = article.aiSummary != null,
+                        shouldRenderAiSummaryInline = article.aiSummary != null,
+                        shouldShowAiSummaryReadyPrompt = false,
+                        hasAutoAiSummaryAttempted = false,
+                    )
                 }
                 _readerState.update {
                     it.copy(
@@ -447,16 +466,45 @@ constructor(
         }
     }
 
-    fun summarizeCurrentArticle(
-        onSuccess: (String) -> Unit,
-        onError: (String) -> Unit
-    ) {
+    fun summarizeCurrentArticle() {
+        requestAiSummary(SummaryTrigger.MANUAL)
+    }
+
+    fun autoSummarizeCurrentArticle() {
+        requestAiSummary(SummaryTrigger.AUTO)
+    }
+
+    private fun requestAiSummary(trigger: SummaryTrigger) {
+        if (readingUiState.value.isAiSummaryLoading) return
         viewModelScope.launch {
-            val articleContent = readerStateStateFlow.value.content.text ?: ""
+            val articleId = currentArticle?.id ?: return@launch
+            val currentState = readingUiState.value
+            val articleContent =
+                readerStateStateFlow.value.content.text?.takeIf { it.isNotBlank() }
+                    ?: currentArticle?.rawDescription
+                    ?: ""
             val settings = settingsProvider.settings
+            val keepInlineVisible = currentState.shouldRenderAiSummaryInline
+            val isAutoTrigger = trigger == SummaryTrigger.AUTO
+
+            _readingUiState.update {
+                it.copy(
+                    isAiSummaryLoading = keepInlineVisible,
+                    aiSummaryError = null,
+                    isAiSummaryExpanded = keepInlineVisible && it.aiSummary != null,
+                    shouldShowAiSummaryReadyPrompt = false,
+                    hasAutoAiSummaryAttempted = it.hasAutoAiSummaryAttempted || isAutoTrigger,
+                )
+            }
 
             if (settings.aiApiKey.value.isEmpty() || settings.aiBaseUrl.value.isEmpty()) {
-                onError("Please configure API URL and key first")
+                _readingUiState.update {
+                    it.copy(
+                        isAiSummaryLoading = false,
+                        aiSummaryError =
+                            if (isAutoTrigger) null else "Please configure API URL and key first",
+                    )
+                }
                 return@launch
             }
 
@@ -471,11 +519,83 @@ constructor(
             )
 
             when (result) {
-                is me.ash.reader.infrastructure.net.ApiResult.Success -> onSuccess(result.data)
-                is me.ash.reader.infrastructure.net.ApiResult.BizError -> onError(result.exception.message ?: "Business error")
-                is me.ash.reader.infrastructure.net.ApiResult.NetworkError -> onError(result.exception.message ?: "Network error")
-                is me.ash.reader.infrastructure.net.ApiResult.UnknownError -> onError(result.throwable.message ?: "Unknown error")
+                is me.ash.reader.infrastructure.net.ApiResult.Success -> {
+                    articleDao.updateAiSummary(articleId = articleId, aiSummary = result.data)
+                    val updatedArticleWithFeed =
+                        rssService.get().findArticleById(articleId)
+                            ?: readingUiState.value.articleWithFeed?.copy(
+                                article =
+                                    (currentArticle ?: return@launch).copy(aiSummary = result.data)
+                            )
+                    _readingUiState.update {
+                        it.copy(
+                            articleWithFeed = updatedArticleWithFeed,
+                            aiSummary = result.data,
+                            isAiSummaryLoading = false,
+                            aiSummaryError = null,
+                            isAiSummaryExpanded = keepInlineVisible,
+                            shouldRenderAiSummaryInline = keepInlineVisible,
+                            shouldShowAiSummaryReadyPrompt = !keepInlineVisible,
+                        )
+                    }
+                }
+                is me.ash.reader.infrastructure.net.ApiResult.BizError -> {
+                    _readingUiState.update {
+                        it.copy(
+                            isAiSummaryLoading = false,
+                            aiSummaryError =
+                                if (isAutoTrigger) null
+                                else result.exception.message ?: "Business error",
+                        )
+                    }
+                }
+                is me.ash.reader.infrastructure.net.ApiResult.NetworkError -> {
+                    _readingUiState.update {
+                        it.copy(
+                            isAiSummaryLoading = false,
+                            aiSummaryError =
+                                if (isAutoTrigger) null
+                                else result.exception.message ?: "Network error",
+                        )
+                    }
+                }
+                is me.ash.reader.infrastructure.net.ApiResult.UnknownError -> {
+                    _readingUiState.update {
+                        it.copy(
+                            isAiSummaryLoading = false,
+                            aiSummaryError =
+                                if (isAutoTrigger) null
+                                else result.throwable.message ?: "Unknown error",
+                        )
+                    }
+                }
             }
+        }
+    }
+
+    fun toggleAiSummaryExpanded() {
+        _readingUiState.update {
+            if (it.aiSummary == null && !it.isAiSummaryLoading && it.aiSummaryError == null) {
+                it
+            } else {
+                it.copy(isAiSummaryExpanded = !it.isAiSummaryExpanded)
+            }
+        }
+    }
+
+    fun showAiSummaryFromPrompt() {
+        _readingUiState.update {
+            it.copy(
+                shouldShowAiSummaryReadyPrompt = false,
+                shouldRenderAiSummaryInline = true,
+                isAiSummaryExpanded = true,
+            )
+        }
+    }
+
+    fun clearHiddenAiSummaryError() {
+        _readingUiState.update {
+            if (it.shouldRenderAiSummaryInline) it else it.copy(aiSummaryError = null)
         }
     }
 }
@@ -486,7 +606,22 @@ data class ReadingUiState(
     val articleWithFeed: ArticleWithFeed? = null,
     val isUnread: Boolean = false,
     val isStarred: Boolean = false,
-)
+    val aiSummary: String? = null,
+    val isAiSummaryLoading: Boolean = false,
+    val aiSummaryError: String? = null,
+    val isAiSummaryExpanded: Boolean = false,
+    val shouldRenderAiSummaryInline: Boolean = false,
+    val shouldShowAiSummaryReadyPrompt: Boolean = false,
+    val hasAutoAiSummaryAttempted: Boolean = false,
+) {
+    val isAiSummaryVisible: Boolean
+        get() =
+            shouldRenderAiSummaryInline &&
+                (aiSummary != null || isAiSummaryLoading || aiSummaryError != null)
+
+    val shouldAutoGenerateAiSummary: Boolean
+        get() = aiSummary == null && !hasAutoAiSummaryAttempted && !isAiSummaryLoading
+}
 
 data class ReaderState(
     val articleId: String? = null,

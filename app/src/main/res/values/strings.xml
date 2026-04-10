@@ -402,6 +402,8 @@
     <string name="ai_summarization_prompt">Summarization Prompt</string>
     <string name="ai_summarization_prompt_hint">Customize how articles are summarized</string>
     <string name="ai_summarization_prompt_default">Please provide a concise summary of the following article in 3-5 bullet points:\n\n</string>
+    <string name="ai_auto_summary">Auto AI Summary</string>
+    <string name="ai_auto_summary_desc">Automatically summarize articles without an existing summary when opened</string>
     <string name="api_configuration">API Configuration</string>
     <string name="summarization_settings">Summarization Settings</string>
 
@@ -409,5 +411,6 @@
     <string name="ai_summary">AI Summary</string>
     <string name="ai_summary_loading">Generating summary…</string>
     <string name="ai_summary_error">Failed to generate summary: %1$s</string>
+    <string name="ai_summary_ready">Summary ready</string>
+    <string name="view">View</string>
  </resources>
-

@@ -33,6 +33,7 @@ import kotlinx.coroutines.launch
 import me.ash.reader.R
 import me.ash.reader.infrastructure.preference.LocalAiBaseUrl
 import me.ash.reader.infrastructure.preference.LocalAiApiKey
+import me.ash.reader.infrastructure.preference.LocalAiAutoSummary
 import me.ash.reader.infrastructure.preference.LocalAiModel
 import me.ash.reader.infrastructure.preference.LocalAiSummarizationPrompt
 import me.ash.reader.infrastructure.preference.LocalSettings
@@ -40,6 +41,7 @@ import me.ash.reader.infrastructure.net.ApiResult
 import me.ash.reader.ui.component.base.DisplayText
 import me.ash.reader.ui.component.base.FeedbackIconButton
 import me.ash.reader.ui.component.base.RYScaffold
+import me.ash.reader.ui.component.base.RYSwitch
 import me.ash.reader.ui.component.base.RadioDialog
 import me.ash.reader.ui.component.base.RadioDialogOption
 import me.ash.reader.ui.component.base.Subtitle
@@ -57,6 +59,7 @@ fun AiSettingsPage(
     val aiApiKey = LocalAiApiKey.current
     val aiModel = LocalAiModel.current
     val aiSummarizationPrompt = LocalAiSummarizationPrompt.current
+    val aiAutoSummary = LocalAiAutoSummary.current
     val settings = LocalSettings.current
     
     val scope = rememberCoroutineScope()
@@ -189,6 +192,17 @@ fun AiSettingsPage(
                             promptDialogVisible = true
                         }
                     ) {}
+                    SettingItem(
+                        title = stringResource(R.string.ai_auto_summary),
+                        desc = stringResource(R.string.ai_auto_summary_desc),
+                        onClick = {
+                            aiAutoSummary.toggle(context, scope)
+                        }
+                    ) {
+                        RYSwitch(activated = aiAutoSummary.value) {
+                            aiAutoSummary.toggle(context, scope)
+                        }
+                    }
                     Spacer(modifier = Modifier.height(24.dp))
                 }
                 

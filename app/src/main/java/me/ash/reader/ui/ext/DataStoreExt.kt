@@ -206,6 +206,7 @@ sealed interface PreferencesKey {
         const val aiApiKey = "aiApiKey"
         const val aiModel = "aiModel"
         const val aiSummarizationPrompt = "aiSummarizationPrompt"
+        const val aiAutoSummary = "aiAutoSummary"
 
         private val keyList =
             listOf(
@@ -286,6 +287,7 @@ sealed interface PreferencesKey {
                 StringKey(aiApiKey),
                 StringKey(aiModel),
                 StringKey(aiSummarizationPrompt),
+                BooleanKey(aiAutoSummary),
             )
 
         val keys = keyList.associateBy { it.name }
@@ -379,6 +381,7 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
         const val aiApiKey = "aiApiKey"
         const val aiModel = "aiModel"
         const val aiSummarizationPrompt = "aiSummarizationPrompt"
+        const val aiAutoSummary = "aiAutoSummary"
 
         val keys: MutableMap<String, DataStoreKey<*>> =
             mutableMapOf(
@@ -535,6 +538,8 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
                 aiApiKey to DataStoreKey(stringPreferencesKey(aiApiKey), String::class.java),
                 aiModel to DataStoreKey(stringPreferencesKey(aiModel), String::class.java),
                 aiSummarizationPrompt to DataStoreKey(stringPreferencesKey(aiSummarizationPrompt), String::class.java),
+                aiAutoSummary to
+                    DataStoreKey(booleanPreferencesKey(aiAutoSummary), Boolean::class.java),
             )
     }
 }

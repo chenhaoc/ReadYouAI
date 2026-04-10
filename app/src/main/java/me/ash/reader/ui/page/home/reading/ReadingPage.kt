@@ -14,7 +14,11 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.ExperimentalMaterialApi
@@ -37,12 +41,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 import kotlinx.coroutines.launch
 import me.ash.reader.R
 import me.ash.reader.infrastructure.android.TextToSpeechManager
+import me.ash.reader.infrastructure.preference.LocalAiAutoSummary
 import me.ash.reader.infrastructure.preference.LocalPullToSwitchArticle
 import me.ash.reader.infrastructure.preference.LocalReadingAutoHideToolbar
 import me.ash.reader.infrastructure.preference.LocalReadingBoldCharacters
@@ -70,6 +76,7 @@ fun ReadingPage(
 ) {
     val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
+    val aiAutoSummary = LocalAiAutoSummary.current
     val isPullToSwitchArticleEnabled = LocalPullToSwitchArticle.current.value
     val readingUiState = viewModel.readingUiState.collectAsStateValue()
     val readerState = viewModel.readerStateStateFlow.collectAsStateValue()
@@ -78,13 +85,8 @@ fun ReadingPage(
 
     var isReaderScrollingDown by remember { mutableStateOf(false) }
     var showFullScreenImageViewer by remember { mutableStateOf(false) }
-    var showAiSummaryOverlay by remember { mutableStateOf(false) }
 
     var currentImageData by remember { mutableStateOf(ImageData()) }
-    
-    var summaryContent by remember { mutableStateOf("") }
-    var isSummaryLoading by remember { mutableStateOf(false) }
-    var summaryError by remember { mutableStateOf<String?>(null) }
 
     val isShowToolBar =
         if (LocalReadingAutoHideToolbar.current.value) {
@@ -103,6 +105,27 @@ fun ReadingPage(
 
     var bringToTop by remember { mutableStateOf(false) }
 
+    LaunchedEffect(
+        readerState.articleId,
+        aiAutoSummary.value,
+        readingUiState.shouldAutoGenerateAiSummary,
+    ) {
+        if (
+            readerState.articleId != null &&
+                aiAutoSummary.value &&
+                readingUiState.shouldAutoGenerateAiSummary
+        ) {
+            viewModel.autoSummarizeCurrentArticle()
+        }
+    }
+
+    LaunchedEffect(readingUiState.aiSummaryError, readingUiState.isAiSummaryVisible) {
+        if (readingUiState.aiSummaryError != null && !readingUiState.isAiSummaryVisible) {
+            context.showToast(readingUiState.aiSummaryError)
+            viewModel.clearHiddenAiSummaryError()
+        }
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surface,
         content = { paddings ->
@@ -117,23 +140,24 @@ fun ReadingPage(
                         navigationAction = navigationAction,
                         onNavButtonClick = onNavAction,
                         onNavigateToStylePage = onNavigateToStylePage,
-                        onAiSummaryClick = {
-                            summaryError = null
-                            isSummaryLoading = true
-                            showAiSummaryOverlay = true
-                            coroutineScope.launch {
-                                viewModel.summarizeCurrentArticle(
-                                    onSuccess = { summary ->
-                                        summaryContent = summary
-                                        isSummaryLoading = false
-                                    },
-                                    onError = { error ->
-                                        summaryError = error
-                                        isSummaryLoading = false
-                                    }
-                                )
-                            }
-                        }
+                        onAiSummaryClick = { coroutineScope.launch { viewModel.summarizeCurrentArticle() } },
+                    )
+                }
+
+                if (readingUiState.shouldShowAiSummaryReadyPrompt) {
+                    AiSummaryReadyPrompt(
+                        modifier =
+                            Modifier.align(Alignment.TopCenter).padding(
+                                top =
+                                    WindowInsets.statusBars.asPaddingValues()
+                                        .calculateTopPadding() + 56.dp + 8.dp
+                            ),
+                        message = context.getString(R.string.ai_summary_ready),
+                        actionLabel = context.getString(R.string.view),
+                        onAction = {
+                            viewModel.showAiSummaryFromPrompt()
+                            bringToTop = true
+                        },
                     )
                 }
 
@@ -276,6 +300,11 @@ fun ReadingPage(
                                                 ),
                                             contentPadding = paddings,
                                             content = content.text ?: "",
+                                            aiSummary = readingUiState.aiSummary,
+                                            isAiSummaryLoading = readingUiState.isAiSummaryLoading,
+                                            aiSummaryError = readingUiState.aiSummaryError,
+                                            isAiSummaryExpanded =
+                                                readingUiState.isAiSummaryExpanded,
                                             feedName = feedName,
                                             title = title.toString(),
                                             author = author,
@@ -287,6 +316,9 @@ fun ReadingPage(
                                             onImageClick = { imgUrl, altText ->
                                                 currentImageData = ImageData(imgUrl, altText)
                                                 showFullScreenImageViewer = true
+                                            },
+                                            onAiSummaryToggleExpand = {
+                                                viewModel.toggleAiSummaryExpanded()
                                             },
                                         )
                                         PullToLoadIndicator(
@@ -376,15 +408,6 @@ fun ReadingPage(
                 )
             },
             onDismissRequest = { showFullScreenImageViewer = false },
-        )
-    }
-    
-    if (showAiSummaryOverlay) {
-        AiSummaryOverlay(
-            summary = summaryContent,
-            isLoading = isSummaryLoading,
-            error = summaryError,
-            onDismissRequest = { showAiSummaryOverlay = false }
         )
     }
 }
