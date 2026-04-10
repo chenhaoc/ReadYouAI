@@ -59,8 +59,16 @@ fun AiSummaryCard(
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
+                    if (isLoading) {
+                        Spacer(modifier = Modifier.size(8.dp))
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
-                IconButton(onClick = onToggleExpanded) {
+                IconButton(onClick = onToggleExpanded, enabled = !isLoading) {
                     Icon(
                         imageVector =
                             if (isExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,

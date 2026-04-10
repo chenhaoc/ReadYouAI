@@ -574,12 +574,19 @@ constructor(
     }
 
     fun toggleAiSummaryExpanded() {
-        _readingUiState.update {
-            if (it.aiSummary == null && !it.isAiSummaryLoading && it.aiSummaryError == null) {
-                it
-            } else {
-                it.copy(isAiSummaryExpanded = !it.isAiSummaryExpanded)
+        if (readingUiState.value.aiSummary == null && !readingUiState.value.isAiSummaryLoading) {
+            _readingUiState.update {
+                it.copy(
+                    shouldRenderAiSummaryInline = true,
+                    isAiSummaryExpanded = true,
+                    shouldShowAiSummaryReadyPrompt = false,
+                )
             }
+            requestAiSummary(SummaryTrigger.MANUAL)
+            return
+        }
+        _readingUiState.update {
+            it.copy(isAiSummaryExpanded = !it.isAiSummaryExpanded)
         }
     }
 
