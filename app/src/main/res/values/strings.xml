@@ -427,4 +427,5 @@
     <string name="ai_summary_error">Failed to generate summary: %1$s</string>
     <string name="ai_summary_ready">Summary</string>
     <string name="view">View</string>
+    <string name="go_to_summary">Go to summary</string>
  </resources>

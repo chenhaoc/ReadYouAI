@@ -6,6 +6,7 @@
 
 ## Recent Commits
 
+- `421bf0b2` `feat: 增加配置备份与恢复入口`
 - `8688b317` `build(ai): default to parallel install release builds`
 - `6b8c6c4d` `feat(ai): add inline auto summary workflow`
 - `cccd3ac1` `build(apk): add single-core release build script`
@@ -45,9 +46,12 @@
 
 - New `Auto AI Summary` setting exists in AI settings
 - When enabled, opening an article without a summary auto-triggers summary generation
-- Auto generation is silent: it does not jump scroll position or force the page to the top
-- After generation completes, a lightweight top prompt is shown with text `Summary`
-- The prompt contains `View`, which scrolls to the summary and expands it
+- Auto generation is intended to be silent: it should not jump scroll position or force the page to the top
+- The summary card shell is rendered from the start so later content updates do not insert a new block into the page
+- The old in-content `Summary / View` prompt was removed
+- The pending-summary affordance now lives in the top bar beside the AI button
+- The top bar affordance is an icon button using `VerticalAlignTop`
+- Clicking that icon should scroll to the summary position and expand the summary card
 - Manual summary generation follows the same non-jumping behavior
 
 ### Parallel Install Flavor
@@ -87,6 +91,26 @@
 - Tests:
   - [ReadingUiStateTest.kt](/Users/hao.chen/工作文档/Work/readyou/ReadYou/app/src/test/java/me/ash/reader/ui/page/adaptive/ReadingUiStateTest.kt)
 
+### Backup & Restore
+
+- New `Backup & Restore` settings entry and page
+- Export includes:
+  - DataStore preferences
+  - accounts
+  - groups
+  - feeds
+- Import restores the same scope
+- Import intentionally does not restore:
+  - article database content
+  - AI summary data
+  - cached content
+- Backup file is plain JSON and may contain account credentials
+
+- Files:
+  - [BackupRestorePage.kt](/Users/hao.chen/工作文档/Work/readyou/ReadYou/app/src/main/java/me/ash/reader/ui/page/settings/backuprestore/BackupRestorePage.kt)
+  - [BackupRestoreViewModel.kt](/Users/hao.chen/工作文档/Work/readyou/ReadYou/app/src/main/java/me/ash/reader/ui/page/settings/backuprestore/BackupRestoreViewModel.kt)
+  - [BackupRestorePayload.kt](/Users/hao.chen/工作文档/Work/readyou/ReadYou/app/src/main/java/me/ash/reader/ui/page/settings/backuprestore/BackupRestorePayload.kt)
+
 ## Uncommitted Files
 
 Only process docs remain uncommitted:
@@ -116,7 +140,10 @@ These are not part of the product change commits yet.
    - it installs alongside the original app
    - app name shows as `Read You AI`
    - auto summary setting works
-   - `Summary` prompt appears without scroll jump
-   - `View` jumps to inline summary and expands it
+   - summary card shell is present from initial article open
+   - no automatic jump happens after summary generation
+   - top bar summary icon appears only when summary is ready but not yet viewed
+   - top bar summary icon jumps to inline summary and expands it
+   - backup export/import works on device
 2. Decide whether to commit or discard the `docs/superpowers/` process documents
 3. If continuing feature work, start from branch `codex/pr-1210-ai-summary`

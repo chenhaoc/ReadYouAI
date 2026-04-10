@@ -17,6 +17,7 @@ import me.ash.reader.domain.repository.FeedDao
 import me.ash.reader.domain.repository.GroupDao
 import me.ash.reader.infrastructure.db.AndroidDatabase
 import me.ash.reader.infrastructure.di.IODispatcher
+import me.ash.reader.infrastructure.di.MainDispatcher
 import me.ash.reader.ui.ext.DateFormat
 import me.ash.reader.ui.ext.fromDataStoreToJSONString
 import me.ash.reader.ui.ext.fromJSONStringToDataStore
@@ -24,6 +25,7 @@ import me.ash.reader.ui.ext.toString
 import java.util.Date
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.withContext
 
 @HiltViewModel
 class BackupRestoreViewModel
@@ -35,6 +37,7 @@ constructor(
     private val feedDao: FeedDao,
     private val articleDao: ArticleDao,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
+    @MainDispatcher private val mainDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     private val gson = Gson()
@@ -62,7 +65,7 @@ constructor(
 
     fun exportBackup(context: Context, callback: (Result<ByteArray>) -> Unit) {
         viewModelScope.launch(ioDispatcher) {
-            callback(
+            val result =
                 runCatching {
                     val accounts = accountDao.queryAll()
                     val groups = accounts.flatMap { account -> groupDao.queryAll(account.id!!) }
@@ -77,13 +80,15 @@ constructor(
                         )
                     gson.toJson(payload).toByteArray()
                 }
-            )
+            withContext(mainDispatcher) {
+                callback(result)
+            }
         }
     }
 
     fun importBackup(context: Context, byteArray: ByteArray, callback: (Result<Unit>) -> Unit) {
         viewModelScope.launch(ioDispatcher) {
-            callback(
+            val result =
                 runCatching {
                     val payload =
                         gson.fromJson(String(byteArray), BackupRestorePayload::class.java)
@@ -109,8 +114,10 @@ constructor(
 
                     payload.settingsJson.fromJSONStringToDataStore(context)
                 }
-            )
-            hideImportConfirmation()
+            withContext(mainDispatcher) {
+                callback(result)
+                hideImportConfirmation()
+            }
         }
     }
 }

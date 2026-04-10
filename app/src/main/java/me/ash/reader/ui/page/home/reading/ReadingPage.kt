@@ -14,11 +14,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.ExperimentalMaterialApi
@@ -41,7 +37,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
@@ -141,20 +136,8 @@ fun ReadingPage(
                         onNavButtonClick = onNavAction,
                         onNavigateToStylePage = onNavigateToStylePage,
                         onAiSummaryClick = { coroutineScope.launch { viewModel.summarizeCurrentArticle() } },
-                    )
-                }
-
-                if (readingUiState.shouldShowAiSummaryReadyPrompt) {
-                    AiSummaryReadyPrompt(
-                        modifier =
-                            Modifier.align(Alignment.TopCenter).padding(
-                                top =
-                                    WindowInsets.statusBars.asPaddingValues()
-                                        .calculateTopPadding() + 56.dp + 8.dp
-                            ),
-                        message = context.getString(R.string.ai_summary_ready),
-                        actionLabel = context.getString(R.string.view),
-                        onAction = {
+                        isAiSummaryReady = readingUiState.shouldShowAiSummaryReadyPrompt,
+                        onAiSummaryReadyClick = {
                             viewModel.showAiSummaryFromPrompt()
                             bringToTop = true
                         },

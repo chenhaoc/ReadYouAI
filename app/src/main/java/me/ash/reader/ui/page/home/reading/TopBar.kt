@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.rounded.MenuOpen
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.VerticalAlignTop
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.MenuOpen
@@ -64,6 +65,8 @@ fun TopBar(
     onNavButtonClick: (NavigationAction) -> Unit = {},
     onNavigateToStylePage: () -> Unit,
     onAiSummaryClick: () -> Unit = {},
+    isAiSummaryReady: Boolean = false,
+    onAiSummaryReadyClick: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val sharedContent = LocalSharedContent.current
@@ -124,6 +127,16 @@ fun TopBar(
                         }
                     },
                     actions = {
+                        if (isAiSummaryReady) {
+                            FeedbackIconButton(
+                                modifier = Modifier.size(20.dp),
+                                imageVector = Icons.Outlined.VerticalAlignTop,
+                                contentDescription = stringResource(R.string.go_to_summary),
+                                tint = MaterialTheme.colorScheme.primary,
+                            ) {
+                                onAiSummaryReadyClick()
+                            }
+                        }
                         FeedbackIconButton(
                             modifier = Modifier.size(22.dp),
                             imageVector = Icons.Outlined.Psychology,

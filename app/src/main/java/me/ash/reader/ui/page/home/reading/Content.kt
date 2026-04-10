@@ -79,16 +79,14 @@ fun Content(
 
     val summarySection =
         @Composable {
-            if (aiSummary != null || isAiSummaryLoading || aiSummaryError != null) {
-                Column(modifier = Modifier.then(maxWidthModifier).padding(horizontal = 12.dp)) {
-                    AiSummaryCard(
-                        summary = aiSummary.orEmpty(),
-                        isLoading = isAiSummaryLoading,
-                        error = aiSummaryError,
-                        isExpanded = isAiSummaryExpanded,
-                        onToggleExpanded = onAiSummaryToggleExpand,
-                    )
-                }
+            Column(modifier = Modifier.then(maxWidthModifier).padding(horizontal = 12.dp)) {
+                AiSummaryCard(
+                    summary = aiSummary.orEmpty(),
+                    isLoading = isAiSummaryLoading,
+                    error = aiSummaryError,
+                    isExpanded = isAiSummaryExpanded,
+                    onToggleExpanded = onAiSummaryToggleExpand,
+                )
             }
         }
 
