@@ -74,9 +74,9 @@ constructor(
                         BackupRestorePayload(
                             exportedAt = Date().toString(DateFormat.YYYY_MM_DD_HH_MM_SS),
                             settingsJson = context.fromDataStoreToJSONString(),
-                            accounts = accounts,
-                            groups = groups,
-                            feeds = feeds,
+                            accounts = accounts.map { it.toBackupPayload() },
+                            groups = groups.map { it.toBackupPayload() },
+                            feeds = feeds.map { it.toBackupPayload() },
                         )
                     gson.toJson(payload).toByteArray()
                 }
@@ -107,9 +107,9 @@ constructor(
                             accountDao.delete(*currentAccounts.toTypedArray())
                         }
 
-                        accountDao.insertList(payload.accounts)
-                        groupDao.insertAll(payload.groups)
-                        feedDao.insertAll(payload.feeds)
+                        accountDao.insertList(payload.accounts.map { it.toAccount() })
+                        groupDao.insertAll(payload.groups.map { it.toGroup() })
+                        feedDao.insertAll(payload.feeds.map { it.toFeed() })
                     }
 
                     payload.settingsJson.fromJSONStringToDataStore(context)
