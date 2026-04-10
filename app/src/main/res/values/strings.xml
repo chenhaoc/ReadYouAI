@@ -411,6 +411,6 @@
     <string name="ai_summary">AI Summary</string>
     <string name="ai_summary_loading">Generating summary…</string>
     <string name="ai_summary_error">Failed to generate summary: %1$s</string>
-    <string name="ai_summary_ready">Summary ready</string>
+    <string name="ai_summary_ready">Summary</string>
     <string name="view">View</string>
  </resources>

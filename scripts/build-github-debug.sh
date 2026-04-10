@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEFAULT_JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
 DEFAULT_ANDROID_SDK_ROOT="${HOME}/Library/Android/sdk"
-GRADLE_TASK="${1:-assembleGithubRelease}"
+GRADLE_TASK="${1:-assembleGithubAiRelease}"
 GRADLE_DAEMON_JVMARGS="-Xmx8192M -Xms512m -XX:MaxMetaspaceSize=1g -Dkotlin.daemon.jvm.options=-Xmx8192M -XX:+HeapDumpOnOutOfMemoryError -XX:+UseParallelGC -Dfile.encoding=UTF-8 -XX:ActiveProcessorCount=1"
 
 if [[ -z "${JAVA_HOME:-}" ]]; then

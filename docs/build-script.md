@@ -6,7 +6,7 @@ This repository includes a one-command build script at:
 ./scripts/build-github-debug.sh
 ```
 
-Despite the file name, the script now builds the `githubRelease` variant by default.
+Despite the file name, the script now builds the `githubAiRelease` variant by default.
 
 ## What It Does
 
@@ -19,12 +19,12 @@ It does the following:
 3. Creates `local.properties` automatically if it does not exist.
 4. Disables inherited proxy variables to avoid broken local proxy settings affecting Gradle dependency downloads.
 5. Forces the build into single-core mode.
-6. Runs Gradle with `assembleGithubRelease` by default.
+6. Runs Gradle with `assembleGithubAiRelease` by default.
 7. Prints the final APK path after a successful build.
 
 ## Default Usage
 
-Build the signed release APK:
+Build the signed parallel-install release APK:
 
 ```bash
 cd /Users/hao.chen/工作文档/Work/readyou/ReadYou
@@ -37,6 +37,7 @@ You can pass a Gradle task explicitly:
 
 ```bash
 ./scripts/build-github-debug.sh assembleGithubDebug
+./scripts/build-github-debug.sh assembleGithubAiRelease
 ./scripts/build-github-debug.sh assembleGithubRelease
 ./scripts/build-github-debug.sh assembleGooglePlayRelease
 ```
@@ -54,7 +55,7 @@ This repository already uses:
 - `signature/keystore.properties`
 - `signature/reader.keystore`
 
-Without valid signing configuration, `assembleGithubRelease` may fail.
+Without valid signing configuration, release builds such as `assembleGithubAiRelease` may fail.
 
 ## Single-Core Constraint
 
@@ -71,7 +72,7 @@ The script is configured to minimize machine load and stay on a single CPU core 
 Release APK output:
 
 ```text
-app/build/outputs/apk/github/release/
+app/build/outputs/apk/githubAi/release/
 ```
 
 Debug APK output:
@@ -84,6 +85,6 @@ The script prints the exact APK path at the end of the build.
 
 ## Notes
 
-- The script name is historical; its default behavior is now release-oriented.
+- The script name is historical; its default behavior is now the parallel-install release flavor.
 - Release builds are slower than debug builds because they run shrinking, optimization, and signing steps.
 - If you need a fast verification build, pass `assembleGithubDebug` explicitly.
