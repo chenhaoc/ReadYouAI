@@ -27,8 +27,10 @@ import androidx.compose.material.icons.outlined.VerticalAlignTop
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.MenuOpen
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -65,6 +67,7 @@ fun TopBar(
     onNavButtonClick: (NavigationAction) -> Unit = {},
     onNavigateToStylePage: () -> Unit,
     onAiSummaryClick: () -> Unit = {},
+    isAiSummaryLoading: Boolean = false,
     isAiSummaryReady: Boolean = false,
     onAiSummaryReadyClick: () -> Unit = {},
 ) {
@@ -137,13 +140,23 @@ fun TopBar(
                                 onAiSummaryReadyClick()
                             }
                         }
-                        FeedbackIconButton(
-                            modifier = Modifier.size(22.dp),
-                            imageVector = Icons.Outlined.Psychology,
-                            contentDescription = stringResource(R.string.ai_summary),
-                            tint = MaterialTheme.colorScheme.onSurface,
-                        ) {
-                            onAiSummaryClick()
+                        if (isAiSummaryLoading) {
+                            IconButton(enabled = false, onClick = {}) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        } else {
+                            FeedbackIconButton(
+                                modifier = Modifier.size(22.dp),
+                                imageVector = Icons.Outlined.Psychology,
+                                contentDescription = stringResource(R.string.ai_summary),
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            ) {
+                                onAiSummaryClick()
+                            }
                         }
                         FeedbackIconButton(
                             modifier = Modifier.size(22.dp),

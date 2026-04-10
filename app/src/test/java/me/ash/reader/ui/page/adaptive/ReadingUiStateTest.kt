@@ -24,7 +24,7 @@ class ReadingUiStateTest {
     fun aiSummaryCardVisibleWhenLoadingOrErrorExists() {
         assertTrue(
             ReadingUiState(
-                isAiSummaryLoading = true,
+                isAiSummaryInlineLoading = true,
                 shouldRenderAiSummaryInline = true,
             ).isAiSummaryVisible
         )

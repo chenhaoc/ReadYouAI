@@ -135,6 +135,7 @@ fun ReadingPage(
                         navigationAction = navigationAction,
                         onNavButtonClick = onNavAction,
                         onNavigateToStylePage = onNavigateToStylePage,
+                        isAiSummaryLoading = readingUiState.isAiSummaryLoading,
                         onAiSummaryClick = { coroutineScope.launch { viewModel.summarizeCurrentArticle() } },
                         isAiSummaryReady = readingUiState.shouldShowAiSummaryReadyPrompt,
                         onAiSummaryReadyClick = {
@@ -254,6 +255,10 @@ fun ReadingPage(
                                         }
                                         .collectAsStateValue(initial = false)
 
+                                LaunchedEffect(showTopDivider, readerState.articleId) {
+                                    viewModel.updateReaderNearTop(!showTopDivider)
+                                }
+
                                 CompositionLocalProvider(
                                     LocalTextStyle provides
                                         LocalTextStyle.current.run {
@@ -284,7 +289,8 @@ fun ReadingPage(
                                             contentPadding = paddings,
                                             content = content.text ?: "",
                                             aiSummary = readingUiState.aiSummary,
-                                            isAiSummaryLoading = readingUiState.isAiSummaryLoading,
+                                            isAiSummaryLoading =
+                                                readingUiState.isAiSummaryInlineLoading,
                                             aiSummaryError = readingUiState.aiSummaryError,
                                             isAiSummaryExpanded =
                                                 readingUiState.isAiSummaryExpanded,

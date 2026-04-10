@@ -273,6 +273,7 @@ constructor(
 
     private val _readerState: MutableStateFlow<ReaderState> = MutableStateFlow(ReaderState())
     val readerStateStateFlow = _readerState.asStateFlow()
+    private val isReaderNearTop = MutableStateFlow(true)
 
     private val currentArticle: Article?
         get() = readingUiState.value.articleWithFeed?.article
@@ -314,6 +315,7 @@ constructor(
                         isUnread = false,
                         aiSummary = article.aiSummary,
                         isAiSummaryLoading = false,
+                        isAiSummaryInlineLoading = false,
                         aiSummaryError = null,
                         isAiSummaryExpanded = article.aiSummary != null,
                         shouldRenderAiSummaryInline = article.aiSummary != null,
@@ -485,13 +487,16 @@ constructor(
                     ?: ""
             val settings = settingsProvider.settings
             val keepInlineVisible = currentState.shouldRenderAiSummaryInline
+            val keepInlineExpanded =
+                keepInlineVisible && (currentState.isAiSummaryExpanded || currentState.aiSummary != null)
             val isAutoTrigger = trigger == SummaryTrigger.AUTO
 
             _readingUiState.update {
                 it.copy(
-                    isAiSummaryLoading = keepInlineVisible,
+                    isAiSummaryLoading = true,
+                    isAiSummaryInlineLoading = keepInlineVisible,
                     aiSummaryError = null,
-                    isAiSummaryExpanded = keepInlineVisible && it.aiSummary != null,
+                    isAiSummaryExpanded = keepInlineExpanded,
                     shouldShowAiSummaryReadyPrompt = false,
                     hasAutoAiSummaryAttempted = it.hasAutoAiSummaryAttempted || isAutoTrigger,
                 )
@@ -501,6 +506,7 @@ constructor(
                 _readingUiState.update {
                     it.copy(
                         isAiSummaryLoading = false,
+                        isAiSummaryInlineLoading = false,
                         aiSummaryError =
                             if (isAutoTrigger) null else "Please configure API URL and key first",
                     )
@@ -528,14 +534,16 @@ constructor(
                                     (currentArticle ?: return@launch).copy(aiSummary = result.data)
                             )
                     _readingUiState.update {
+                        val shouldExpandInlineSummary = keepInlineVisible && isReaderNearTop.value
                         it.copy(
                             articleWithFeed = updatedArticleWithFeed,
                             aiSummary = result.data,
                             isAiSummaryLoading = false,
+                            isAiSummaryInlineLoading = false,
                             aiSummaryError = null,
-                            isAiSummaryExpanded = keepInlineVisible,
+                            isAiSummaryExpanded = shouldExpandInlineSummary,
                             shouldRenderAiSummaryInline = keepInlineVisible,
-                            shouldShowAiSummaryReadyPrompt = !keepInlineVisible,
+                            shouldShowAiSummaryReadyPrompt = !shouldExpandInlineSummary,
                         )
                     }
                 }
@@ -543,6 +551,7 @@ constructor(
                     _readingUiState.update {
                         it.copy(
                             isAiSummaryLoading = false,
+                            isAiSummaryInlineLoading = false,
                             aiSummaryError =
                                 if (isAutoTrigger) null
                                 else result.exception.message ?: "Business error",
@@ -553,6 +562,7 @@ constructor(
                     _readingUiState.update {
                         it.copy(
                             isAiSummaryLoading = false,
+                            isAiSummaryInlineLoading = false,
                             aiSummaryError =
                                 if (isAutoTrigger) null
                                 else result.exception.message ?: "Network error",
@@ -563,6 +573,7 @@ constructor(
                     _readingUiState.update {
                         it.copy(
                             isAiSummaryLoading = false,
+                            isAiSummaryInlineLoading = false,
                             aiSummaryError =
                                 if (isAutoTrigger) null
                                 else result.throwable.message ?: "Unknown error",
@@ -574,11 +585,23 @@ constructor(
     }
 
     fun toggleAiSummaryExpanded() {
+        if (readingUiState.value.aiSummary == null && readingUiState.value.isAiSummaryLoading) {
+            _readingUiState.update {
+                it.copy(
+                    shouldRenderAiSummaryInline = true,
+                    isAiSummaryExpanded = true,
+                    isAiSummaryInlineLoading = true,
+                    shouldShowAiSummaryReadyPrompt = false,
+                )
+            }
+            return
+        }
         if (readingUiState.value.aiSummary == null && !readingUiState.value.isAiSummaryLoading) {
             _readingUiState.update {
                 it.copy(
                     shouldRenderAiSummaryInline = true,
                     isAiSummaryExpanded = true,
+                    isAiSummaryInlineLoading = true,
                     shouldShowAiSummaryReadyPrompt = false,
                 )
             }
@@ -605,6 +628,10 @@ constructor(
             if (it.shouldRenderAiSummaryInline) it else it.copy(aiSummaryError = null)
         }
     }
+
+    fun updateReaderNearTop(isNearTop: Boolean) {
+        isReaderNearTop.value = isNearTop
+    }
 }
 
 data class FlowUiState(val pagerData: PagerData, val nextFilterState: FilterState? = null)
@@ -615,6 +642,7 @@ data class ReadingUiState(
     val isStarred: Boolean = false,
     val aiSummary: String? = null,
     val isAiSummaryLoading: Boolean = false,
+    val isAiSummaryInlineLoading: Boolean = false,
     val aiSummaryError: String? = null,
     val isAiSummaryExpanded: Boolean = false,
     val shouldRenderAiSummaryInline: Boolean = false,
@@ -624,7 +652,7 @@ data class ReadingUiState(
     val isAiSummaryVisible: Boolean
         get() =
             shouldRenderAiSummaryInline &&
-                (aiSummary != null || isAiSummaryLoading || aiSummaryError != null)
+                (aiSummary != null || isAiSummaryInlineLoading || aiSummaryError != null)
 
     val shouldAutoGenerateAiSummary: Boolean
         get() = aiSummary == null && !hasAutoAiSummaryAttempted && !isAiSummaryLoading
