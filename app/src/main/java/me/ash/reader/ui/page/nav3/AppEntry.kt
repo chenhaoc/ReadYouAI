@@ -37,6 +37,7 @@ import me.ash.reader.ui.page.settings.accounts.AccountDetailsPage
 import me.ash.reader.ui.page.settings.accounts.AccountViewModel
 import me.ash.reader.ui.page.settings.accounts.AccountsPage
 import me.ash.reader.ui.page.settings.accounts.AddAccountsPage
+import me.ash.reader.ui.page.settings.backuprestore.BackupRestorePage
 import me.ash.reader.ui.page.settings.color.ColorAndStylePage
 import me.ash.reader.ui.page.settings.color.DarkThemePage
 import me.ash.reader.ui.page.settings.color.feeds.FeedsPageStylePage
@@ -185,6 +186,9 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
                                 navigateToColorAndStyle = { backStack.add(Route.ColorAndStyle) },
                                 navigateToInteraction = { backStack.add(Route.Interaction) },
                                 navigateToAiSettings = { backStack.add(Route.AiSettings) },
+                                navigateToBackupRestore = {
+                                    backStack.add(Route.BackupRestore)
+                                },
                                 navigateToLanguages = { backStack.add(Route.Languages) },
                                 navigateToTroubleshooting = {
                                     backStack.add(Route.Troubleshooting)
@@ -266,6 +270,8 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
                     Route.ReadingPageVideo -> NavEntry(key) { ReadingVideoPage(onBack = onBack) }
                     Route.Interaction -> NavEntry(key) { InteractionPage(onBack = onBack) }
                     Route.AiSettings -> NavEntry(key) { AiSettingsPage(onBack = onBack) }
+                    Route.BackupRestore ->
+                        NavEntry(key) { BackupRestorePage(onBack = onBack) }
                     Route.Languages -> NavEntry(key) { LanguagesPage(onBack = onBack) }
                     Route.Troubleshooting -> NavEntry(key) { TroubleshootingPage(onBack = onBack) }
                     Route.TipsAndSupport ->

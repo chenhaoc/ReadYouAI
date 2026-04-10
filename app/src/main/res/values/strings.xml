@@ -406,6 +406,20 @@
     <string name="ai_auto_summary_desc">Automatically summarize articles without an existing summary when opened</string>
     <string name="api_configuration">API Configuration</string>
     <string name="summarization_settings">Summarization Settings</string>
+    <string name="backup_restore">Backup &amp; Restore</string>
+    <string name="backup_restore_desc">Export or import preferences, accounts, and subscriptions</string>
+    <string name="configuration_backup">Backup</string>
+    <string name="export_backup">Export backup</string>
+    <string name="export_backup_desc">Save preferences, accounts, and subscriptions as JSON</string>
+    <string name="import_backup">Import backup</string>
+    <string name="import_backup_desc">Restore preferences, accounts, and subscriptions from JSON</string>
+    <string name="backup_scope">Included data</string>
+    <string name="backup_scope_desc">Includes app preferences, account information, groups, and feeds. Does not include articles or cached content. Backup files are plain text and may contain account credentials.</string>
+    <string name="backup_import_warning">Importing will overwrite current preferences, accounts, groups, feeds, and local article data. Cached content is not restored. Continue?</string>
+    <string name="backup_export_success">Backup exported</string>
+    <string name="backup_export_failed">Failed to export backup</string>
+    <string name="backup_import_success">Backup imported</string>
+    <string name="backup_import_failed">Failed to import backup</string>
 
     <!-- AI Summary -->
     <string name="ai_summary">AI Summary</string>
