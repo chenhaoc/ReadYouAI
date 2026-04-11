@@ -15,6 +15,7 @@ data class TtsQueueSnapshot(
     val currentArticleId: String? = null,
     val wasPlaying: Boolean = false,
     val currentProgress: Float? = null,
+    val currentSegmentIndex: Int? = null,
 )
 
 data class TtsQueuePlayableArticle(
@@ -24,6 +25,8 @@ data class TtsQueuePlayableArticle(
 
 sealed interface TtsPlaybackEvent {
     data object Completed : TtsPlaybackEvent
+
+    data class Progress(val current: Int, val total: Int) : TtsPlaybackEvent
 
     data object Failed : TtsPlaybackEvent
 }
@@ -41,7 +44,7 @@ interface TtsQueueArticleRepository {
 interface TtsQueuePlaybackClient {
     val events: Flow<TtsPlaybackEvent>
 
-    suspend fun play(article: TtsQueuePlayableArticle)
+    suspend fun play(article: TtsQueuePlayableArticle, startSegmentIndex: Int = 0)
 
     fun stop()
 }
@@ -76,6 +79,13 @@ class TtsQueueController(
             TtsQueueReducer.playNow(_state.value, item).copy(
                 playbackState = TtsQueuePlaybackState.Preparing
             )
+        persistAsync()
+        coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) { playCurrentArticle() }
+    }
+
+    fun resumeCurrent() {
+        if (_state.value.currentArticleId == null) return
+        _state.value = _state.value.copy(playbackState = TtsQueuePlaybackState.Preparing)
         persistAsync()
         coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) { playCurrentArticle() }
     }
@@ -137,6 +147,7 @@ class TtsQueueController(
                 items = items,
                 currentArticleId = currentArticleId,
                 playbackState = TtsQueuePlaybackState.Idle,
+                currentSegmentIndex = snapshot.currentSegmentIndex ?: 0,
             )
         persistAsync()
 
@@ -148,6 +159,11 @@ class TtsQueueController(
     suspend fun handlePlaybackEvent(event: TtsPlaybackEvent) {
         when (event) {
             TtsPlaybackEvent.Completed -> onPlaybackCompleted()
+            is TtsPlaybackEvent.Progress ->
+                _state.value =
+                    _state.value.copy(
+                        currentSegmentIndex = (event.current - 1).coerceAtLeast(0),
+                    )
             TtsPlaybackEvent.Failed ->
                 _state.value =
                     _state.value.copy(playbackState = TtsQueuePlaybackState.Error)
@@ -184,7 +200,10 @@ class TtsQueueController(
             return
         }
 
-        playbackClient.play(playableArticle)
+        playbackClient.play(
+            article = playableArticle,
+            startSegmentIndex = _state.value.currentSegmentIndex,
+        )
         _state.value =
             _state.value.copy(
                 currentArticleId = playableArticle.item.articleId,
@@ -199,6 +218,7 @@ class TtsQueueController(
                 articleIds = _state.value.items.map(TtsQueueItem::articleId),
                 currentArticleId = _state.value.currentArticleId,
                 wasPlaying = _state.value.playbackState == TtsQueuePlaybackState.Reading,
+                currentSegmentIndex = _state.value.currentSegmentIndex,
             )
         coroutineScope.launch { snapshotStore.writeSnapshot(snapshot) }
     }

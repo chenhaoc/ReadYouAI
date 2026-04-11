@@ -144,6 +144,7 @@ fun ArticleListReaderPage(
             TtsQueueSheet(
                 state = queueState,
                 onPlayItem = viewModel::playPlaylistItem,
+                onPauseCurrent = viewModel::stopQueuePlayback,
                 onRemove = viewModel::removeFromPlaylist,
                 onMoveUp = viewModel::movePlaylistItemUp,
                 onMoveDown = viewModel::movePlaylistItemDown,

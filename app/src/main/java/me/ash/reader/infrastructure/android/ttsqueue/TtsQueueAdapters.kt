@@ -72,12 +72,17 @@ constructor(
         textToSpeechManager.events.map { event ->
             when (event) {
                 TextToSpeechManager.Event.Completed -> TtsPlaybackEvent.Completed
+                is TextToSpeechManager.Event.Progress ->
+                    TtsPlaybackEvent.Progress(current = event.current, total = event.total)
                 is TextToSpeechManager.Event.Failed -> TtsPlaybackEvent.Failed
             }
         }
 
-    override suspend fun play(article: TtsQueuePlayableArticle) {
-        textToSpeechManager.readHtml(article.htmlContent)
+    override suspend fun play(article: TtsQueuePlayableArticle, startSegmentIndex: Int) {
+        textToSpeechManager.readHtml(
+            htmlContent = article.htmlContent,
+            startSegmentIndex = startSegmentIndex,
+        )
     }
 
     override fun stop() {

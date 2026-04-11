@@ -19,6 +19,7 @@ data class TtsQueueState(
     val items: List<TtsQueueItem> = emptyList(),
     val currentArticleId: String? = null,
     val playbackState: TtsQueuePlaybackState = TtsQueuePlaybackState.Idle,
+    val currentSegmentIndex: Int = 0,
 ) {
     val currentIndex: Int?
         get() = items.indexOfFirst { it.articleId == currentArticleId }.takeIf { it >= 0 }
@@ -39,6 +40,7 @@ object TtsQueueReducer {
         return state.copy(
             items = listOf(item) + withoutItem,
             currentArticleId = item.articleId,
+            currentSegmentIndex = 0,
         )
     }
 
@@ -48,6 +50,7 @@ object TtsQueueReducer {
         return state.copy(
             currentArticleId = nextItem?.articleId,
             playbackState = if (nextItem == null) TtsQueuePlaybackState.Idle else state.playbackState,
+            currentSegmentIndex = 0,
         )
     }
 
@@ -71,6 +74,7 @@ object TtsQueueReducer {
             currentArticleId = updatedCurrentArticleId,
             playbackState =
                 if (updatedCurrentArticleId == null) TtsQueuePlaybackState.Idle else state.playbackState,
+            currentSegmentIndex = if (state.currentArticleId == articleId) 0 else state.currentSegmentIndex,
         )
     }
 
@@ -79,6 +83,7 @@ object TtsQueueReducer {
             items = emptyList(),
             currentArticleId = null,
             playbackState = TtsQueuePlaybackState.Idle,
+            currentSegmentIndex = 0,
         )
 
     fun moveUp(state: TtsQueueState, articleId: String): TtsQueueState {

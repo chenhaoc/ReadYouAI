@@ -1069,7 +1069,15 @@ constructor(
     }
 
     fun playArticleNow(articleWithFeed: ArticleWithFeed) {
-        ttsQueueController.playNow(articleWithFeed.toQueueItem())
+        val item = articleWithFeed.toQueueItem()
+        if (
+            ttsQueueState.value.currentArticleId == item.articleId &&
+            ttsQueueState.value.playbackState != TtsQueuePlaybackState.Reading
+        ) {
+            ttsQueueController.resumeCurrent()
+        } else {
+            ttsQueueController.playNow(item)
+        }
     }
 
     fun addCurrentArticleToPlaylist() {
@@ -1105,8 +1113,19 @@ constructor(
     }
 
     fun playPlaylistItem(articleId: String) {
+        if (
+            ttsQueueState.value.currentArticleId == articleId &&
+            ttsQueueState.value.playbackState == TtsQueuePlaybackState.Reading
+        ) {
+            stopQueuePlayback()
+            return
+        }
         ttsQueueState.value.items.firstOrNull { it.articleId == articleId }?.let {
-            ttsQueueController.playNow(it)
+            if (ttsQueueState.value.currentArticleId == articleId) {
+                ttsQueueController.resumeCurrent()
+            } else {
+                ttsQueueController.playNow(it)
+            }
         }
     }
 
@@ -1114,7 +1133,7 @@ constructor(
         when (ttsQueueState.value.playbackState) {
             TtsQueuePlaybackState.Idle,
             TtsQueuePlaybackState.Error -> {
-                ttsQueueState.value.currentItem?.let { ttsQueueController.playNow(it) }
+                ttsQueueState.value.currentItem?.let { ttsQueueController.resumeCurrent() }
             }
 
             TtsQueuePlaybackState.Preparing -> Unit

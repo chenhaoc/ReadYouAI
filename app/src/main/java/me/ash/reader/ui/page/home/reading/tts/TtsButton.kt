@@ -5,7 +5,6 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +38,31 @@ import me.ash.reader.infrastructure.android.TextToSpeechManager
 import me.ash.reader.ui.motion.Direction
 import me.ash.reader.ui.motion.sharedYAxisTransitionSlow
 
+private fun openTtsSettingsOrFallback(
+    context: android.content.Context,
+    onLongClick: (() -> Unit)?,
+) {
+    if (onLongClick != null) {
+        onLongClick()
+        return
+    }
+
+    try {
+        val intent =
+            Intent().apply {
+                action = "com.android.settings.TTS_SETTINGS"
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+        context.startActivity(intent)
+    } catch (e: ActivityNotFoundException) {
+        Toast.makeText(
+            context,
+            "TTS settings screen not found.",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+}
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TtsButton(
@@ -65,10 +89,18 @@ fun TtsButton(
                     modifier = modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .clickable(onClick = {
-                            hapticFeedback.performHapticFeedback(HapticFeedbackType.ContextClick)
-                            onClick(state)
-                        }),
+                        .combinedClickable(
+                            onClick = {
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.ContextClick)
+                                onClick(state)
+                            },
+                            onLongClick = {
+                                openTtsSettingsOrFallback(
+                                    context = context,
+                                    onLongClick = onLongClick,
+                                )
+                            },
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     TtsProgressIndicator(
@@ -89,28 +121,19 @@ fun TtsButton(
                     modifier = modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .combinedClickable(onClick = {
-                            hapticFeedback.performHapticFeedback(HapticFeedbackType.ContextClick)
-                            onClick(state)
-                        }, onLongClick = {
-                            if (onLongClick != null) {
-                                onLongClick()
-                            } else {
-                                try {
-                                    val intent = Intent().apply {
-                                        action = "com.android.settings.TTS_SETTINGS"
-                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                    }
-                                    context.startActivity(intent)
-                                } catch (e: ActivityNotFoundException) {
-                                    Toast.makeText(
-                                        context,
-                                        "TTS settings screen not found.",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            }
-                        }), contentAlignment = Alignment.Center
+                        .combinedClickable(
+                            onClick = {
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.ContextClick)
+                                onClick(state)
+                            },
+                            onLongClick = {
+                                openTtsSettingsOrFallback(
+                                    context = context,
+                                    onLongClick = onLongClick,
+                                )
+                            },
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Outlined.Headphones,

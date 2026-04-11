@@ -22,7 +22,7 @@ class TtsQueueControllerTest {
                     articleIds = listOf("a", "b"),
                     currentArticleId = "a",
                     wasPlaying = true,
-                    currentProgress = 0.5f,
+                    currentSegmentIndex = 1,
                 )
             )
 
@@ -132,6 +132,7 @@ class TtsQueueControllerTest {
                     articleIds = listOf("a"),
                     currentArticleId = "a",
                     wasPlaying = true,
+                    currentSegmentIndex = 2,
                 )
             )
         val repository =
@@ -152,7 +153,40 @@ class TtsQueueControllerTest {
         advanceUntilIdle()
 
         assertEquals(listOf("a"), playbackClient.playedArticleIds)
+        assertEquals(listOf(2), playbackClient.playedStartSegmentIndices)
         assertEquals(TtsQueuePlaybackState.Reading, controller.state.value.playbackState)
+    }
+
+    @Test
+    fun progress_event_is_persisted_and_resume_continues_from_last_segment() = runTest {
+        val snapshotStore = FakeSnapshotStore(null)
+        val repository =
+            FakeArticleRepository(
+                mapOf(
+                    "a" to playableArticle("a", html = "<p>db</p>"),
+                )
+            )
+        val playbackClient = FakePlaybackClient()
+        val controller =
+            TtsQueueController(
+                snapshotStore = snapshotStore,
+                articleRepository = repository,
+                playbackClient = playbackClient,
+                coroutineScope = backgroundScope,
+            )
+
+        controller.playNow(playableArticle("a").item)
+        advanceUntilIdle()
+
+        controller.handlePlaybackEvent(TtsPlaybackEvent.Progress(current = 2, total = 4))
+        advanceUntilIdle()
+        controller.stop()
+        advanceUntilIdle()
+        controller.resumeCurrent()
+        advanceUntilIdle()
+
+        assertEquals(listOf(0, 1), playbackClient.playedStartSegmentIndices)
+        assertEquals(1, controller.state.value.currentSegmentIndex)
     }
 
     @Test
@@ -209,12 +243,14 @@ private class FakePlaybackClient : TtsQueuePlaybackClient {
     private val _events = MutableSharedFlow<TtsPlaybackEvent>(replay = 1, extraBufferCapacity = 1)
     val playedArticleIds = mutableListOf<String>()
     val playedHtmlContents = mutableListOf<String>()
+    val playedStartSegmentIndices = mutableListOf<Int>()
 
     override val events: Flow<TtsPlaybackEvent> = _events
 
-    override suspend fun play(article: TtsQueuePlayableArticle) {
+    override suspend fun play(article: TtsQueuePlayableArticle, startSegmentIndex: Int) {
         playedArticleIds += article.item.articleId
         playedHtmlContents += article.htmlContent
+        playedStartSegmentIndices += startSegmentIndex
     }
 
     override fun stop() = Unit

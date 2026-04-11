@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -26,12 +27,32 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import me.ash.reader.R
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueItem
+import me.ash.reader.infrastructure.android.ttsqueue.TtsQueuePlaybackState
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueState
+
+internal enum class TtsQueueItemControl {
+    Play,
+    Pause,
+}
+
+internal fun resolveQueueItemControl(
+    state: TtsQueueState,
+    articleId: String,
+): TtsQueueItemControl =
+    if (
+        state.currentArticleId == articleId &&
+        state.playbackState == TtsQueuePlaybackState.Reading
+    ) {
+        TtsQueueItemControl.Pause
+    } else {
+        TtsQueueItemControl.Play
+    }
 
 @Composable
 fun TtsQueueSheet(
     state: TtsQueueState,
     onPlayItem: (String) -> Unit,
+    onPauseCurrent: () -> Unit,
     onRemove: (String) -> Unit,
     onMoveUp: (String) -> Unit,
     onMoveDown: (String) -> Unit,
@@ -75,6 +96,7 @@ fun TtsQueueSheet(
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(state.items, key = TtsQueueItem::articleId) { item ->
                 val isCurrent = item.articleId == state.currentArticleId
+                val control = resolveQueueItemControl(state = state, articleId = item.articleId)
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -108,9 +130,20 @@ fun TtsQueueSheet(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    IconButton(onClick = { onPlayItem(item.articleId) }) {
+                    IconButton(
+                        onClick = {
+                            when (control) {
+                                TtsQueueItemControl.Play -> onPlayItem(item.articleId)
+                                TtsQueueItemControl.Pause -> onPauseCurrent()
+                            }
+                        }
+                    ) {
                         Icon(
-                            imageVector = Icons.Rounded.PlayArrow,
+                            imageVector =
+                                when (control) {
+                                    TtsQueueItemControl.Play -> Icons.Rounded.PlayArrow
+                                    TtsQueueItemControl.Pause -> Icons.Rounded.Pause
+                                },
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                         )

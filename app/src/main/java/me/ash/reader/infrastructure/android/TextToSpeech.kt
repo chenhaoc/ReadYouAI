@@ -68,18 +68,20 @@ class TextToSpeechManager @Inject constructor(
     sealed interface Event {
         data object Completed : Event
 
+        data class Progress(val current: Int, val total: Int) : Event
+
         data class Failed(val utteranceId: String?) : Event
     }
 
 
-    fun readHtml(htmlContent: String) {
+    fun readHtml(htmlContent: String, startSegmentIndex: Int = 0) {
         coroutineScope.launch {
             val plainText = Html.fromHtml(htmlContent, Html.FROM_HTML_MODE_LEGACY).toString()
-            readText(plainText)
+            readText(plainText, startSegmentIndex = startSegmentIndex)
         }
     }
 
-    private fun readText(text: String) {
+    private fun readText(text: String, startSegmentIndex: Int = 0) {
         stop()
 
         if (state != State.Idle) return
@@ -94,11 +96,18 @@ class TextToSpeechManager @Inject constructor(
 
         val textSegments = text.split("\n").filterNot { it.isBlank() }
         val total = textSegments.size
-        state = State.Reading(0, total)
+        if (total == 0) {
+            state = State.Idle
+            return
+        }
+        val actualStartIndex = startSegmentIndex.coerceIn(0, total - 1)
+        state = State.Reading(actualStartIndex, total)
 
         tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {
-                state = State.Reading(utteranceId?.toIntOrNull() ?: 0, total)
+                val current = utteranceId?.toIntOrNull() ?: 0
+                state = State.Reading(current, total)
+                _events.tryEmit(Event.Progress(current = current, total = total))
             }
 
             override fun onDone(utteranceId: String?) {
@@ -116,8 +125,9 @@ class TextToSpeechManager @Inject constructor(
             }
         })
 
-        textSegments.forEachIndexed { index, text ->
-            tts.speak(text, TextToSpeech.QUEUE_ADD, null, (index + 1).toString())
+        textSegments.drop(actualStartIndex).forEachIndexed { offset, segment ->
+            val actualIndex = actualStartIndex + offset
+            tts.speak(segment, TextToSpeech.QUEUE_ADD, null, (actualIndex + 1).toString())
         }
     }
 
