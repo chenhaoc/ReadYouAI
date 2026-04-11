@@ -30,7 +30,10 @@ The first version will translate article text blocks into Simplified Chinese and
 
 ### Subscription Settings
 
-Each feed gains two new toggles in the existing feed option drawer:
+Each feed gains two new toggles in:
+
+- the existing feed option drawer
+- the new subscription configuration dialog shown before confirming a newly discovered feed
 
 - `Enable translation`
 - `Auto translate`
@@ -55,6 +58,7 @@ For translated articles:
 - Text content is rendered in bilingual form.
 - Each supported source block is followed by a translated Chinese block.
 - Unsupported non-text blocks are shown only once in their original form.
+- Translation appears progressively instead of waiting for the full article to finish.
 
 ### Automatic Translation
 
@@ -65,7 +69,7 @@ When an article opens, translation starts automatically only if all of the follo
 - The article has no valid cached translation for the current source content.
 - There is no in-flight translation request for the same article.
 
-Automatic translation failures are silent. Manual translation failures surface an error to the user.
+Automatic and manual translation failures surface an error to the user so timeouts and provider issues are visible instead of silently disappearing.
 
 ## Design Options Considered
 
@@ -135,7 +139,7 @@ Extend `Article` with:
 - `translationBlocksZh: String? = null`
 - `translationSourceHash: String? = null`
 
-`translationBlocksZh` stores serialized structured translation output for Simplified Chinese. `translationSourceHash` identifies the exact source text-block payload used to generate that translation.
+`translationBlocksZh` stores serialized structured translation output for Simplified Chinese. `translationSourceHash` identifies the exact source text-block payload used to generate that translation. The stored payload may be partial while progressive translation is still running, but it must always remain valid JSON and preserve already translated block IDs.
 
 No separate translation table is needed in v1 because:
 
@@ -230,22 +234,36 @@ This keeps parity with the native renderer and reduces malformed-model-output ri
 1. User taps the top-bar `Translate` button.
 2. The view model checks whether a translation request is already in flight.
 3. The article content is parsed into normalized blocks.
-4. The translatable subset is serialized and hashed.
-5. The repository sends a translation request using the shared AI settings and the translation prompt.
-6. On success, the app stores the serialized translated-block payload and source hash.
-7. The reading UI refreshes and displays bilingual content.
+4. Existing translated block IDs are loaded from cache when the source hash still matches.
+5. The app chooses a prioritized batch of untranslated blocks, starting near the current reading position.
+6. The repository translates only that batch using the shared AI settings and translation prompt.
+7. On success, the app merges the returned blocks into the cached JSON payload and updates the reading UI immediately.
+8. The same job continues requesting additional prioritized batches until all eligible blocks are translated or an error occurs.
 
 ### Automatic Translation
 
 1. Article opens.
 2. The view model resolves the current article and its feed.
 3. If translation is enabled and auto-translate is enabled, the article content is parsed.
-4. If no valid cache exists for the current source hash, translation begins automatically.
-5. If translation fails, the app does not interrupt reading with a visible error.
+4. The app starts translating the first prioritized batch near the current reading position instead of waiting for the full article.
+5. Additional batches continue in the background while the article is being read.
+6. If translation fails, the app keeps already translated blocks and shows an error prompt.
 
 ### Refresh Translation
 
-If translated content already exists, tapping the `Translate` button performs a new translation request and overwrites the cached payload and source hash.
+If translated content already exists, tapping the `Translate` button restarts progressive translation using the current source hash and refreshes the cached payload incrementally.
+
+### Chunking Strategy
+
+Long articles should not be translated as one monolithic request. The batching strategy is intentionally conservative:
+
+- prioritize untranslated blocks closest to the current reading position
+- estimate output size per block
+- cap each request to roughly `450-500` estimated output tokens
+- also keep a JSON payload size ceiling as a secondary guardrail
+- never split a single source block across requests
+
+This reduces provider timeout risk for long articles while still preserving paragraph-level bilingual display.
 
 ## Error Handling
 
@@ -262,7 +280,7 @@ If the model returns invalid or incomplete structured data:
 
 - treat the request as failed,
 - keep the previous translation cache if one exists,
-- surface an error only for manual translation.
+- surface an error to the user.
 
 ### Partial ID Coverage
 
@@ -271,7 +289,7 @@ If some IDs are missing from the returned payload:
 - discard the entire response for v1,
 - keep the previous translation cache if one exists,
 - otherwise leave the article untranslated,
-- surface an error only for manual translation.
+- surface an error to the user.
 
 This keeps the first version predictable and avoids half-translated article states.
 
@@ -318,6 +336,8 @@ Extend reading UI state with translation-specific fields, parallel to the existi
 - `isTranslationLoading`
 - `translationError`
 - `hasAutoTranslationAttempted`
+- `translationFocusIndex`
+- an in-flight translation job handle for progressive batching
 
 Derived state should answer:
 
@@ -335,6 +355,8 @@ Derived state should answer:
 - Stable block ID generation.
 - Stable source hash generation.
 - Translation JSON parsing and ID mapping.
+- Progressive translation batch prioritization.
+- Long-article request chunking under the estimated-token limit.
 - Auto-translate gating logic.
 - Cache reuse when source hash matches.
 - Cache invalidation when source hash differs.
@@ -342,10 +364,11 @@ Derived state should answer:
 ### UI/Behavior Tests
 
 - Translation button visibility depends on feed settings.
+- Subscription configuration dialog persists translation toggles for newly added feeds.
 - Spinner appears during translation and disappears afterward.
-- Manual translation errors surface to the user.
-- Automatic translation does not show intrusive errors.
+- Translation errors surface to the user.
 - Bilingual content renders in correct block order.
+- Long articles can show partial translated content before the entire article finishes.
 
 ### Regression Focus
 
@@ -373,15 +396,15 @@ Mitigation:
 - validate IDs before persistence,
 - fail closed instead of storing partial or malformed translations.
 
-### Risk: First Version Scope Expansion
+### Risk: Long-Article Provider Timeouts
 
-Paragraph-level bilingual display can easily grow into a large reading refactor.
+Even valid structured JSON responses can fail if a single request produces too many output tokens.
 
 Mitigation:
 
-- keep v1 target language fixed to Simplified Chinese,
-- support only a bounded set of translatable text block types,
-- avoid streaming, per-block retries, and view-mode toggles.
+- translate in prioritized batches instead of one full-article request
+- cap each batch to a small estimated output budget
+- persist partial progress after every successful batch
 
 ## Baseline Verification Note
 

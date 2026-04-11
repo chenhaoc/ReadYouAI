@@ -53,6 +53,8 @@ import me.ash.reader.infrastructure.preference.SettingsProvider
 import me.ash.reader.infrastructure.rss.ReaderCacheHelper
 import me.ash.reader.ui.page.home.reading.ArticleContentBlockParser
 import me.ash.reader.ui.page.home.reading.buildPrioritizedTranslationBatch
+import me.ash.reader.ui.page.home.reading.translatableBlockCount
+import me.ash.reader.ui.page.home.reading.translatedBlockCount
 import timber.log.Timber
 
 private const val TAG = "FlowViewModel"
@@ -68,6 +70,12 @@ private enum class TranslationTrigger {
     MANUAL,
     AUTO,
 }
+
+private data class TranslationContentState(
+    val payload: String?,
+    val translatedBlockCount: Int,
+    val translatableBlockCount: Int,
+)
 
 @OptIn(FlowPreview::class)
 @HiltViewModel()
@@ -297,6 +305,7 @@ constructor(
         get() = readingUiState.value.articleWithFeed?.feed
 
     fun initData(articleId: String, listIndex: Int? = null) {
+        cancelTranslationJob()
         viewModelScope.launch {
             val snapshotList = articleListUseCase.itemSnapshotList
 
@@ -342,6 +351,8 @@ constructor(
                         translationError = null,
                         shouldRenderTranslationInline = false,
                         hasAutoTranslationAttempted = false,
+                        translatedBlockCount = 0,
+                        translatableBlockCount = 0,
                     )
                 }
                 _readerState.update {
@@ -362,7 +373,7 @@ constructor(
     }
 
     fun clearReadingData() {
-        translationJob?.cancel()
+        cancelTranslationJob()
         _readingUiState.update { ReadingUiState() }
         _readerState.update { ReaderState() }
     }
@@ -617,7 +628,7 @@ constructor(
 
     private fun requestTranslation(trigger: TranslationTrigger) {
         if (translationJob?.isActive == true || readingUiState.value.isTranslationLoading) return
-        translationJob =
+        val job =
             viewModelScope.launch {
             if (currentFeed?.isTranslationEnabled != true) return@launch
             val articleId = currentArticle?.id ?: return@launch
@@ -627,36 +638,44 @@ constructor(
             val blocks = ArticleContentBlockParser.parse(content = content, baseUrl = article.link)
             val eligibleBlocks = ArticleContentBlockParser.translationSourcePayload(blocks)
             if (eligibleBlocks.isEmpty()) return@launch
+            val translatableCount = translatableBlockCount(blocks)
             val sourceHash = ArticleContentBlockParser.translationSourceHash(blocks)
             val isAutoTrigger = trigger == TranslationTrigger.AUTO
             val existingTranslations =
                 if (article.translationSourceHash == sourceHash) {
-                    me.ash.reader.domain.repository.ArticleTranslationPayloadCodec
-                        .decodeStoredBlocks(article.translationBlocksZh)
+                    normalizeStoredTranslations(blocks, article.translationBlocksZh)
                 } else {
                     emptyList()
                 }
+            val existingTranslatedCount =
+                translatedBlockCount(blocks, existingTranslations.map { it.id }.toSet())
 
             if (
                 isAutoTrigger &&
-                    existingTranslations.size == eligibleBlocks.size
+                    existingTranslatedCount == translatableCount
             ) {
+                if (!isTranslationRequestCurrent(articleId)) return@launch
                 _readingUiState.update {
                     it.copy(
-                        translatedContentBlocks = article.translationBlocksZh,
+                        translatedContentBlocks = serializeTranslatedBlocks(existingTranslations),
                         shouldRenderTranslationInline = true,
                         hasAutoTranslationAttempted = true,
+                        translatedBlockCount = existingTranslatedCount,
+                        translatableBlockCount = translatableCount,
                     )
                 }
                 return@launch
             }
 
+            if (!isTranslationRequestCurrent(articleId)) return@launch
             _readingUiState.update {
                 it.copy(
                     isTranslationLoading = true,
                     isTranslationInlineLoading = it.shouldRenderTranslationInline,
                     translationError = null,
                     hasAutoTranslationAttempted = it.hasAutoTranslationAttempted || isAutoTrigger,
+                    translatedBlockCount = existingTranslatedCount,
+                    translatableBlockCount = translatableCount,
                 )
             }
 
@@ -675,6 +694,7 @@ constructor(
 
             val accumulatedTranslations = existingTranslations.associateBy { it.id }.toMutableMap()
             while (true) {
+                if (!isTranslationRequestCurrent(articleId)) return@launch
                 val nextBatch =
                     buildPrioritizedTranslationBatch(
                         blocks = blocks,
@@ -697,10 +717,14 @@ constructor(
                         )
                 ) {
                     is me.ash.reader.infrastructure.net.ApiResult.Success -> {
+                        if (!isTranslationRequestCurrent(articleId)) return@launch
                         result.data.forEach { accumulatedTranslations[it.id] = it }
                         val mergedTranslations =
                             blocks.mapNotNull { block -> accumulatedTranslations[block.id] }
-                        val serializedTranslation = Gson().toJson(mergedTranslations)
+                        val serializedTranslation = serializeTranslatedBlocks(mergedTranslations)
+                            ?: return@launch
+                        val translatedCount =
+                            translatedBlockCount(blocks, accumulatedTranslations.keys)
                         articleDao.updateTranslation(
                             articleId = articleId,
                             translationBlocksZh = serializedTranslation,
@@ -712,13 +736,17 @@ constructor(
                                 translationSourceHash = sourceHash,
                             )
                         _readingUiState.update {
+                            if (it.articleWithFeed?.article?.id != articleId) {
+                                return@update it
+                            }
                             it.copy(
                                 articleWithFeed =
-                                    readingUiState.value.articleWithFeed?.copy(article = updatedArticle)
-                                        ?: it.articleWithFeed,
+                                    it.articleWithFeed?.copy(article = updatedArticle),
                                 translatedContentBlocks = serializedTranslation,
                                 shouldRenderTranslationInline = true,
                                 translationError = null,
+                                translatedBlockCount = translatedCount,
+                                translatableBlockCount = translatableCount,
                             )
                         }
                     }
@@ -754,16 +782,25 @@ constructor(
                     }
                 }
             }
+            if (!isTranslationRequestCurrent(articleId)) return@launch
+            val serializedTranslation =
+                serializeTranslatedBlocks(blocks.mapNotNull { block -> accumulatedTranslations[block.id] })
             _readingUiState.update {
                 it.copy(
                     isTranslationLoading = false,
                     isTranslationInlineLoading = false,
                     translationError = null,
-                    translatedContentBlocks = Gson().toJson(blocks.mapNotNull { block ->
-                        accumulatedTranslations[block.id]
-                    }),
+                    translatedContentBlocks = serializedTranslation,
                     shouldRenderTranslationInline = accumulatedTranslations.isNotEmpty(),
+                    translatedBlockCount = translatedBlockCount(blocks, accumulatedTranslations.keys),
+                    translatableBlockCount = translatableCount,
                 )
+            }
+        }
+        translationJob = job
+        job.invokeOnCompletion {
+            if (translationJob === job) {
+                translationJob = null
             }
         }
     }
@@ -774,27 +811,55 @@ constructor(
                 it.copy(
                     translatedContentBlocks = null,
                     shouldRenderTranslationInline = false,
+                    translatedBlockCount = 0,
+                    translatableBlockCount = 0,
                 )
             }
             return
         }
         val article = currentArticle ?: return
-        val validPayload = translationPayloadForContent(content = content, article = article)
+        val translationState = translationContentStateForContent(content = content, article = article)
         _readingUiState.update {
             it.copy(
-                translatedContentBlocks = validPayload,
-                shouldRenderTranslationInline = validPayload != null,
+                translatedContentBlocks = translationState.payload,
+                shouldRenderTranslationInline = translationState.payload != null,
+                translatedBlockCount = translationState.translatedBlockCount,
+                translatableBlockCount = translationState.translatableBlockCount,
             )
         }
     }
 
-    private fun translationPayloadForContent(content: String, article: Article): String? {
-        if (article.translationBlocksZh.isNullOrBlank() || article.translationSourceHash.isNullOrBlank()) {
-            return null
-        }
+    private fun translationContentStateForContent(
+        content: String,
+        article: Article,
+    ): TranslationContentState {
         val blocks = ArticleContentBlockParser.parse(content = content, baseUrl = article.link)
+        val translatableCount = translatableBlockCount(blocks)
+        if (
+            article.translationBlocksZh.isNullOrBlank() || article.translationSourceHash.isNullOrBlank()
+        ) {
+            return TranslationContentState(
+                payload = null,
+                translatedBlockCount = 0,
+                translatableBlockCount = translatableCount,
+            )
+        }
         val sourceHash = ArticleContentBlockParser.translationSourceHash(blocks)
-        return article.translationBlocksZh.takeIf { article.translationSourceHash == sourceHash }
+        if (article.translationSourceHash != sourceHash) {
+            return TranslationContentState(
+                payload = null,
+                translatedBlockCount = 0,
+                translatableBlockCount = translatableCount,
+            )
+        }
+        val storedTranslations = normalizeStoredTranslations(blocks, article.translationBlocksZh)
+        val translatedCount =
+            translatedBlockCount(blocks, storedTranslations.map { it.id }.toSet())
+        return TranslationContentState(
+            payload = serializeTranslatedBlocks(storedTranslations),
+            translatedBlockCount = translatedCount,
+            translatableBlockCount = translatableCount,
+        )
     }
 
     fun toggleAiSummaryExpanded() {
@@ -843,6 +908,32 @@ constructor(
     fun updateAiSummaryCardVisible(isVisible: Boolean) {
         isAiSummaryCardVisible.value = isVisible
     }
+
+    private fun cancelTranslationJob() {
+        translationJob?.cancel()
+        translationJob = null
+    }
+
+    private fun isTranslationRequestCurrent(articleId: String): Boolean {
+        return currentArticle?.id == articleId &&
+            readerStateStateFlow.value.articleId == articleId &&
+            readingUiState.value.articleWithFeed?.article?.id == articleId
+    }
+
+    private fun normalizeStoredTranslations(
+        blocks: List<me.ash.reader.ui.page.home.reading.ArticleContentBlock>,
+        rawTranslationBlocks: String?,
+    ): List<me.ash.reader.domain.repository.TranslatedArticleBlock> {
+        val translatedBlockMap =
+            me.ash.reader.domain.repository.ArticleTranslationPayloadCodec
+                .decodeStoredBlocks(rawTranslationBlocks)
+                .associateBy { it.id }
+        return blocks.mapNotNull { block -> translatedBlockMap[block.id] }
+    }
+
+    private fun serializeTranslatedBlocks(
+        blocks: List<me.ash.reader.domain.repository.TranslatedArticleBlock>,
+    ): String? = blocks.takeIf { it.isNotEmpty() }?.let { Gson().toJson(it) }
 }
 
 data class FlowUiState(val pagerData: PagerData, val nextFilterState: FilterState? = null)
@@ -865,6 +956,8 @@ data class ReadingUiState(
     val translationError: String? = null,
     val shouldRenderTranslationInline: Boolean = false,
     val hasAutoTranslationAttempted: Boolean = false,
+    val translatedBlockCount: Int = 0,
+    val translatableBlockCount: Int = 0,
 ) {
     val isAiSummaryVisible: Boolean
         get() =
@@ -883,7 +976,8 @@ data class ReadingUiState(
 
     val shouldAutoGenerateTranslation: Boolean
         get() =
-            translatedContentBlocks == null &&
+            translatableBlockCount > 0 &&
+                translatedBlockCount < translatableBlockCount &&
                 !hasAutoTranslationAttempted &&
                 !isTranslationLoading
 }

@@ -2,6 +2,7 @@ package me.ash.reader.ui.page.home.reading
 
 import me.ash.reader.domain.repository.TranslationRequestChunker
 import me.ash.reader.ui.page.home.reading.ArticleContentBlock
+import kotlin.math.roundToInt
 
 data class FeedTranslationSettings(
     val isTranslationEnabled: Boolean,
@@ -72,4 +73,46 @@ fun buildPrioritizedTranslationBatch(
     }
 
     return batch
+}
+
+fun translatedBlockCount(
+    blocks: List<ArticleContentBlock>,
+    translatedBlockIds: Set<String>,
+): Int = blocks.count { it.isTranslationEligible && it.id in translatedBlockIds }
+
+fun translatableBlockCount(blocks: List<ArticleContentBlock>): Int =
+    blocks.count { it.isTranslationEligible }
+
+fun estimateNativeTranslationFocusIndex(
+    firstVisibleItemIndex: Int,
+    blocks: List<ArticleContentBlock>,
+    translatedBlockIds: Set<String>,
+): Int {
+    var itemCursor = 1 // header item
+    blocks.forEachIndexed { index, block ->
+        if (itemCursor >= firstVisibleItemIndex) return index
+        itemCursor += 1
+        if (block.isTranslationEligible && block.id in translatedBlockIds) {
+            if (itemCursor >= firstVisibleItemIndex) return index
+            itemCursor += 1
+        }
+    }
+    return blocks.lastIndex.coerceAtLeast(0)
+}
+
+fun estimateWebViewTranslationFocusIndex(
+    scrollValue: Int,
+    maxScrollValue: Int,
+    blocks: List<ArticleContentBlock>,
+): Int {
+    val translatableIndices =
+        blocks.withIndex().filter { it.value.isTranslationEligible }.map { it.index }
+    if (translatableIndices.isEmpty()) return 0
+    if (maxScrollValue <= 0) return translatableIndices.first()
+    val ratio = scrollValue.toFloat() / maxScrollValue.toFloat()
+    val target =
+        (ratio * (translatableIndices.size - 1))
+            .roundToInt()
+            .coerceIn(0, translatableIndices.lastIndex)
+    return translatableIndices[target]
 }

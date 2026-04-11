@@ -82,19 +82,36 @@ class ReadingUiStateTest {
             ReadingUiState(
                 hasAutoTranslationAttempted = false,
                 translatedContentBlocks = null,
+                translatableBlockCount = 3,
             ).shouldAutoGenerateTranslation
         )
         assertFalse(
             ReadingUiState(
                 hasAutoTranslationAttempted = true,
                 translatedContentBlocks = null,
+                translatableBlockCount = 3,
             ).shouldAutoGenerateTranslation
         )
         assertFalse(
             ReadingUiState(
                 hasAutoTranslationAttempted = false,
                 translatedContentBlocks = "[]",
+                translatableBlockCount = 3,
+                translatedBlockCount = 3,
             ).shouldAutoGenerateTranslation
         )
+    }
+
+    @Test
+    fun autoTranslationShouldContinueWhenCachedTranslationIsPartial() {
+        val state =
+            ReadingUiState(
+                hasAutoTranslationAttempted = false,
+                translatedContentBlocks = "[{\"id\":\"p1\",\"translatedText\":\"x\"}]",
+                translatedBlockCount = 1,
+                translatableBlockCount = 3,
+            )
+
+        assertTrue(state.shouldAutoGenerateTranslation)
     }
 }

@@ -91,6 +91,18 @@ fun ReadingPage(
     val readingRenderer = LocalReadingRenderer.current
     val coroutineScope = rememberCoroutineScope()
     val summaryNavigationController = remember { SummaryNavigationController() }
+    val articleContent = readerState.content.text.orEmpty()
+    val contentBlocks =
+        remember(articleContent, readerState.link) {
+            ArticleContentBlockParser.parse(
+                content = articleContent,
+                baseUrl = readerState.link ?: "",
+            )
+        }
+    val translatedBlockIds =
+        remember(readingUiState.translatedContentBlocks) {
+            parseTranslatedBlockMap(readingUiState.translatedContentBlocks).keys
+        }
 
     var isReaderScrollingDown by remember { mutableStateOf(false) }
     var showFullScreenImageViewer by remember { mutableStateOf(false) }
@@ -335,9 +347,17 @@ fun ReadingPage(
 
                                 LaunchedEffect(scrollState, readingRenderer, readerState.articleId) {
                                     if (readingRenderer == ReadingRendererPreference.WebView) {
-                                        viewModel.updateTranslationFocusIndex(0)
                                         snapshotFlow { scrollState.value }
-                                            .collect { latestReadingPosition = SummaryReturnTarget.Scroll(it) }
+                                            .collect {
+                                                latestReadingPosition = SummaryReturnTarget.Scroll(it)
+                                                viewModel.updateTranslationFocusIndex(
+                                                    estimateWebViewTranslationFocusIndex(
+                                                        scrollValue = it,
+                                                        maxScrollValue = scrollState.maxValue,
+                                                        blocks = contentBlocks,
+                                                    )
+                                                )
+                                            }
                                     }
                                 }
 
@@ -351,8 +371,11 @@ fun ReadingPage(
                                         }.collect {
                                             latestReadingPosition = it
                                             val estimatedBlockIndex =
-                                                ((listState.firstVisibleItemIndex - 1) / 2)
-                                                    .coerceAtLeast(0)
+                                                estimateNativeTranslationFocusIndex(
+                                                    firstVisibleItemIndex = listState.firstVisibleItemIndex,
+                                                    blocks = contentBlocks,
+                                                    translatedBlockIds = translatedBlockIds,
+                                                )
                                             viewModel.updateTranslationFocusIndex(estimatedBlockIndex)
                                         }
                                     }

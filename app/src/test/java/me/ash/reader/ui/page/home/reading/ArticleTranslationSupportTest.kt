@@ -57,4 +57,43 @@ class ArticleTranslationSupportTest {
 
         assertEquals(listOf("paragraph_2"), batch.map { it.id })
     }
+
+    @Test
+    fun nativeTranslationFocusTracksVisibleOriginalAndTranslatedItems() {
+        val blocks =
+            listOf(
+                ArticleContentBlock("paragraph_1", ArticleContentBlockType.Paragraph, "<p>1</p>", "one"),
+                ArticleContentBlock("paragraph_2", ArticleContentBlockType.Paragraph, "<p>2</p>", "two"),
+                ArticleContentBlock("paragraph_3", ArticleContentBlockType.Paragraph, "<p>3</p>", "three"),
+            )
+
+        assertEquals(
+            1,
+            estimateNativeTranslationFocusIndex(
+                firstVisibleItemIndex = 3,
+                blocks = blocks,
+                translatedBlockIds = setOf("paragraph_1"),
+            ),
+        )
+    }
+
+    @Test
+    fun webViewTranslationFocusFollowsScrollProgress() {
+        val blocks =
+            listOf(
+                ArticleContentBlock("heading_1", ArticleContentBlockType.Heading, "<h1>1</h1>", "title"),
+                ArticleContentBlock("paragraph_1", ArticleContentBlockType.Paragraph, "<p>1</p>", "one"),
+                ArticleContentBlock("image_1", ArticleContentBlockType.Image, "<img />"),
+                ArticleContentBlock("paragraph_2", ArticleContentBlockType.Paragraph, "<p>2</p>", "two"),
+            )
+
+        assertEquals(
+            3,
+            estimateWebViewTranslationFocusIndex(
+                scrollValue = 80,
+                maxScrollValue = 100,
+                blocks = blocks,
+            ),
+        )
+    }
 }
