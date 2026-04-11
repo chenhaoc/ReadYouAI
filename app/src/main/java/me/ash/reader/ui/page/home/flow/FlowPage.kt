@@ -221,6 +221,14 @@ fun FlowPage(
         }
     }
 
+    val onAddToPlaylist: ((ArticleWithFeed) -> Unit)? = remember {
+        { articleWithFeed -> viewModel.addArticleToPlaylist(articleWithFeed) }
+    }
+
+    val onPlayNow: ((ArticleWithFeed) -> Unit)? = remember {
+        { articleWithFeed -> viewModel.playArticleNow(articleWithFeed) }
+    }
+
     LaunchedEffect(onSearch) {
         if (!onSearch) {
             keyboardController?.hide()
@@ -731,6 +739,8 @@ fun FlowPage(
                                 onMarkAboveAsRead = onMarkAboveAsRead,
                                 onMarkBelowAsRead = onMarkBelowAsRead,
                                 onShare = onShare,
+                                onAddToPlaylist = onAddToPlaylist,
+                                onPlayNow = onPlayNow,
                             )
                             item {
                                 Spacer(modifier = Modifier.height(128.dp))

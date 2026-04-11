@@ -11,7 +11,9 @@ import androidx.annotation.RequiresApi
 import androidx.core.content.getSystemService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import me.ash.reader.infrastructure.di.ApplicationScope
@@ -25,12 +27,12 @@ class TextToSpeechManager @Inject constructor(
     @ApplicationContext
     private val context: Context,
     @ApplicationScope
-    private val coroutineScope: CoroutineScope
+    private val coroutineScope: CoroutineScope,
 ) {
-
-
     private val _stateFlow = MutableStateFlow<State>(State.Idle)
     val stateFlow = _stateFlow.asStateFlow()
+    private val _events = MutableSharedFlow<Event>(extraBufferCapacity = 8)
+    val events = _events.asSharedFlow()
 
     var state
         get() = stateFlow.value
@@ -61,6 +63,12 @@ class TextToSpeechManager @Inject constructor(
         }
 
         object Error : State
+    }
+
+    sealed interface Event {
+        data object Completed : Event
+
+        data class Failed(val utteranceId: String?) : Event
     }
 
 
@@ -98,11 +106,13 @@ class TextToSpeechManager @Inject constructor(
                 val cur = state
                 if (cur is State.Reading && index >= cur.total) {
                     state = State.Idle
+                    _events.tryEmit(Event.Completed)
                 }
             }
 
             override fun onError(utteranceId: String?) {
                 state = State.Error
+                _events.tryEmit(Event.Failed(utteranceId))
             }
         })
 

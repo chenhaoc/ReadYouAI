@@ -46,6 +46,10 @@ import me.ash.reader.domain.service.RssService
 import me.ash.reader.domain.service.SyncWorker
 import me.ash.reader.infrastructure.android.AndroidImageDownloader
 import me.ash.reader.infrastructure.android.TextToSpeechManager
+import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueController
+import me.ash.reader.infrastructure.android.ttsqueue.TtsQueuePlaybackState
+import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueState
+import me.ash.reader.infrastructure.android.ttsqueue.toQueueItem
 import me.ash.reader.infrastructure.di.ApplicationScope
 import me.ash.reader.infrastructure.di.IODispatcher
 import me.ash.reader.infrastructure.preference.PullToLoadNextFeedPreference
@@ -96,6 +100,7 @@ constructor(
     private val settingsProvider: SettingsProvider,
     private val readerCacheHelper: ReaderCacheHelper,
     val textToSpeechManager: TextToSpeechManager,
+    val ttsQueueController: TtsQueueController,
     private val imageDownloader: AndroidImageDownloader,
     private val articleListUseCase: ArticlePagingListUseCase,
     private val articleDao: ArticleDao,
@@ -103,6 +108,8 @@ constructor(
     private val aiTranslationRepository: AiTranslationRepository,
     workManager: WorkManager,
 ) : ViewModel() {
+
+    val ttsQueueState: StateFlow<TtsQueueState> = ttsQueueController.state
 
     val flowUiState: StateFlow<FlowUiState?> =
         articleListUseCase.pagerFlow
@@ -1054,6 +1061,64 @@ constructor(
                 )
             }
             else -> return
+        }
+    }
+
+    fun addArticleToPlaylist(articleWithFeed: ArticleWithFeed) {
+        ttsQueueController.enqueue(articleWithFeed.toQueueItem())
+    }
+
+    fun playArticleNow(articleWithFeed: ArticleWithFeed) {
+        ttsQueueController.playNow(articleWithFeed.toQueueItem())
+    }
+
+    fun addCurrentArticleToPlaylist() {
+        readingUiState.value.articleWithFeed?.let(::addArticleToPlaylist)
+    }
+
+    fun playCurrentArticleNow() {
+        readingUiState.value.articleWithFeed?.let(::playArticleNow)
+    }
+
+    fun stopQueuePlayback() {
+        ttsQueueController.stop()
+    }
+
+    fun skipQueuePlayback() {
+        ttsQueueController.skipToNext()
+    }
+
+    fun clearPlaylist() {
+        ttsQueueController.clear()
+    }
+
+    fun removeFromPlaylist(articleId: String) {
+        ttsQueueController.remove(articleId)
+    }
+
+    fun movePlaylistItemUp(articleId: String) {
+        ttsQueueController.moveUp(articleId)
+    }
+
+    fun movePlaylistItemDown(articleId: String) {
+        ttsQueueController.moveDown(articleId)
+    }
+
+    fun playPlaylistItem(articleId: String) {
+        ttsQueueState.value.items.firstOrNull { it.articleId == articleId }?.let {
+            ttsQueueController.playNow(it)
+        }
+    }
+
+    fun toggleQueuePlayback() {
+        when (ttsQueueState.value.playbackState) {
+            TtsQueuePlaybackState.Idle,
+            TtsQueuePlaybackState.Error -> {
+                ttsQueueState.value.currentItem?.let { ttsQueueController.playNow(it) }
+            }
+
+            TtsQueuePlaybackState.Preparing -> Unit
+            TtsQueuePlaybackState.Reading -> stopQueuePlayback()
         }
     }
 }

@@ -391,4 +391,10 @@
     <string name="translation_error">文章翻译失败：%1$s</string>
     <string name="enable_translation">启用翻译</string>
     <string name="auto_translate">自动翻译</string>
+    <string name="add_to_playlist">加入播放列表</string>
+    <string name="added_to_playlist">已加入播放列表</string>
+    <string name="play_now">立即播放</string>
+    <string name="playlist">播放列表</string>
+    <string name="playlist_count">%1$d 项</string>
+    <string name="playlist_empty">播放列表为空</string>
 </resources>

@@ -80,6 +80,7 @@ fun ReadingPage(
     onLoadArticle: (String, Int) -> Unit,
     onNavAction: (NavigationAction) -> Unit,
     onNavigateToStylePage: () -> Unit,
+    onOpenQueue: () -> Unit,
 ) {
     val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
@@ -492,9 +493,7 @@ fun ReadingPage(
                         },
                         onBoldCharacters = { (!boldCharacters).put(context, coroutineScope) },
                         onReadAloud = {
-                            viewModel.textToSpeechManager.readHtml(
-                                readerState.content.text ?: return@BottomBar
-                            )
+                            viewModel.playCurrentArticleNow()
                         },
                         ttsButton = {
                             TtsButton(
@@ -505,19 +504,21 @@ fun ReadingPage(
                                         }
 
                                         TextToSpeechManager.State.Idle -> {
-                                            viewModel.textToSpeechManager.readHtml(
-                                                readerState.content.text ?: ""
-                                            )
+                                            viewModel.playCurrentArticleNow()
                                         }
 
                                         is TextToSpeechManager.State.Reading -> {
-                                            viewModel.textToSpeechManager.stop()
+                                            viewModel.stopQueuePlayback()
                                         }
 
                                         TextToSpeechManager.State.Preparing -> {
                                             /* no-op */
                                         }
                                     }
+                                },
+                                onLongClick = {
+                                    viewModel.addCurrentArticleToPlaylist()
+                                    onOpenQueue()
                                 },
                                 state =
                                     viewModel.textToSpeechManager.stateFlow.collectAsStateValue(),

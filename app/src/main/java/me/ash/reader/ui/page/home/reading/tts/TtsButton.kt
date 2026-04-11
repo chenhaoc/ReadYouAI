@@ -44,6 +44,7 @@ import me.ash.reader.ui.motion.sharedYAxisTransitionSlow
 fun TtsButton(
     modifier: Modifier = Modifier,
     onClick: (TextToSpeechManager.State) -> Unit,
+    onLongClick: (() -> Unit)? = null,
     state: TextToSpeechManager.State
 ) {
     val context = LocalContext.current
@@ -92,18 +93,22 @@ fun TtsButton(
                             hapticFeedback.performHapticFeedback(HapticFeedbackType.ContextClick)
                             onClick(state)
                         }, onLongClick = {
-                            try {
-                                val intent = Intent().apply {
-                                    action = "com.android.settings.TTS_SETTINGS"
-                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            if (onLongClick != null) {
+                                onLongClick()
+                            } else {
+                                try {
+                                    val intent = Intent().apply {
+                                        action = "com.android.settings.TTS_SETTINGS"
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
+                                    context.startActivity(intent)
+                                } catch (e: ActivityNotFoundException) {
+                                    Toast.makeText(
+                                        context,
+                                        "TTS settings screen not found.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
                                 }
-                                context.startActivity(intent)
-                            } catch (e: ActivityNotFoundException) {
-                                Toast.makeText(
-                                    context,
-                                    "TTS settings screen not found.",
-                                    Toast.LENGTH_SHORT
-                                ).show()
                             }
                         }), contentAlignment = Alignment.Center
                 ) {

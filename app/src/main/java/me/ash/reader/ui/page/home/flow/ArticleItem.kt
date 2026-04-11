@@ -19,11 +19,13 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.FiberManualRecord
+import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.CheckCircleOutline
 import androidx.compose.material.icons.rounded.FiberManualRecord
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.DropdownMenuItem
@@ -335,6 +337,8 @@ fun SwipeableArticleItem(
     onMarkAboveAsRead: ((ArticleWithFeed) -> Unit)? = null,
     onMarkBelowAsRead: ((ArticleWithFeed) -> Unit)? = null,
     onShare: ((ArticleWithFeed) -> Unit)? = null,
+    onAddToPlaylist: ((ArticleWithFeed) -> Unit)? = null,
+    onPlayNow: ((ArticleWithFeed) -> Unit)? = null,
 ) {
 
     var isMenuExpanded by remember { mutableStateOf(false) }
@@ -396,6 +400,8 @@ fun SwipeableArticleItem(
                             onMarkAboveAsRead = onMarkAboveAsRead,
                             onMarkBelowAsRead = onMarkBelowAsRead,
                             onShare = onShare,
+                            onAddToPlaylist = onAddToPlaylist,
+                            onPlayNow = onPlayNow,
                         ) {
                             isMenuExpanded = false
                         }
@@ -586,6 +592,8 @@ fun ArticleItemMenuContent(
     onMarkAboveAsRead: ((ArticleWithFeed) -> Unit)? = null,
     onMarkBelowAsRead: ((ArticleWithFeed) -> Unit)? = null,
     onShare: ((ArticleWithFeed) -> Unit)? = null,
+    onAddToPlaylist: ((ArticleWithFeed) -> Unit)? = null,
+    onPlayNow: ((ArticleWithFeed) -> Unit)? = null,
     onItemClick: (() -> Unit)? = null,
 ) {
     val starImageVector =
@@ -676,6 +684,39 @@ fun ArticleItemMenuContent(
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Rounded.Share,
+                    contentDescription = null,
+                    modifier = Modifier.size(iconSize),
+                )
+            },
+        )
+    }
+    onAddToPlaylist?.let {
+        HorizontalDivider()
+        DropdownMenuItem(
+            text = { Text(text = stringResource(id = R.string.add_to_playlist)) },
+            onClick = {
+                onAddToPlaylist(articleWithFeed)
+                onItemClick?.invoke()
+            },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Outlined.Headphones,
+                    contentDescription = null,
+                    modifier = Modifier.size(iconSize),
+                )
+            },
+        )
+    }
+    onPlayNow?.let {
+        DropdownMenuItem(
+            text = { Text(text = stringResource(id = R.string.play_now)) },
+            onClick = {
+                onPlayNow(articleWithFeed)
+                onItemClick?.invoke()
+            },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Rounded.PlayArrow,
                     contentDescription = null,
                     modifier = Modifier.size(iconSize),
                 )
