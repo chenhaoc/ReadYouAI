@@ -5,8 +5,136 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEFAULT_JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
 DEFAULT_ANDROID_SDK_ROOT="${HOME}/Library/Android/sdk"
-GRADLE_TASK="${1:-assembleGithubAiRelease}"
-GRADLE_DAEMON_JVMARGS="-Xmx8192M -Xms512m -XX:MaxMetaspaceSize=1g -Dkotlin.daemon.jvm.options=-Xmx8192M -XX:+HeapDumpOnOutOfMemoryError -XX:+UseParallelGC -Dfile.encoding=UTF-8 -XX:ActiveProcessorCount=1"
+FAST_DEBUG_TASK="assembleGithubAiDebug"
+RELEASE_TASK="assembleGithubAiRelease"
+FAST_DEBUG_GRADLE_JVMARGS="-Xmx4096M -Xms512m -XX:MaxMetaspaceSize=768m -Dkotlin.daemon.jvm.options=-Xmx2048M -XX:+HeapDumpOnOutOfMemoryError -XX:+UseParallelGC -Dfile.encoding=UTF-8"
+RELEASE_GRADLE_JVMARGS="-Xmx8192M -Xms512m -XX:MaxMetaspaceSize=1g -Dkotlin.daemon.jvm.options=-Xmx8192M -XX:+HeapDumpOnOutOfMemoryError -XX:+UseParallelGC -Dfile.encoding=UTF-8"
+DEFAULT_MODE="fast-debug"
+DEFAULT_PROFILE="full"
+
+MODE_OR_TASK="${DEFAULT_MODE}"
+RESOURCE_PROFILE="${DEFAULT_PROFILE}"
+MODE_OR_TASK_SET="false"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --profile)
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --profile (full or 1core)." >&2
+        exit 1
+      fi
+      RESOURCE_PROFILE="$2"
+      shift 2
+      ;;
+    *)
+      if [[ "${MODE_OR_TASK_SET}" == "false" ]]; then
+        MODE_OR_TASK="$1"
+        MODE_OR_TASK_SET="true"
+        shift
+      else
+        echo "Unexpected argument: $1" >&2
+        exit 1
+      fi
+      ;;
+  esac
+done
+
+case "${RESOURCE_PROFILE}" in
+  full|1core)
+    ;;
+  *)
+    echo "Unknown profile: ${RESOURCE_PROFILE}. Expected full or 1core." >&2
+    exit 1
+    ;;
+esac
+
+case "${MODE_OR_TASK}" in
+  fast-debug)
+    BUILD_MODE="fast-debug"
+    GRADLE_TASK="${FAST_DEBUG_TASK}"
+    ;;
+  release)
+    BUILD_MODE="release"
+    GRADLE_TASK="${RELEASE_TASK}"
+    ;;
+  *)
+    GRADLE_TASK="${MODE_OR_TASK}"
+    if [[ "${GRADLE_TASK}" == *Release* ]]; then
+      BUILD_MODE="release"
+    else
+      BUILD_MODE="fast-debug"
+    fi
+    ;;
+esac
+
+detect_logical_cpus() {
+  local count=""
+  if command -v sysctl >/dev/null 2>&1; then
+    count="$(sysctl -n hw.logicalcpu 2>/dev/null || true)"
+  fi
+  if [[ -z "${count}" ]] && command -v nproc >/dev/null 2>&1; then
+    count="$(nproc 2>/dev/null || true)"
+  fi
+  if [[ -z "${count}" ]] && command -v getconf >/dev/null 2>&1; then
+    count="$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)"
+  fi
+  if [[ -z "${count}" ]] && [[ -n "${NUMBER_OF_PROCESSORS:-}" ]]; then
+    count="${NUMBER_OF_PROCESSORS}"
+  fi
+  if [[ ! "${count}" =~ ^[0-9]+$ ]] || [[ "${count}" -lt 1 ]]; then
+    count=4
+  fi
+  printf '%s' "${count}"
+}
+
+stat_mtime() {
+  local file_path="$1"
+  if stat -f '%m' "${file_path}" >/dev/null 2>&1; then
+    stat -f '%m' "${file_path}"
+  else
+    stat -c '%Y' "${file_path}"
+  fi
+}
+
+find_latest_apk() {
+  local search_root="$1"
+  local apk_files=()
+  local latest_apk=""
+  local latest_mtime=""
+  local candidate_mtime=""
+  local file_path=""
+
+  while IFS= read -r -d '' file_path; do
+    apk_files+=("${file_path}")
+  done < <(find "${search_root}" -type f -name '*.apk' -print0)
+
+  if [[ "${#apk_files[@]}" -eq 0 ]]; then
+    return 1
+  fi
+
+  latest_apk="${apk_files[0]}"
+  latest_mtime="$(stat_mtime "${latest_apk}")"
+
+  for file_path in "${apk_files[@]:1}"; do
+    candidate_mtime="$(stat_mtime "${file_path}")"
+    if [[ "${candidate_mtime}" -gt "${latest_mtime}" ]]; then
+      latest_apk="${file_path}"
+      latest_mtime="${candidate_mtime}"
+    fi
+  done
+
+  printf '%s\n' "${latest_apk}"
+}
+
+if [[ "${RESOURCE_PROFILE}" == "1core" ]]; then
+  WORKER_COUNT=1
+else
+  if [[ -n "${FAST_DEBUG_MAX_WORKERS:-}" ]]; then
+    WORKER_COUNT="${FAST_DEBUG_MAX_WORKERS}"
+  else
+    WORKER_COUNT="$(detect_logical_cpus)"
+  fi
+fi
 
 if [[ -z "${JAVA_HOME:-}" ]]; then
   if [[ -d "${DEFAULT_JAVA_HOME}" ]]; then
@@ -37,7 +165,6 @@ fi
 
 export ANDROID_HOME="${ANDROID_HOME:-${ANDROID_SDK_ROOT}}"
 export PATH="${ANDROID_SDK_ROOT}/platform-tools:${PATH}"
-export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -XX:ActiveProcessorCount=1"
 
 LOCAL_PROPERTIES_PATH="${ROOT_DIR}/local.properties"
 if [[ ! -f "${LOCAL_PROPERTIES_PATH}" ]]; then
@@ -48,27 +175,48 @@ fi
 # entries breaking dependency resolution when no local proxy is actually running.
 unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy NO_PROXY no_proxy
 
-GRADLE_FLAGS=(
-  "--no-daemon"
-  "--max-workers=1"
-  "-Dorg.gradle.jvmargs=${GRADLE_DAEMON_JVMARGS}"
-  "${GRADLE_TASK}"
-)
+if [[ "${BUILD_MODE}" == "release" ]]; then
+  GRADLE_DAEMON_JVMARGS="${RELEASE_GRADLE_JVMARGS}"
+else
+  GRADLE_DAEMON_JVMARGS="${FAST_DEBUG_GRADLE_JVMARGS}"
+fi
 
-export GRADLE_OPTS="${GRADLE_OPTS:-} -Dorg.gradle.workers.max=1 -Dkotlin.compiler.execution.strategy=in-process -Djava.util.concurrent.ForkJoinPool.common.parallelism=1 -Djava.net.useSystemProxies=false"
+if [[ "${RESOURCE_PROFILE}" == "1core" ]]; then
+  export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -XX:ActiveProcessorCount=1"
+  GRADLE_DAEMON_JVMARGS="${GRADLE_DAEMON_JVMARGS} -XX:ActiveProcessorCount=1"
+  GRADLE_FLAGS=(
+    "--no-daemon"
+    "--max-workers=1"
+    "-Dorg.gradle.jvmargs=${GRADLE_DAEMON_JVMARGS}"
+    "${GRADLE_TASK}"
+  )
+  export GRADLE_OPTS="${GRADLE_OPTS:-} -Dorg.gradle.workers.max=1 -Dkotlin.compiler.execution.strategy=in-process -Djava.util.concurrent.ForkJoinPool.common.parallelism=1 -Djava.net.useSystemProxies=false"
+else
+  GRADLE_FLAGS=(
+    "--daemon"
+    "--parallel"
+    "--build-cache"
+    "--max-workers=${WORKER_COUNT}"
+    "-Dorg.gradle.jvmargs=${GRADLE_DAEMON_JVMARGS}"
+    "${GRADLE_TASK}"
+  )
+  export GRADLE_OPTS="${GRADLE_OPTS:-} -Dorg.gradle.workers.max=${WORKER_COUNT} -Dkotlin.compiler.execution.strategy=daemon -Djava.util.concurrent.ForkJoinPool.common.parallelism=${WORKER_COUNT} -Djava.net.useSystemProxies=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true"
+fi
 
 cd "${ROOT_DIR}"
 
+echo "Build mode=${BUILD_MODE}"
+echo "Resource profile=${RESOURCE_PROFILE}"
+echo "Worker count=${WORKER_COUNT}"
 echo "JAVA_HOME=${JAVA_HOME}"
 echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}"
-echo "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
+echo "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:-}"
 echo "GRADLE_DAEMON_JVMARGS=${GRADLE_DAEMON_JVMARGS}"
 echo "Gradle task=${GRADLE_TASK}"
 
 ./gradlew "${GRADLE_FLAGS[@]}"
 
-APK_PATH="$(find "${ROOT_DIR}/app/build/outputs/apk" -type f -name '*.apk' -print0 | xargs -0 ls -t 2>/dev/null | head -n 1)"
-if [[ -z "${APK_PATH}" ]]; then
+if ! APK_PATH="$(find_latest_apk "${ROOT_DIR}/app/build/outputs/apk")"; then
   echo "Build finished but no APK was found under app/build/outputs/apk." >&2
   exit 1
 fi
