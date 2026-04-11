@@ -553,11 +553,18 @@ val ignorePreferencesOnExportAndImport =
 
 suspend fun Context.fromDataStoreToJSONString(): String {
     val preferences = dataStore.data.first()
-    val map: Map<String, Any?> =
+    val currentValues =
         preferences
             .asMap()
             .mapKeys { it.key.name }
             .filterKeys { it !in ignorePreferencesOnExportAndImport }
+    val defaultValues = buildDefaultBackupPreferenceValues()
+    val map: Map<String, Any> =
+        PreferencesKey.keys.keys
+            .filterNot { it in ignorePreferencesOnExportAndImport }
+            .associateWith { key ->
+                currentValues[key] ?: defaultValues.getValue(key)
+            }
     return Gson().toJson(map)
 }
 
@@ -612,4 +619,80 @@ suspend fun String.fromJSONStringToDataStore(
                 }
             }
     }
+}
+
+private fun buildDefaultBackupPreferenceValues(): Map<String, Any> {
+    val settings = Settings()
+    return mapOf(
+        PreferencesKey.newVersionPublishDate to settings.newVersionPublishDate,
+        PreferencesKey.newVersionLog to settings.newVersionLog,
+        PreferencesKey.newVersionSizeString to settings.newVersionSize,
+        PreferencesKey.newVersionDownloadUrl to settings.newVersionDownloadUrl,
+        PreferencesKey.newVersionNumber to settings.newVersionNumber.toString(),
+        PreferencesKey.skipVersionNumber to settings.skipVersionNumber.toString(),
+        PreferencesKey.themeIndex to settings.themeIndex,
+        PreferencesKey.customPrimaryColor to settings.customPrimaryColor,
+        PreferencesKey.darkTheme to settings.darkTheme.value,
+        PreferencesKey.amoledDarkTheme to settings.amoledDarkTheme.value,
+        PreferencesKey.basicFonts to settings.basicFonts.value,
+        PreferencesKey.feedsFilterBarStyle to settings.feedsFilterBarStyle.value,
+        PreferencesKey.feedsFilterBarPadding to settings.feedsFilterBarPadding,
+        PreferencesKey.feedsFilterBarTonalElevation to settings.feedsFilterBarTonalElevation.value,
+        PreferencesKey.feedsTopBarTonalElevation to settings.feedsTopBarTonalElevation.value,
+        PreferencesKey.feedsGroupListExpand to settings.feedsGroupListExpand.value,
+        PreferencesKey.feedsGroupListTonalElevation to settings.feedsGroupListTonalElevation.value,
+        PreferencesKey.flowFilterBarStyle to settings.flowFilterBarStyle.value,
+        PreferencesKey.flowFilterBarPadding to settings.flowFilterBarPadding,
+        PreferencesKey.flowFilterBarTonalElevation to settings.flowFilterBarTonalElevation.value,
+        PreferencesKey.flowTopBarTonalElevation to settings.flowTopBarTonalElevation.value,
+        PreferencesKey.flowArticleListFeedIcon to settings.flowArticleListFeedIcon.value,
+        PreferencesKey.flowArticleListFeedName to settings.flowArticleListFeedName.value,
+        PreferencesKey.flowArticleListImage to settings.flowArticleListImage.value,
+        PreferencesKey.flowArticleListDesc to settings.flowArticleListDesc.value,
+        PreferencesKey.flowArticleListTime to settings.flowArticleListTime.value,
+        PreferencesKey.flowArticleListDateStickyHeader to
+            settings.flowArticleListDateStickyHeader.value,
+        PreferencesKey.flowArticleListTonalElevation to settings.flowArticleListTonalElevation.value,
+        PreferencesKey.flowArticleListReadIndicator to settings.flowArticleListReadIndicator.value,
+        PreferencesKey.flowSortUnreadArticles to settings.flowSortUnreadArticles.value,
+        PreferencesKey.readingRenderer to settings.readingRenderer.value,
+        PreferencesKey.readingBoldCharacters to settings.readingBoldCharacters.value,
+        PreferencesKey.readingPageTonalElevation to settings.readingPageTonalElevation.value,
+        PreferencesKey.readingTextFontSize to settings.readingTextFontSize,
+        PreferencesKey.readingTextLineHeight to settings.readingTextLineHeight,
+        PreferencesKey.readingTextLetterSpacing to settings.readingLetterSpacing,
+        PreferencesKey.readingTextHorizontalPadding to settings.readingTextHorizontalPadding,
+        PreferencesKey.readingTextBold to settings.readingTextBold.value,
+        PreferencesKey.readingTextAlign to settings.readingTextAlign.value,
+        PreferencesKey.readingTitleAlign to settings.readingTitleAlign.value,
+        PreferencesKey.readingSubheadAlign to settings.readingSubheadAlign.value,
+        PreferencesKey.readingTheme to settings.readingTheme.value,
+        PreferencesKey.readingFonts to settings.readingFonts.value,
+        PreferencesKey.readingAutoHideToolbar to settings.readingAutoHideToolbar.value,
+        PreferencesKey.readingTitleBold to settings.readingTitleBold.value,
+        PreferencesKey.readingSubheadBold to settings.readingSubheadBold.value,
+        PreferencesKey.readingTitleUpperCase to settings.readingTitleUpperCase.value,
+        PreferencesKey.readingSubheadUpperCase to settings.readingSubheadUpperCase.value,
+        PreferencesKey.readingImageMaximize to settings.readingImageMaximize.value,
+        PreferencesKey.readingImageHorizontalPadding to settings.readingImageHorizontalPadding,
+        PreferencesKey.readingImageRoundedCorners to settings.readingImageRoundedCorners,
+        PreferencesKey.initialPage to settings.initialPage.value,
+        PreferencesKey.initialFilter to settings.initialFilter.value,
+        PreferencesKey.swipeStartAction to settings.swipeStartAction.action,
+        PreferencesKey.swipeEndAction to settings.swipeEndAction.action,
+        PreferencesKey.markAsReadOnScroll to settings.markAsReadOnScroll.value,
+        PreferencesKey.hideEmptyGroups to settings.hideEmptyGroups.value,
+        PreferencesKey.pullToLoadNextFeed to settings.pullToSwitchFeed.value,
+        PreferencesKey.pullToSwitchArticle to settings.pullToSwitchArticle.value,
+        PreferencesKey.openLink to settings.openLink.value,
+        PreferencesKey.openLinkAppSpecificBrowser to
+            settings.openLinkSpecificBrowser.packageName.orEmpty(),
+        PreferencesKey.sharedContent to settings.sharedContent.value,
+        PreferencesKey.languages to settings.languages.value,
+        PreferencesKey.aiBaseUrl to settings.aiBaseUrl.value,
+        PreferencesKey.aiApiKey to settings.aiApiKey.value,
+        PreferencesKey.aiModel to settings.aiModel.value,
+        PreferencesKey.aiSummarizationPrompt to settings.aiSummarizationPrompt.value,
+        PreferencesKey.aiAutoSummary to settings.aiAutoSummary.value,
+    )
 }
