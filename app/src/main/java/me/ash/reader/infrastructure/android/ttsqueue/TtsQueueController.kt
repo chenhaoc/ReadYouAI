@@ -93,19 +93,11 @@ class TtsQueueController(
     }
 
     fun skipToPrevious() {
+        val items = _state.value.items
+        if (items.isEmpty()) return
         val currentIndex = _state.value.currentIndex ?: return
-        if (currentIndex <= 0) {
-            seekCurrent(0)
-            return
-        }
-        val previousItem = _state.value.items[currentIndex - 1]
-        _state.value =
-            _state.value.copy(
-                currentArticleId = previousItem.articleId,
-                playbackState = TtsQueuePlaybackState.Preparing,
-            )
-        persistAsync()
-        coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) { playCurrentArticle() }
+        val previousIndex = if (currentIndex <= 0) items.lastIndex else currentIndex - 1
+        playIndex(previousIndex)
     }
 
     fun seekCurrent(segmentIndex: Int) {
@@ -157,9 +149,11 @@ class TtsQueueController(
     }
 
     fun skipToNext() {
-        coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
-            handlePlaybackEvent(TtsPlaybackEvent.Completed)
-        }
+        val items = _state.value.items
+        if (items.isEmpty()) return
+        val currentIndex = _state.value.currentIndex ?: return
+        val nextIndex = if (currentIndex >= items.lastIndex) 0 else currentIndex + 1
+        playIndex(nextIndex)
     }
 
     fun clear() {
@@ -289,6 +283,17 @@ class TtsQueueController(
                 playbackState = TtsQueuePlaybackState.Reading,
             )
         persistAsync()
+    }
+
+    private fun playIndex(index: Int) {
+        val targetItem = _state.value.items.getOrNull(index) ?: return
+        _state.value =
+            _state.value.copy(
+                currentArticleId = targetItem.articleId,
+                playbackState = TtsQueuePlaybackState.Preparing,
+            )
+        persistAsync()
+        coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) { playCurrentArticle() }
     }
 
     private fun currentArticleId(): String? = _state.value.currentArticleId

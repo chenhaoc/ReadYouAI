@@ -17,6 +17,9 @@ Replace the scrolling queue-item progress UI with a fixed player card at the top
 - Tapping the title/info area of a queue item starts playback for that item.
 - Queue item order does not change when playback changes.
 - Queue items keep explicit move-up, move-down, and delete controls.
+- Previous and next wrap at queue boundaries instead of stopping on the first or last item.
+- While the queue sheet is open, system back should close the queue sheet before leaving the page.
+- The article flow page shows a playlist entry in the bottom-right floating action area that opens the same queue sheet.
 
 ## Playback Progress Model
 
@@ -33,6 +36,7 @@ Replace the scrolling queue-item progress UI with a fixed player card at the top
   - app restart, as long as the article remains in the queue
 - Removing an article from the queue deletes that article's bookmark.
 - Clearing the queue deletes all bookmarks.
+- Long single-paragraph content may be split into smaller speakable chunks so low-segment articles still provide usable seek anchors.
 
 ## Progress UX
 
@@ -43,6 +47,7 @@ Replace the scrolling queue-item progress UI with a fixed player card at the top
   - visible draggable thumb
 - Progress is approximate but should be length-weighted by text amount, not evenly split by segment count.
 - Seek remains segment-based; drag position maps to the nearest weighted segment.
+- When a source article has very few natural segments, the chunking layer should introduce lightweight extra segments rather than faking purely visual seek positions.
 
 ## Non-Goals
 

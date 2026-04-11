@@ -223,6 +223,68 @@ class TtsQueueControllerTest {
     }
 
     @Test
+    fun skipToPrevious_wraps_from_first_item_to_last_item() = runTest {
+        val snapshotStore = FakeSnapshotStore(null)
+        val repository =
+            FakeArticleRepository(
+                mapOf(
+                    "a" to playableArticle("a", segmentCharCounts = listOf(10, 10)),
+                    "b" to playableArticle("b", segmentCharCounts = listOf(10, 10)),
+                )
+            )
+        val playbackClient = FakePlaybackClient()
+        val controller =
+            TtsQueueController(
+                snapshotStore = snapshotStore,
+                articleRepository = repository,
+                playbackClient = playbackClient,
+                coroutineScope = backgroundScope,
+            )
+
+        controller.playNow(playableArticle("a").item)
+        controller.enqueue(playableArticle("b").item)
+        advanceUntilIdle()
+
+        controller.skipToPrevious()
+        advanceUntilIdle()
+
+        assertEquals("b", controller.state.value.currentArticleId)
+        assertEquals(listOf("a", "b"), playbackClient.playedArticleIds)
+    }
+
+    @Test
+    fun skipToNext_wraps_from_last_item_to_first_item() = runTest {
+        val snapshotStore = FakeSnapshotStore(null)
+        val repository =
+            FakeArticleRepository(
+                mapOf(
+                    "a" to playableArticle("a", segmentCharCounts = listOf(10, 10)),
+                    "b" to playableArticle("b", segmentCharCounts = listOf(10, 10)),
+                )
+            )
+        val playbackClient = FakePlaybackClient()
+        val controller =
+            TtsQueueController(
+                snapshotStore = snapshotStore,
+                articleRepository = repository,
+                playbackClient = playbackClient,
+                coroutineScope = backgroundScope,
+            )
+
+        controller.playNow(playableArticle("a").item)
+        controller.enqueue(playableArticle("b").item)
+        advanceUntilIdle()
+        controller.playNow(playableArticle("b").item)
+        advanceUntilIdle()
+
+        controller.skipToNext()
+        advanceUntilIdle()
+
+        assertEquals("a", controller.state.value.currentArticleId)
+        assertEquals(listOf("a", "b", "a"), playbackClient.playedArticleIds)
+    }
+
+    @Test
     fun switching_articles_preserves_each_articles_bookmark() = runTest {
         val snapshotStore = FakeSnapshotStore(null)
         val repository =

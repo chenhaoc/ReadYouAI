@@ -146,6 +146,65 @@ internal fun splitSpeakableSegments(text: String): List<String> =
     text.split("\n")
         .map(String::trim)
         .filter(String::isNotBlank)
+        .flatMap(::splitLongSpeakableSegment)
+
+private fun splitLongSpeakableSegment(
+    segment: String,
+    targetChars: Int = 180,
+    minChunkChars: Int = 60,
+): List<String> {
+    if (segment.length <= targetChars) return listOf(segment)
+
+    val chunks = mutableListOf<String>()
+    var start = 0
+    while (start < segment.length) {
+        val remaining = segment.length - start
+        if (remaining <= targetChars) {
+            chunks += segment.substring(start)
+            break
+        }
+
+        val idealEnd = (start + targetChars).coerceAtMost(segment.length)
+        val searchStart = (start + minChunkChars).coerceAtMost(idealEnd)
+        val splitIndex =
+            findChunkBoundary(
+                segment = segment,
+                start = searchStart,
+                endInclusive = idealEnd - 1,
+            ) ?: idealEnd
+
+        chunks += segment.substring(start, splitIndex)
+        start = splitIndex
+    }
+    return chunks.filter(String::isNotBlank)
+}
+
+private fun findChunkBoundary(
+    segment: String,
+    start: Int,
+    endInclusive: Int,
+): Int? {
+    for (index in endInclusive downTo start) {
+        if (segment[index].isChunkBoundaryChar()) {
+            return index + 1
+        }
+    }
+    return null
+}
+
+private fun Char.isChunkBoundaryChar(): Boolean =
+    this == '。' ||
+        this == '！' ||
+        this == '？' ||
+        this == '；' ||
+        this == '，' ||
+        this == '、' ||
+        this == '.' ||
+        this == '!' ||
+        this == '?' ||
+        this == ';' ||
+        this == ',' ||
+        this.isWhitespace()
 
 internal fun htmlSegmentCharCounts(htmlContent: String): List<Int> =
     splitSpeakableSegments(htmlToPlainText(htmlContent)).map(String::length)

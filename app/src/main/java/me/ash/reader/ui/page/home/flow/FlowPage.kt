@@ -122,6 +122,7 @@ fun FlowPage(
     isTwoPane: Boolean,
     viewModel: ArticleListReaderViewModel,
     onNavigateUp: () -> Unit,
+    onOpenQueue: () -> Unit,
     navigateToArticle: (String, Int) -> Unit,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -755,7 +756,13 @@ fun FlowPage(
                     }
                 }
             },
-            floatingActionButtonPosition = FabPosition.Center,
+            floatingActionButton = {
+                PlaylistQueueFab(
+                    visible = true,
+                    onClick = onOpenQueue,
+                )
+            },
+            floatingActionButtonPosition = FabPosition.End,
             bottomBar = {
                 FilterBar(
                     modifier =

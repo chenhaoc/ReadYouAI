@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -76,6 +77,35 @@ fun ScrollToTopFab(visible: Boolean, modifier: Modifier = Modifier, onClick: () 
             contentColor = MaterialTheme.colorScheme.onPrimaryFixedVariant
         ) {
             Icon(Icons.Rounded.ArrowUpward, null)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun PlaylistQueueFab(visible: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = scaleIn(
+            transformOrigin = CenterBottom,
+            animationSpec = MaterialTheme.motionScheme.fastSpatialSpec()
+        ),
+        exit = scaleOut(
+            transformOrigin = CenterBottom,
+            animationSpec = MaterialTheme.motionScheme.fastSpatialSpec()
+        ) + fadeOut(
+            animationSpec = MaterialTheme.motionScheme.fastEffectsSpec()
+        ),
+        modifier = modifier.padding(bottom = 12.dp)
+    ) {
+        FloatingActionButton(
+            onClick = onClick,
+            shape = CircleShape,
+            elevation = FloatingActionButtonDefaults.loweredElevation(),
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        ) {
+            Icon(Icons.Rounded.QueueMusic, null)
         }
     }
 }

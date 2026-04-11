@@ -127,6 +127,10 @@ fun ArticleListReaderPage(
         }
     }
 
+    BackHandler(queueDrawerState.isVisible) {
+        scope.launch { queueDrawerState.hide() }
+    }
+
     val contentWidth =
         when (navigationAction) {
             NavigationAction.HideList,
@@ -192,6 +196,7 @@ fun ArticleListReaderPage(
                                     animatedVisibilityScope = animatedVisibilityScope,
                                     viewModel = viewModel,
                                     onNavigateUp = onBack,
+                                    onOpenQueue = { scope.launch { queueDrawerState.show() } },
                                     isTwoPane = isTwoPane,
                                     navigateToArticle = { id, index ->
                                         scope.launch {
