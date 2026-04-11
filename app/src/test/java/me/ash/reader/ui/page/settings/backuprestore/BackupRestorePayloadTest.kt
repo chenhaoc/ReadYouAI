@@ -22,6 +22,8 @@ class BackupRestorePayloadTest {
             BackupRestorePayload(
                 exportedAt = "2026-04-10 12:00:00",
                 settingsJson = "{}",
+                selectedAccountId = 7,
+                selectedAccountType = AccountType.Feedly.id,
                 accounts =
                     listOf(
                         Account(
@@ -56,6 +58,8 @@ class BackupRestorePayloadTest {
         val account = parsed.accounts.single().toAccount()
 
         assertEquals(BackupRestorePayload.CURRENT_VERSION, parsed.version)
+        assertEquals(7, parsed.selectedAccountId)
+        assertEquals(AccountType.Feedly.id, parsed.selectedAccountType)
         assertEquals(AccountType.Feedly.id, account.type.id)
         assertEquals(SyncIntervalPreference.Every1Hour.value, account.syncInterval.value)
         assertEquals(SyncOnlyOnWiFiPreference.On.value, account.syncOnlyOnWiFi.value)

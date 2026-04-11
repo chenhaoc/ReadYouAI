@@ -561,11 +561,33 @@ suspend fun Context.fromDataStoreToJSONString(): String {
     return Gson().toJson(map)
 }
 
-suspend fun String.fromJSONStringToDataStore(context: Context) {
+suspend fun String.fromJSONStringToDataStore(
+    context: Context,
+    clearExisting: Boolean = false,
+) {
     val gson = Gson()
     val type = object : TypeToken<Map<String, *>>() {}.type
     val deserializedMap: Map<String, Any> = gson.fromJson(this, type)
     context.dataStore.edit { preferences ->
+        val preservedIgnoredEntries =
+            preferences
+                .asMap()
+                .filterKeys { key -> key.name in ignorePreferencesOnExportAndImport }
+                .toMap()
+
+        if (clearExisting) {
+            preferences.clear()
+            preservedIgnoredEntries.forEach { (key, value) ->
+                @Suppress("UNCHECKED_CAST")
+                when (value) {
+                    is Boolean -> preferences[key as Preferences.Key<Boolean>] = value
+                    is Float -> preferences[key as Preferences.Key<Float>] = value
+                    is Int -> preferences[key as Preferences.Key<Int>] = value
+                    is Long -> preferences[key as Preferences.Key<Long>] = value
+                    is String -> preferences[key as Preferences.Key<String>] = value
+                }
+            }
+        }
         deserializedMap
             .filterKeys { it !in ignorePreferencesOnExportAndImport }
             .forEach { (keyString, value) ->

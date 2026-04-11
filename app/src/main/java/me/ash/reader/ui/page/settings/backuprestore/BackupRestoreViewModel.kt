@@ -19,8 +19,12 @@ import me.ash.reader.infrastructure.db.AndroidDatabase
 import me.ash.reader.infrastructure.di.IODispatcher
 import me.ash.reader.infrastructure.di.MainDispatcher
 import me.ash.reader.ui.ext.DateFormat
+import me.ash.reader.ui.ext.DataStoreKey
+import me.ash.reader.ui.ext.currentAccountId
+import me.ash.reader.ui.ext.currentAccountType
 import me.ash.reader.ui.ext.fromDataStoreToJSONString
 import me.ash.reader.ui.ext.fromJSONStringToDataStore
+import me.ash.reader.ui.ext.put
 import me.ash.reader.ui.ext.toString
 import java.util.Date
 import androidx.lifecycle.ViewModel
@@ -74,6 +78,8 @@ constructor(
                         BackupRestorePayload(
                             exportedAt = Date().toString(DateFormat.YYYY_MM_DD_HH_MM_SS),
                             settingsJson = context.fromDataStoreToJSONString(),
+                            selectedAccountId = context.currentAccountId,
+                            selectedAccountType = context.currentAccountType,
                             accounts = accounts.map { it.toBackupPayload() },
                             groups = groups.map { it.toBackupPayload() },
                             feeds = feeds.map { it.toBackupPayload() },
@@ -95,6 +101,9 @@ constructor(
                             ?: error("Invalid backup file")
                     require(payload.accounts.isNotEmpty()) { "Backup contains no accounts" }
 
+                    var restoredCurrentAccountId: Int? = null
+                    var restoredCurrentAccountType: Int? = null
+
                     androidDatabase.withTransaction {
                         val currentAccounts = accountDao.queryAll()
                         currentAccounts.forEach { account ->
@@ -110,9 +119,30 @@ constructor(
                         accountDao.insertList(payload.accounts.map { it.toAccount() })
                         groupDao.insertAll(payload.groups.map { it.toGroup() })
                         feedDao.insertAll(payload.feeds.map { it.toFeed() })
+
+                        val fallbackAccount = payload.accounts.first()
+                        val selectedAccountId =
+                            payload.selectedAccountId
+                                ?.takeIf { selectedId ->
+                                    payload.accounts.any { account -> account.id == selectedId }
+                                }
+                                ?: fallbackAccount.id
+
+                        val restoredAccount =
+                            selectedAccountId?.let { accountDao.queryById(it) }
+                                ?: accountDao.queryAll().firstOrNull()
+                                ?: error("Imported backup contains no restorable accounts")
+                        restoredCurrentAccountId = restoredAccount.id
+                        restoredCurrentAccountType = restoredAccount.type.id
                     }
 
-                    payload.settingsJson.fromJSONStringToDataStore(context)
+                    payload.settingsJson.fromJSONStringToDataStore(context, clearExisting = true)
+                    restoredCurrentAccountId?.let {
+                        context.dataStore.put(DataStoreKey.currentAccountId, it)
+                    }
+                    restoredCurrentAccountType?.let {
+                        context.dataStore.put(DataStoreKey.currentAccountType, it)
+                    }
                 }
             withContext(mainDispatcher) {
                 callback(result)

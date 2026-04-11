@@ -16,12 +16,14 @@ data class BackupRestorePayload(
     val version: Int = CURRENT_VERSION,
     val exportedAt: String,
     val settingsJson: String,
+    val selectedAccountId: Int? = null,
+    val selectedAccountType: Int? = null,
     val accounts: List<BackupRestoreAccountPayload>,
     val groups: List<BackupRestoreGroupPayload>,
     val feeds: List<BackupRestoreFeedPayload>,
 ) {
     companion object {
-        const val CURRENT_VERSION = 2
+        const val CURRENT_VERSION = 3
     }
 }
 
