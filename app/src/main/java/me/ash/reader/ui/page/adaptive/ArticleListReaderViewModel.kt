@@ -2,6 +2,7 @@ package me.ash.reader.ui.page.adaptive
 
 import android.net.Uri
 import androidx.compose.ui.util.fastFirstOrNull
+import com.google.gson.Gson
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
@@ -13,6 +14,7 @@ import kotlin.collections.any
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -37,6 +39,7 @@ import me.ash.reader.domain.model.feed.Feed
 import me.ash.reader.domain.model.general.MarkAsReadConditions
 import me.ash.reader.domain.repository.ArticleDao
 import me.ash.reader.domain.repository.AiSummaryRepository
+import me.ash.reader.domain.repository.AiTranslationRepository
 import me.ash.reader.domain.service.GoogleReaderRssService
 import me.ash.reader.domain.service.LocalRssService
 import me.ash.reader.domain.service.RssService
@@ -48,11 +51,20 @@ import me.ash.reader.infrastructure.di.IODispatcher
 import me.ash.reader.infrastructure.preference.PullToLoadNextFeedPreference
 import me.ash.reader.infrastructure.preference.SettingsProvider
 import me.ash.reader.infrastructure.rss.ReaderCacheHelper
+import me.ash.reader.ui.page.home.reading.ArticleContentBlockParser
+import me.ash.reader.ui.page.home.reading.buildPrioritizedTranslationBatch
 import timber.log.Timber
 
 private const val TAG = "FlowViewModel"
+private const val DEFAULT_TRANSLATION_PROMPT =
+    "Translate the input JSON array into Simplified Chinese. Return JSON only. Preserve every id, keep the original order, do not summarize, do not omit content, and set translatedText for each item.\n\n"
 
 private enum class SummaryTrigger {
+    MANUAL,
+    AUTO,
+}
+
+private enum class TranslationTrigger {
     MANUAL,
     AUTO,
 }
@@ -75,6 +87,7 @@ constructor(
     private val articleListUseCase: ArticlePagingListUseCase,
     private val articleDao: ArticleDao,
     private val aiSummaryRepository: AiSummaryRepository,
+    private val aiTranslationRepository: AiTranslationRepository,
     workManager: WorkManager,
 ) : ViewModel() {
 
@@ -274,6 +287,8 @@ constructor(
     private val _readerState: MutableStateFlow<ReaderState> = MutableStateFlow(ReaderState())
     val readerStateStateFlow = _readerState.asStateFlow()
     private val isAiSummaryCardVisible = MutableStateFlow(true)
+    private val translationFocusIndex = MutableStateFlow(0)
+    private var translationJob: Job? = null
 
     private val currentArticle: Article?
         get() = readingUiState.value.articleWithFeed?.article
@@ -321,6 +336,12 @@ constructor(
                         shouldRenderAiSummaryInline = article.aiSummary != null,
                         shouldShowAiSummaryReadyPrompt = false,
                         hasAutoAiSummaryAttempted = false,
+                        translatedContentBlocks = null,
+                        isTranslationLoading = false,
+                        isTranslationInlineLoading = false,
+                        translationError = null,
+                        shouldRenderTranslationInline = false,
+                        hasAutoTranslationAttempted = false,
                     )
                 }
                 _readerState.update {
@@ -335,11 +356,13 @@ constructor(
                         .prefetchArticleId()
                         .renderContent(this)
                 }
+                syncTranslationStateForContent(_readerState.value.content.text ?: article.rawDescription)
             }
         }
     }
 
     fun clearReadingData() {
+        translationJob?.cancel()
         _readingUiState.update { ReadingUiState() }
         _readerState.update { ReaderState() }
     }
@@ -360,11 +383,11 @@ constructor(
     }
 
     fun renderDescriptionContent() {
+        val content = currentArticle?.rawDescription ?: ""
         _readerState.update {
-            it.copy(
-                content = ReaderState.Description(content = currentArticle?.rawDescription ?: "")
-            )
+            it.copy(content = ReaderState.Description(content = content))
         }
+        syncTranslationStateForContent(content)
     }
 
     fun renderFullContent() {
@@ -376,6 +399,7 @@ constructor(
                         _readerState.update {
                             it.copy(content = ReaderState.FullContent(content = content))
                         }
+                        syncTranslationStateForContent(content)
                     }
                     .onFailure { th ->
                         _readerState.update {
@@ -474,6 +498,14 @@ constructor(
 
     fun autoSummarizeCurrentArticle() {
         requestAiSummary(SummaryTrigger.AUTO)
+    }
+
+    fun translateCurrentArticle() {
+        requestTranslation(TranslationTrigger.MANUAL)
+    }
+
+    fun autoTranslateCurrentArticle() {
+        requestTranslation(TranslationTrigger.AUTO)
     }
 
     private fun requestAiSummary(trigger: SummaryTrigger) {
@@ -583,6 +615,188 @@ constructor(
         }
     }
 
+    private fun requestTranslation(trigger: TranslationTrigger) {
+        if (translationJob?.isActive == true || readingUiState.value.isTranslationLoading) return
+        translationJob =
+            viewModelScope.launch {
+            if (currentFeed?.isTranslationEnabled != true) return@launch
+            val articleId = currentArticle?.id ?: return@launch
+            val article = currentArticle ?: return@launch
+            val content = readerStateStateFlow.value.content.text?.takeIf { it.isNotBlank() }
+                ?: article.rawDescription
+            val blocks = ArticleContentBlockParser.parse(content = content, baseUrl = article.link)
+            val eligibleBlocks = ArticleContentBlockParser.translationSourcePayload(blocks)
+            if (eligibleBlocks.isEmpty()) return@launch
+            val sourceHash = ArticleContentBlockParser.translationSourceHash(blocks)
+            val isAutoTrigger = trigger == TranslationTrigger.AUTO
+            val existingTranslations =
+                if (article.translationSourceHash == sourceHash) {
+                    me.ash.reader.domain.repository.ArticleTranslationPayloadCodec
+                        .decodeStoredBlocks(article.translationBlocksZh)
+                } else {
+                    emptyList()
+                }
+
+            if (
+                isAutoTrigger &&
+                    existingTranslations.size == eligibleBlocks.size
+            ) {
+                _readingUiState.update {
+                    it.copy(
+                        translatedContentBlocks = article.translationBlocksZh,
+                        shouldRenderTranslationInline = true,
+                        hasAutoTranslationAttempted = true,
+                    )
+                }
+                return@launch
+            }
+
+            _readingUiState.update {
+                it.copy(
+                    isTranslationLoading = true,
+                    isTranslationInlineLoading = it.shouldRenderTranslationInline,
+                    translationError = null,
+                    hasAutoTranslationAttempted = it.hasAutoTranslationAttempted || isAutoTrigger,
+                )
+            }
+
+            val settings = settingsProvider.settings
+            if (settings.aiApiKey.value.isEmpty() || settings.aiBaseUrl.value.isEmpty()) {
+                _readingUiState.update {
+                    it.copy(
+                        isTranslationLoading = false,
+                        isTranslationInlineLoading = false,
+                        translationError =
+                            if (isAutoTrigger) null else "Please configure API URL and key first",
+                    )
+                }
+                return@launch
+            }
+
+            val accumulatedTranslations = existingTranslations.associateBy { it.id }.toMutableMap()
+            while (true) {
+                val nextBatch =
+                    buildPrioritizedTranslationBatch(
+                        blocks = blocks,
+                        translatedBlockIds = accumulatedTranslations.keys,
+                        preferredStartIndex = translationFocusIndex.value,
+                    )
+                if (nextBatch.isEmpty()) break
+
+                when (
+                    val result =
+                        aiTranslationRepository.translateBlocks(
+                            baseUrl = settings.aiBaseUrl.value,
+                            apiKey = settings.aiApiKey.value,
+                            model = settings.aiModel.value.ifEmpty { "gpt-3.5-turbo" },
+                            prompt =
+                                settings.aiTranslationPrompt.value.ifEmpty {
+                                    DEFAULT_TRANSLATION_PROMPT
+                                },
+                            sourceBlocks = nextBatch,
+                        )
+                ) {
+                    is me.ash.reader.infrastructure.net.ApiResult.Success -> {
+                        result.data.forEach { accumulatedTranslations[it.id] = it }
+                        val mergedTranslations =
+                            blocks.mapNotNull { block -> accumulatedTranslations[block.id] }
+                        val serializedTranslation = Gson().toJson(mergedTranslations)
+                        articleDao.updateTranslation(
+                            articleId = articleId,
+                            translationBlocksZh = serializedTranslation,
+                            translationSourceHash = sourceHash,
+                        )
+                        val updatedArticle =
+                            (readingUiState.value.articleWithFeed?.article ?: article).copy(
+                                translationBlocksZh = serializedTranslation,
+                                translationSourceHash = sourceHash,
+                            )
+                        _readingUiState.update {
+                            it.copy(
+                                articleWithFeed =
+                                    readingUiState.value.articleWithFeed?.copy(article = updatedArticle)
+                                        ?: it.articleWithFeed,
+                                translatedContentBlocks = serializedTranslation,
+                                shouldRenderTranslationInline = true,
+                                translationError = null,
+                            )
+                        }
+                    }
+                    is me.ash.reader.infrastructure.net.ApiResult.BizError -> {
+                        _readingUiState.update {
+                            it.copy(
+                                isTranslationLoading = false,
+                                isTranslationInlineLoading = false,
+                                translationError = result.exception.message ?: "Business error",
+                            )
+                        }
+                        return@launch
+                    }
+                    is me.ash.reader.infrastructure.net.ApiResult.NetworkError -> {
+                        _readingUiState.update {
+                            it.copy(
+                                isTranslationLoading = false,
+                                isTranslationInlineLoading = false,
+                                translationError = result.exception.message ?: "Network error",
+                            )
+                        }
+                        return@launch
+                    }
+                    is me.ash.reader.infrastructure.net.ApiResult.UnknownError -> {
+                        _readingUiState.update {
+                            it.copy(
+                                isTranslationLoading = false,
+                                isTranslationInlineLoading = false,
+                                translationError = result.throwable.message ?: "Unknown error",
+                            )
+                        }
+                        return@launch
+                    }
+                }
+            }
+            _readingUiState.update {
+                it.copy(
+                    isTranslationLoading = false,
+                    isTranslationInlineLoading = false,
+                    translationError = null,
+                    translatedContentBlocks = Gson().toJson(blocks.mapNotNull { block ->
+                        accumulatedTranslations[block.id]
+                    }),
+                    shouldRenderTranslationInline = accumulatedTranslations.isNotEmpty(),
+                )
+            }
+        }
+    }
+
+    private fun syncTranslationStateForContent(content: String) {
+        if (currentFeed?.isTranslationEnabled != true) {
+            _readingUiState.update {
+                it.copy(
+                    translatedContentBlocks = null,
+                    shouldRenderTranslationInline = false,
+                )
+            }
+            return
+        }
+        val article = currentArticle ?: return
+        val validPayload = translationPayloadForContent(content = content, article = article)
+        _readingUiState.update {
+            it.copy(
+                translatedContentBlocks = validPayload,
+                shouldRenderTranslationInline = validPayload != null,
+            )
+        }
+    }
+
+    private fun translationPayloadForContent(content: String, article: Article): String? {
+        if (article.translationBlocksZh.isNullOrBlank() || article.translationSourceHash.isNullOrBlank()) {
+            return null
+        }
+        val blocks = ArticleContentBlockParser.parse(content = content, baseUrl = article.link)
+        val sourceHash = ArticleContentBlockParser.translationSourceHash(blocks)
+        return article.translationBlocksZh.takeIf { article.translationSourceHash == sourceHash }
+    }
+
     fun toggleAiSummaryExpanded() {
         if (readingUiState.value.aiSummary == null && readingUiState.value.isAiSummaryLoading) {
             return
@@ -612,6 +826,20 @@ constructor(
         }
     }
 
+    fun clearHiddenTranslationError() {
+        _readingUiState.update {
+            if (it.shouldRenderTranslationInline) it else it.copy(translationError = null)
+        }
+    }
+
+    fun clearTranslationError() {
+        _readingUiState.update { it.copy(translationError = null) }
+    }
+
+    fun updateTranslationFocusIndex(index: Int) {
+        translationFocusIndex.value = index.coerceAtLeast(0)
+    }
+
     fun updateAiSummaryCardVisible(isVisible: Boolean) {
         isAiSummaryCardVisible.value = isVisible
     }
@@ -631,6 +859,12 @@ data class ReadingUiState(
     val shouldRenderAiSummaryInline: Boolean = false,
     val shouldShowAiSummaryReadyPrompt: Boolean = false,
     val hasAutoAiSummaryAttempted: Boolean = false,
+    val translatedContentBlocks: String? = null,
+    val isTranslationLoading: Boolean = false,
+    val isTranslationInlineLoading: Boolean = false,
+    val translationError: String? = null,
+    val shouldRenderTranslationInline: Boolean = false,
+    val hasAutoTranslationAttempted: Boolean = false,
 ) {
     val isAiSummaryVisible: Boolean
         get() =
@@ -639,6 +873,19 @@ data class ReadingUiState(
 
     val shouldAutoGenerateAiSummary: Boolean
         get() = aiSummary == null && !hasAutoAiSummaryAttempted && !isAiSummaryLoading
+
+    val isTranslationVisible: Boolean
+        get() =
+            shouldRenderTranslationInline &&
+                (translatedContentBlocks != null ||
+                    isTranslationInlineLoading ||
+                    translationError != null)
+
+    val shouldAutoGenerateTranslation: Boolean
+        get() =
+            translatedContentBlocks == null &&
+                !hasAutoTranslationAttempted &&
+                !isTranslationLoading
 }
 
 data class ReaderState(

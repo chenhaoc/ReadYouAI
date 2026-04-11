@@ -5,6 +5,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import me.ash.reader.domain.repository.AiSummaryRepository
+import me.ash.reader.domain.repository.AiTranslationRepository
 import javax.inject.Singleton
 
 @Module
@@ -13,4 +14,8 @@ object OpenAiModule {
     @Provides
     @Singleton
     fun provideAiSummaryRepository(): AiSummaryRepository = AiSummaryRepository()
+
+    @Provides
+    @Singleton
+    fun provideAiTranslationRepository(): AiTranslationRepository = AiTranslationRepository()
 }

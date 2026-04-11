@@ -134,6 +134,8 @@ constructor(
         isNotification: Boolean,
         isFullContent: Boolean,
         isBrowser: Boolean,
+        isTranslationEnabled: Boolean,
+        isAutoTranslate: Boolean,
     ) {
         val accountId = accountService.getCurrentAccountId()
         val quickAdd = getGoogleReaderAPI().subscriptionQuickAdd(feedLink)
@@ -158,6 +160,8 @@ constructor(
                 isNotification = isNotification,
                 isFullContent = isFullContent,
                 isBrowser = isBrowser,
+                isTranslationEnabled = isTranslationEnabled,
+                isAutoTranslate = isAutoTranslate,
             )
         )
         // TODO: When users need to subscribe to multiple feeds continuously, this makes them

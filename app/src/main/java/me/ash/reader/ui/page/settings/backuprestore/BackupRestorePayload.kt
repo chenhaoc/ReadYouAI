@@ -87,6 +87,8 @@ data class BackupRestoreFeedPayload(
     val isNotification: Boolean = false,
     val isFullContent: Boolean = false,
     val isBrowser: Boolean = false,
+    val isTranslationEnabled: Boolean = false,
+    val isAutoTranslate: Boolean = false,
 ) {
     fun toFeed(): Feed =
         Feed(
@@ -99,6 +101,8 @@ data class BackupRestoreFeedPayload(
             isNotification = isNotification,
             isFullContent = isFullContent,
             isBrowser = isBrowser,
+            isTranslationEnabled = isTranslationEnabled,
+            isAutoTranslate = isAutoTranslate,
         )
 }
 
@@ -136,4 +140,6 @@ fun Feed.toBackupPayload(): BackupRestoreFeedPayload =
         isNotification = isNotification,
         isFullContent = isFullContent,
         isBrowser = isBrowser,
+        isTranslationEnabled = isTranslationEnabled,
+        isAutoTranslate = isAutoTranslate,
     )

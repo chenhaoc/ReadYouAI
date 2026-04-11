@@ -146,6 +146,7 @@ class SettingsProvider @Inject constructor(
             LocalAiApiKey provides settings.aiApiKey,
             LocalAiModel provides settings.aiModel,
             LocalAiSummarizationPrompt provides settings.aiSummarizationPrompt,
+            LocalAiTranslationPrompt provides settings.aiTranslationPrompt,
             LocalAiAutoSummary provides settings.aiAutoSummary,
         ) {
             content()

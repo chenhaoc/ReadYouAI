@@ -36,6 +36,7 @@ import me.ash.reader.infrastructure.preference.LocalAiApiKey
 import me.ash.reader.infrastructure.preference.LocalAiAutoSummary
 import me.ash.reader.infrastructure.preference.LocalAiModel
 import me.ash.reader.infrastructure.preference.LocalAiSummarizationPrompt
+import me.ash.reader.infrastructure.preference.LocalAiTranslationPrompt
 import me.ash.reader.infrastructure.preference.LocalSettings
 import me.ash.reader.infrastructure.net.ApiResult
 import me.ash.reader.ui.component.base.DisplayText
@@ -59,6 +60,7 @@ fun AiSettingsPage(
     val aiApiKey = LocalAiApiKey.current
     val aiModel = LocalAiModel.current
     val aiSummarizationPrompt = LocalAiSummarizationPrompt.current
+    val aiTranslationPrompt = LocalAiTranslationPrompt.current
     val aiAutoSummary = LocalAiAutoSummary.current
     val settings = LocalSettings.current
     
@@ -68,6 +70,7 @@ fun AiSettingsPage(
     var apiKeyDialogVisible by remember { mutableStateOf(false) }
     var modelDialogVisible by remember { mutableStateOf(false) }
     var promptDialogVisible by remember { mutableStateOf(false) }
+    var translationPromptDialogVisible by remember { mutableStateOf(false) }
     
     val availableModels = remember { mutableStateListOf<String>() }
     var isLoadingModels by remember { mutableStateOf(false) }
@@ -203,6 +206,13 @@ fun AiSettingsPage(
                             aiAutoSummary.toggle(context, scope)
                         }
                     }
+                    SettingItem(
+                        title = stringResource(R.string.ai_translation_prompt),
+                        desc = aiTranslationPrompt.toDesc(context),
+                        onClick = {
+                            translationPromptDialogVisible = true
+                        }
+                    ) {}
                     Spacer(modifier = Modifier.height(24.dp))
                 }
                 
@@ -267,6 +277,19 @@ fun AiSettingsPage(
         onConfirm = { value: String ->
             aiSummarizationPrompt.copy(value = value).put(context, scope)
             promptDialogVisible = false
+        }
+    )
+
+    TextFieldDialog(
+        textFieldState = rememberTextFieldState(aiTranslationPrompt.value),
+        visible = translationPromptDialogVisible,
+        title = stringResource(R.string.ai_translation_prompt),
+        placeholder = stringResource(R.string.ai_translation_prompt_hint),
+        singleLine = false,
+        onDismissRequest = { translationPromptDialogVisible = false },
+        onConfirm = { value: String ->
+            aiTranslationPrompt.copy(value = value).put(context, scope)
+            translationPromptDialogVisible = false
         }
     )
 }

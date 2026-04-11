@@ -20,7 +20,7 @@ import java.util.*
 
 @Database(
     entities = [Account::class, Feed::class, Article::class, Group::class, ArchivedArticle::class],
-    version = 8,
+    version = 9,
     autoMigrations = [
         AutoMigration(from = 5, to = 6),
         AutoMigration(from = 5, to = 7),
@@ -81,6 +81,7 @@ val allMigrations = arrayOf(
     MIGRATION_3_4,
     MIGRATION_4_5,
     MIGRATION_7_8,
+    MIGRATION_8_9,
 )
 
 @Suppress("ClassName")
@@ -168,6 +169,33 @@ object MIGRATION_7_8 : Migration(7, 8) {
         database.execSQL(
             """
             ALTER TABLE article ADD COLUMN aiSummary TEXT DEFAULT NULL
+            """.trimIndent()
+        )
+    }
+}
+
+@Suppress("ClassName")
+object MIGRATION_8_9 : Migration(8, 9) {
+
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL(
+            """
+            ALTER TABLE feed ADD COLUMN isTranslationEnabled INTEGER NOT NULL DEFAULT 0
+            """.trimIndent()
+        )
+        database.execSQL(
+            """
+            ALTER TABLE feed ADD COLUMN isAutoTranslate INTEGER NOT NULL DEFAULT 0
+            """.trimIndent()
+        )
+        database.execSQL(
+            """
+            ALTER TABLE article ADD COLUMN translationBlocksZh TEXT DEFAULT NULL
+            """.trimIndent()
+        )
+        database.execSQL(
+            """
+            ALTER TABLE article ADD COLUMN translationSourceHash TEXT DEFAULT NULL
             """.trimIndent()
         )
     }

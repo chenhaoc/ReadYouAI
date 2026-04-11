@@ -95,6 +95,7 @@ fun Preferences.toSettings(): Settings {
         aiApiKey = AiApiKeyPreference.fromPreferences(this),
         aiModel = AiModelPreference.fromPreferences(this),
         aiSummarizationPrompt = AiSummarizationPromptPreference.fromPreferences(this),
+        aiTranslationPrompt = AiTranslationPromptPreference.fromPreferences(this),
         aiAutoSummary = AiAutoSummaryPreference.fromPreferences(this),
     )
 }

@@ -22,6 +22,7 @@ import me.ash.reader.infrastructure.di.ApplicationScope
 import me.ash.reader.infrastructure.di.IODispatcher
 import me.ash.reader.infrastructure.di.MainDispatcher
 import me.ash.reader.infrastructure.rss.RssHelper
+import me.ash.reader.ui.page.home.reading.normalizeFeedTranslationSettings
 
 @OptIn(ExperimentalMaterialApi::class)
 @HiltViewModel
@@ -124,6 +125,46 @@ constructor(
             _feedOptionUiState.value.feed?.let {
                 rssService.get().updateFeed(it.copy(isNotification = !it.isNotification))
                 fetchFeed(it.id)
+            }
+        }
+    }
+
+    fun changeTranslationEnabledPreset() {
+        viewModelScope.launch(ioDispatcher) {
+            _feedOptionUiState.value.feed?.let { feed ->
+                val normalized =
+                    normalizeFeedTranslationSettings(
+                        isTranslationEnabled = !feed.isTranslationEnabled,
+                        isAutoTranslate = feed.isAutoTranslate,
+                    )
+                rssService.get().updateFeed(
+                    feed.copy(
+                        isTranslationEnabled = normalized.isTranslationEnabled,
+                        isAutoTranslate = normalized.isAutoTranslate,
+                    )
+                )
+                fetchFeed(feed.id)
+            }
+        }
+    }
+
+    fun changeAutoTranslatePreset() {
+        viewModelScope.launch(ioDispatcher) {
+            _feedOptionUiState.value.feed?.let { feed ->
+                val targetAutoTranslate = !feed.isAutoTranslate
+                val normalized =
+                    normalizeFeedTranslationSettings(
+                        isTranslationEnabled = feed.isTranslationEnabled,
+                        isAutoTranslate = targetAutoTranslate,
+                        preferAutoTranslate = targetAutoTranslate,
+                    )
+                rssService.get().updateFeed(
+                    feed.copy(
+                        isTranslationEnabled = normalized.isTranslationEnabled,
+                        isAutoTranslate = normalized.isAutoTranslate,
+                    )
+                )
+                fetchFeed(feed.id)
             }
         }
     }

@@ -50,6 +50,10 @@ data class Article(
     @ColumnInfo
     var aiSummary: String? = null,
     @ColumnInfo
+    var translationBlocksZh: String? = null,
+    @ColumnInfo
+    var translationSourceHash: String? = null,
+    @ColumnInfo
     var updateAt: Date? = null,
 ) {
 

@@ -207,6 +207,7 @@ sealed interface PreferencesKey {
         const val aiApiKey = "aiApiKey"
         const val aiModel = "aiModel"
         const val aiSummarizationPrompt = "aiSummarizationPrompt"
+        const val aiTranslationPrompt = "aiTranslationPrompt"
         const val aiAutoSummary = "aiAutoSummary"
 
         private val keyList =
@@ -288,6 +289,7 @@ sealed interface PreferencesKey {
                 StringKey(aiApiKey),
                 StringKey(aiModel),
                 StringKey(aiSummarizationPrompt),
+                StringKey(aiTranslationPrompt),
                 BooleanKey(aiAutoSummary),
             )
 
@@ -382,6 +384,7 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
         const val aiApiKey = "aiApiKey"
         const val aiModel = "aiModel"
         const val aiSummarizationPrompt = "aiSummarizationPrompt"
+        const val aiTranslationPrompt = "aiTranslationPrompt"
         const val aiAutoSummary = "aiAutoSummary"
 
         val keys: MutableMap<String, DataStoreKey<*>> =
@@ -539,6 +542,7 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
                 aiApiKey to DataStoreKey(stringPreferencesKey(aiApiKey), String::class.java),
                 aiModel to DataStoreKey(stringPreferencesKey(aiModel), String::class.java),
                 aiSummarizationPrompt to DataStoreKey(stringPreferencesKey(aiSummarizationPrompt), String::class.java),
+                aiTranslationPrompt to DataStoreKey(stringPreferencesKey(aiTranslationPrompt), String::class.java),
                 aiAutoSummary to
                     DataStoreKey(booleanPreferencesKey(aiAutoSummary), Boolean::class.java),
             )
@@ -694,6 +698,7 @@ private fun buildDefaultBackupPreferenceValues(): Map<String, Any> {
         PreferencesKey.aiApiKey to settings.aiApiKey.value,
         PreferencesKey.aiModel to settings.aiModel.value,
         PreferencesKey.aiSummarizationPrompt to settings.aiSummarizationPrompt.value,
+        PreferencesKey.aiTranslationPrompt to settings.aiTranslationPrompt.value,
         PreferencesKey.aiAutoSummary to settings.aiAutoSummary.value,
     )
 }

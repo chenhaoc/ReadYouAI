@@ -88,5 +88,6 @@ data class Settings(
     val aiApiKey: AiApiKeyPreference = AiApiKeyPreference.default,
     val aiModel: AiModelPreference = AiModelPreference.default,
     val aiSummarizationPrompt: AiSummarizationPromptPreference = AiSummarizationPromptPreference.default,
+    val aiTranslationPrompt: AiTranslationPromptPreference = AiTranslationPromptPreference.default,
     val aiAutoSummary: AiAutoSummaryPreference = AiAutoSummaryPreference.default,
 )

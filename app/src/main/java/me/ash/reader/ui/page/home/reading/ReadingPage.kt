@@ -130,10 +130,34 @@ fun ReadingPage(
         }
     }
 
+    LaunchedEffect(
+        readerState.articleId,
+        readerState.content.text,
+        readingUiState.articleWithFeed?.feed?.isTranslationEnabled,
+        readingUiState.articleWithFeed?.feed?.isAutoTranslate,
+        readingUiState.shouldAutoGenerateTranslation,
+    ) {
+        if (
+            readerState.articleId != null &&
+                readingUiState.articleWithFeed?.feed?.isTranslationEnabled == true &&
+                readingUiState.articleWithFeed?.feed?.isAutoTranslate == true &&
+                readingUiState.shouldAutoGenerateTranslation
+        ) {
+            viewModel.autoTranslateCurrentArticle()
+        }
+    }
+
     LaunchedEffect(readingUiState.aiSummaryError, readingUiState.isAiSummaryVisible) {
         if (readingUiState.aiSummaryError != null && !readingUiState.isAiSummaryVisible) {
             context.showToast(readingUiState.aiSummaryError)
             viewModel.clearHiddenAiSummaryError()
+        }
+    }
+
+    LaunchedEffect(readingUiState.translationError) {
+        if (readingUiState.translationError != null) {
+            context.showToast(readingUiState.translationError)
+            viewModel.clearTranslationError()
         }
     }
 
@@ -165,6 +189,12 @@ fun ReadingPage(
                                 summaryNavigationController.restoreReturnTarget?.invoke(target)
                             }
                             summaryReturnTarget = null
+                        },
+                        isTranslationEnabled =
+                            readingUiState.articleWithFeed?.feed?.isTranslationEnabled == true,
+                        isTranslationLoading = readingUiState.isTranslationLoading,
+                        onTranslateClick = {
+                            coroutineScope.launch { viewModel.translateCurrentArticle() }
                         },
                     )
                 }
@@ -305,6 +335,7 @@ fun ReadingPage(
 
                                 LaunchedEffect(scrollState, readingRenderer, readerState.articleId) {
                                     if (readingRenderer == ReadingRendererPreference.WebView) {
+                                        viewModel.updateTranslationFocusIndex(0)
                                         snapshotFlow { scrollState.value }
                                             .collect { latestReadingPosition = SummaryReturnTarget.Scroll(it) }
                                     }
@@ -317,7 +348,13 @@ fun ReadingPage(
                                                 index = listState.firstVisibleItemIndex,
                                                 offset = listState.firstVisibleItemScrollOffset,
                                             )
-                                        }.collect { latestReadingPosition = it }
+                                        }.collect {
+                                            latestReadingPosition = it
+                                            val estimatedBlockIndex =
+                                                ((listState.firstVisibleItemIndex - 1) / 2)
+                                                    .coerceAtLeast(0)
+                                            viewModel.updateTranslationFocusIndex(estimatedBlockIndex)
+                                        }
                                     }
                                 }
 
@@ -376,6 +413,8 @@ fun ReadingPage(
                                             aiSummaryError = readingUiState.aiSummaryError,
                                             isAiSummaryExpanded =
                                                 readingUiState.isAiSummaryExpanded,
+                                            translatedContentBlocks =
+                                                readingUiState.translatedContentBlocks,
                                             feedName = feedName,
                                             title = title.toString(),
                                             author = author,

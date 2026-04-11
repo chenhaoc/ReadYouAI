@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.rounded.MenuOpen
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.VerticalAlignBottom
 import androidx.compose.material.icons.outlined.VerticalAlignTop
 import androidx.compose.material.icons.rounded.Close
@@ -73,6 +74,9 @@ fun TopBar(
     onAiSummaryReadyClick: () -> Unit = {},
     isAiSummaryReturnAvailable: Boolean = false,
     onAiSummaryReturnClick: () -> Unit = {},
+    isTranslationEnabled: Boolean = false,
+    onTranslateClick: () -> Unit = {},
+    isTranslationLoading: Boolean = false,
 ) {
     val context = LocalContext.current
     val sharedContent = LocalSharedContent.current
@@ -169,6 +173,26 @@ fun TopBar(
                                 tint = MaterialTheme.colorScheme.onSurface,
                             ) {
                                 onAiSummaryClick()
+                            }
+                        }
+                        if (isTranslationEnabled) {
+                            if (isTranslationLoading) {
+                                IconButton(enabled = false, onClick = {}) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            } else {
+                                FeedbackIconButton(
+                                    modifier = Modifier.size(22.dp),
+                                    imageVector = Icons.Outlined.Translate,
+                                    contentDescription = stringResource(R.string.translate),
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                ) {
+                                    onTranslateClick()
+                                }
                             }
                         }
                         FeedbackIconButton(

@@ -407,6 +407,20 @@ interface ArticleDao {
 
     @Query(
         """
+        UPDATE article
+        SET translationBlocksZh = :translationBlocksZh,
+            translationSourceHash = :translationSourceHash
+        WHERE id = :articleId
+        """
+    )
+    suspend fun updateTranslation(
+        articleId: String,
+        translationBlocksZh: String?,
+        translationSourceHash: String?,
+    )
+
+    @Query(
+        """
         DELETE FROM article
         WHERE accountId = :accountId
         AND feedId = :feedId
@@ -532,7 +546,8 @@ interface ArticleDao {
         """
         SELECT a.id, a.date, a.title, a.author, a.rawDescription, 
         a.shortDescription, a.fullContent, a.img, a.link, a.feedId, 
-        a.accountId, a.isUnread, a.isStarred, a.isReadLater, a.aiSummary, a.updateAt 
+        a.accountId, a.isUnread, a.isStarred, a.isReadLater, a.aiSummary,
+        a.translationBlocksZh, a.translationSourceHash, a.updateAt 
         FROM article AS a
         LEFT JOIN feed AS b ON b.id = a.feedId
         LEFT JOIN `group` AS c ON c.id = b.groupId
@@ -553,7 +568,8 @@ interface ArticleDao {
         """
         SELECT a.id, a.date, a.title, a.author, a.rawDescription, 
         a.shortDescription, a.fullContent, a.img, a.link, a.feedId, 
-        a.accountId, a.isUnread, a.isStarred, a.isReadLater, a.aiSummary, a.updateAt 
+        a.accountId, a.isUnread, a.isStarred, a.isReadLater, a.aiSummary,
+        a.translationBlocksZh, a.translationSourceHash, a.updateAt 
         FROM article AS a
         LEFT JOIN feed AS b ON b.id = a.feedId
         LEFT JOIN `group` AS c ON c.id = b.groupId
@@ -575,7 +591,8 @@ interface ArticleDao {
         """
         SELECT a.id, a.date, a.title, a.author, a.rawDescription, 
         a.shortDescription, a.fullContent, a.img, a.link, a.feedId, 
-        a.accountId, a.isUnread, a.isStarred, a.isReadLater, a.aiSummary, a.updateAt 
+        a.accountId, a.isUnread, a.isStarred, a.isReadLater, a.aiSummary,
+        a.translationBlocksZh, a.translationSourceHash, a.updateAt 
         FROM article AS a
         LEFT JOIN feed AS b ON b.id = a.feedId
         LEFT JOIN `group` AS c ON c.id = b.groupId
@@ -644,7 +661,8 @@ interface ArticleDao {
         """
         SELECT a.id, a.date, a.title, a.author, a.rawDescription, 
         a.shortDescription, a.fullContent, a.img, a.link, a.feedId, 
-        a.accountId, a.isUnread, a.isStarred, a.isReadLater, a.aiSummary, a.updateAt 
+        a.accountId, a.isUnread, a.isStarred, a.isReadLater, a.aiSummary,
+        a.translationBlocksZh, a.translationSourceHash, a.updateAt 
         FROM article AS a LEFT JOIN feed AS b 
         ON a.feedId = b.id
         WHERE a.feedId = :feedId 

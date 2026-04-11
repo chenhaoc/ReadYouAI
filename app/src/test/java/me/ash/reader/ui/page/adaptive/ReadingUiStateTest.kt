@@ -59,4 +59,42 @@ class ReadingUiStateTest {
                 .shouldAutoGenerateAiSummary
         )
     }
+
+    @Test
+    fun translationVisibleWhenBilingualContentExistsOrIsLoading() {
+        assertTrue(
+            ReadingUiState(
+                translatedContentBlocks = "[]",
+                shouldRenderTranslationInline = true,
+            ).isTranslationVisible
+        )
+        assertTrue(
+            ReadingUiState(
+                isTranslationInlineLoading = true,
+                shouldRenderTranslationInline = true,
+            ).isTranslationVisible
+        )
+    }
+
+    @Test
+    fun autoTranslationShouldRunOnlyWhenNoCachedTranslationExistsAndNotYetAttempted() {
+        assertTrue(
+            ReadingUiState(
+                hasAutoTranslationAttempted = false,
+                translatedContentBlocks = null,
+            ).shouldAutoGenerateTranslation
+        )
+        assertFalse(
+            ReadingUiState(
+                hasAutoTranslationAttempted = true,
+                translatedContentBlocks = null,
+            ).shouldAutoGenerateTranslation
+        )
+        assertFalse(
+            ReadingUiState(
+                hasAutoTranslationAttempted = false,
+                translatedContentBlocks = "[]",
+            ).shouldAutoGenerateTranslation
+        )
+    }
 }

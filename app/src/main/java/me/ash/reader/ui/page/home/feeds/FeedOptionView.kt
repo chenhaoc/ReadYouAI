@@ -35,6 +35,8 @@ fun FeedOptionView(
     selectedAllowNotificationPreset: Boolean = false,
     selectedParseFullContentPreset: Boolean = false,
     selectedOpenInBrowserPreset: Boolean = false,
+    selectedTranslationEnabledPreset: Boolean = false,
+    selectedAutoTranslatePreset: Boolean = false,
     isMoveToGroup: Boolean = false,
     showGroup: Boolean = true,
     showUnsubscribe: Boolean = true,
@@ -43,6 +45,8 @@ fun FeedOptionView(
     allowNotificationPresetOnClick: () -> Unit = {},
     parseFullContentPresetOnClick: () -> Unit = {},
     openInBrowserPresetOnClick: () -> Unit = {},
+    translationEnabledPresetOnClick: () -> Unit = {},
+    autoTranslatePresetOnClick: () -> Unit = {},
     clearArticlesOnClick: () -> Unit = {},
     unsubscribeOnClick: () -> Unit = {},
     onGroupClick: (groupId: String) -> Unit = {},
@@ -59,11 +63,15 @@ fun FeedOptionView(
             selectedAllowNotificationPreset = selectedAllowNotificationPreset,
             selectedParseFullContentPreset = selectedParseFullContentPreset,
             selectedOpenInBrowserPreset = selectedOpenInBrowserPreset,
+            selectedTranslationEnabledPreset = selectedTranslationEnabledPreset,
+            selectedAutoTranslatePreset = selectedAutoTranslatePreset,
             showUnsubscribe = showUnsubscribe,
             notSubscribeMode = notSubscribeMode,
             allowNotificationPresetOnClick = allowNotificationPresetOnClick,
             parseFullContentPresetOnClick = parseFullContentPresetOnClick,
             openInBrowserPresetOnClick = openInBrowserPresetOnClick,
+            translationEnabledPresetOnClick = translationEnabledPresetOnClick,
+            autoTranslatePresetOnClick = autoTranslatePresetOnClick,
             clearArticlesOnClick = clearArticlesOnClick,
             unsubscribeOnClick = unsubscribeOnClick,
         )
@@ -107,11 +115,15 @@ private fun Preset(
     selectedAllowNotificationPreset: Boolean = false,
     selectedParseFullContentPreset: Boolean = false,
     selectedOpenInBrowserPreset: Boolean = false,
+    selectedTranslationEnabledPreset: Boolean = false,
+    selectedAutoTranslatePreset: Boolean = false,
     showUnsubscribe: Boolean = true,
     notSubscribeMode: Boolean = false,
     allowNotificationPresetOnClick: () -> Unit = {},
     parseFullContentPresetOnClick: () -> Unit = {},
     openInBrowserPresetOnClick: () -> Unit = {},
+    translationEnabledPresetOnClick: () -> Unit = {},
+    autoTranslatePresetOnClick: () -> Unit = {},
     clearArticlesOnClick: () -> Unit = {},
     unsubscribeOnClick: () -> Unit = {},
 ) {
@@ -175,6 +187,20 @@ private fun Preset(
             },
         ) {
             allowNotificationPresetOnClick()
+        }
+        RYSelectionChip(
+            modifier = Modifier,
+            content = stringResource(R.string.enable_translation),
+            selected = selectedTranslationEnabledPreset,
+        ) {
+            translationEnabledPresetOnClick()
+        }
+        RYSelectionChip(
+            modifier = Modifier,
+            content = stringResource(R.string.auto_translate),
+            selected = selectedAutoTranslatePreset,
+        ) {
+            autoTranslatePresetOnClick()
         }
         if (notSubscribeMode) {
             RYSelectionChip(

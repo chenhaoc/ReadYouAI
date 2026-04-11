@@ -359,6 +359,8 @@
     <string name="ai_fetch_models_error">获取模型失败，请检查地址和 API 密钥。</string>
     <string name="ai_summarization_prompt">摘要提示词</string>
     <string name="ai_summarization_prompt_hint">自定义文章摘要生成方式</string>
+    <string name="ai_translation_prompt">翻译提示词</string>
+    <string name="ai_translation_prompt_hint">自定义文章分段翻译方式</string>
     <string name="ai_auto_summary">自动 AI 摘要</string>
     <string name="ai_auto_summary_desc">打开尚无摘要的文章时自动生成摘要</string>
     <string name="api_configuration">API 配置</string>
@@ -383,4 +385,10 @@
     <string name="ai_summary_ready">摘要</string>
     <string name="go_to_summary">跳转到摘要</string>
     <string name="return_to_reading_position">返回刚才位置</string>
+    <string name="translate">翻译</string>
+    <string name="translation">译文</string>
+    <string name="translation_loading">正在翻译…</string>
+    <string name="translation_error">文章翻译失败：%1$s</string>
+    <string name="enable_translation">启用翻译</string>
+    <string name="auto_translate">自动翻译</string>
 </resources>

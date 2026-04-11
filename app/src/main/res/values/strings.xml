@@ -402,6 +402,9 @@
     <string name="ai_summarization_prompt">Summarization Prompt</string>
     <string name="ai_summarization_prompt_hint">Customize how articles are summarized</string>
     <string name="ai_summarization_prompt_default">Please provide a concise summary of the following article in 3-5 bullet points:\n\n</string>
+    <string name="ai_translation_prompt">Translation Prompt</string>
+    <string name="ai_translation_prompt_hint">Customize how article blocks are translated</string>
+    <string name="ai_translation_prompt_default">Translate the input JSON array into Simplified Chinese. Return JSON only. Preserve every id, keep the original order, do not summarize, do not omit content, and set translatedText for each item.\n\n</string>
     <string name="ai_auto_summary">Auto AI Summary</string>
     <string name="ai_auto_summary_desc">Automatically summarize articles without an existing summary when opened</string>
     <string name="api_configuration">API Configuration</string>
@@ -429,4 +432,10 @@
     <string name="view">View</string>
     <string name="go_to_summary">Go to summary</string>
     <string name="return_to_reading_position">Return to reading position</string>
+    <string name="translate">Translate</string>
+    <string name="translation">Translation</string>
+    <string name="translation_loading">Translating…</string>
+    <string name="translation_error">Failed to translate article: %1$s</string>
+    <string name="enable_translation">Enable translation</string>
+    <string name="auto_translate">Auto translate</string>
  </resources>

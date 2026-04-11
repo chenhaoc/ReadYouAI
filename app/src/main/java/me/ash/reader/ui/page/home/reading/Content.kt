@@ -42,6 +42,7 @@ fun Content(
     isAiSummaryLoading: Boolean,
     aiSummaryError: String?,
     isAiSummaryExpanded: Boolean,
+    translatedContentBlocks: String?,
     feedName: String,
     title: String,
     author: String? = null,
@@ -62,6 +63,8 @@ fun Content(
     val textContentWidth = LocalTextContentWidth.current
     val maxWidthModifier = Modifier.widthIn(max = textContentWidth)
     val uriHandler = LocalUriHandler.current
+    val contentBlocks = ArticleContentBlockParser.parse(content = content, baseUrl = link ?: "")
+    val translatedBlockMap = parseTranslatedBlockMap(translatedContentBlocks)
 
     val headline =
         @Composable {
@@ -118,7 +121,12 @@ fun Content(
 
                             RYWebView(
                                 modifier = Modifier.fillMaxSize(),
-                                content = content,
+                                content =
+                                    buildWebViewBilingualContent(
+                                        content = content,
+                                        baseUrl = link ?: "",
+                                        translationBlocks = translatedContentBlocks,
+                                    ),
                                 refererDomain = link.extractDomain(),
                                 onImageClick = onImageClick,
                             )
@@ -147,14 +155,26 @@ fun Content(
                             summarySection()
                         }
 
-                        Reader(
-                            context = context,
-                            subheadUpperCase = subheadUpperCase.value,
-                            link = link ?: "",
-                            content = content,
-                            onImageClick = onImageClick,
-                            onLinkClick = { uriHandler.openUri(it) },
-                        )
+                        if (translatedBlockMap.isEmpty()) {
+                            Reader(
+                                context = context,
+                                subheadUpperCase = subheadUpperCase.value,
+                                link = link ?: "",
+                                content = content,
+                                onImageClick = onImageClick,
+                                onLinkClick = { uriHandler.openUri(it) },
+                            )
+                        } else {
+                            BilingualReader(
+                                context = context,
+                                subheadUpperCase = subheadUpperCase.value,
+                                link = link ?: "",
+                                blocks = contentBlocks,
+                                translatedBlockMap = translatedBlockMap,
+                                onImageClick = onImageClick,
+                                onLinkClick = { uriHandler.openUri(it) },
+                            )
+                        }
 
                         item {
                             Spacer(modifier = Modifier.height(128.dp))

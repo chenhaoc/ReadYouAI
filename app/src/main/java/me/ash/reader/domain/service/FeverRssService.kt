@@ -98,6 +98,8 @@ constructor(
         isNotification: Boolean,
         isFullContent: Boolean,
         isBrowser: Boolean,
+        isTranslationEnabled: Boolean,
+        isAutoTranslate: Boolean,
     ) {
         throw FeverAPIException("Unsupported")
     }
