@@ -428,4 +428,5 @@
     <string name="ai_summary_ready">Summary</string>
     <string name="view">View</string>
     <string name="go_to_summary">Go to summary</string>
+    <string name="return_to_reading_position">Return to reading position</string>
  </resources>

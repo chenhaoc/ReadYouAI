@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import me.ash.reader.infrastructure.preference.Settings
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 

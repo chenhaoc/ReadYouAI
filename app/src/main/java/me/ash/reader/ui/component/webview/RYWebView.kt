@@ -28,6 +28,7 @@ import me.ash.reader.infrastructure.preference.LocalReadingTextFontSize
 import me.ash.reader.infrastructure.preference.LocalReadingTextHorizontalPadding
 import me.ash.reader.infrastructure.preference.LocalReadingTextLetterSpacing
 import me.ash.reader.infrastructure.preference.LocalReadingTextLineHeight
+import me.ash.reader.infrastructure.preference.LocalDarkTheme
 import me.ash.reader.infrastructure.preference.ReadingFontsPreference
 import me.ash.reader.ui.ext.ExternalFonts
 import me.ash.reader.ui.ext.openURL
@@ -68,6 +69,7 @@ fun RYWebView(
     val codeBgColor: Int =
         MaterialTheme.colorScheme.surfaceColorAtElevation((tonalElevation.value + 6).dp).toArgb()
     val boldCharacters = LocalReadingBoldCharacters.current
+    val useDarkTheme = LocalDarkTheme.current.isDarkTheme()
 
     val webView by
         remember(backgroundColor) {
@@ -130,7 +132,10 @@ fun RYWebView(
                         ),
                         url,
                         content,
-                        WebViewScript.get(boldCharacters.value),
+                        WebViewScript.get(
+                            boldCharacters = boldCharacters.value,
+                            normalizeDarkTextColors = useDarkTheme,
+                        ),
                     ),
                     "text/HTML",
                     "UTF-8",

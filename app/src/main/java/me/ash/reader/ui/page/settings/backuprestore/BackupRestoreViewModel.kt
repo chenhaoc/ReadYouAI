@@ -22,6 +22,7 @@ import me.ash.reader.ui.ext.DateFormat
 import me.ash.reader.ui.ext.DataStoreKey
 import me.ash.reader.ui.ext.currentAccountId
 import me.ash.reader.ui.ext.currentAccountType
+import me.ash.reader.ui.ext.dataStore
 import me.ash.reader.ui.ext.fromDataStoreToJSONString
 import me.ash.reader.ui.ext.fromJSONStringToDataStore
 import me.ash.reader.ui.ext.put
@@ -143,6 +144,7 @@ constructor(
                     restoredCurrentAccountType?.let {
                         context.dataStore.put(DataStoreKey.currentAccountType, it)
                     }
+                    Unit
                 }
             withContext(mainDispatcher) {
                 callback(result)

@@ -47,7 +47,9 @@ import me.ash.reader.infrastructure.preference.LocalAiAutoSummary
 import me.ash.reader.infrastructure.preference.LocalPullToSwitchArticle
 import me.ash.reader.infrastructure.preference.LocalReadingAutoHideToolbar
 import me.ash.reader.infrastructure.preference.LocalReadingBoldCharacters
+import me.ash.reader.infrastructure.preference.LocalReadingRenderer
 import me.ash.reader.infrastructure.preference.LocalReadingTextLineHeight
+import me.ash.reader.infrastructure.preference.ReadingRendererPreference
 import me.ash.reader.infrastructure.preference.not
 import me.ash.reader.ui.ext.collectAsStateValue
 import me.ash.reader.ui.ext.showToast
@@ -58,6 +60,16 @@ import me.ash.reader.ui.page.home.reading.tts.TtsButton
 
 private const val UPWARD = 1
 private const val DOWNWARD = -1
+
+private sealed interface SummaryReturnTarget {
+    data class Scroll(val value: Int) : SummaryReturnTarget
+    data class List(val index: Int, val offset: Int) : SummaryReturnTarget
+}
+
+private class SummaryNavigationController {
+    var jumpToSummary: (() -> Unit)? = null
+    var restoreReturnTarget: ((SummaryReturnTarget) -> Unit)? = null
+}
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterialApi::class)
 @Composable
@@ -76,7 +88,9 @@ fun ReadingPage(
     val readingUiState = viewModel.readingUiState.collectAsStateValue()
     val readerState = viewModel.readerStateStateFlow.collectAsStateValue()
     val boldCharacters = LocalReadingBoldCharacters.current
+    val readingRenderer = LocalReadingRenderer.current
     val coroutineScope = rememberCoroutineScope()
+    val summaryNavigationController = remember { SummaryNavigationController() }
 
     var isReaderScrollingDown by remember { mutableStateOf(false) }
     var showFullScreenImageViewer by remember { mutableStateOf(false) }
@@ -99,6 +113,8 @@ fun ReadingPage(
     //    }
 
     var bringToTop by remember { mutableStateOf(false) }
+    var summaryReturnTarget by remember(readerState.articleId) { mutableStateOf<SummaryReturnTarget?>(null) }
+    var latestReadingPosition by remember(readerState.articleId) { mutableStateOf<SummaryReturnTarget?>(null) }
 
     LaunchedEffect(
         readerState.articleId,
@@ -138,9 +154,17 @@ fun ReadingPage(
                         isAiSummaryLoading = readingUiState.isAiSummaryLoading,
                         onAiSummaryClick = { coroutineScope.launch { viewModel.summarizeCurrentArticle() } },
                         isAiSummaryReady = readingUiState.shouldShowAiSummaryReadyPrompt,
+                        isAiSummaryReturnAvailable = summaryReturnTarget != null,
                         onAiSummaryReadyClick = {
+                            summaryReturnTarget = latestReadingPosition
                             viewModel.showAiSummaryFromPrompt()
-                            bringToTop = true
+                            summaryNavigationController.jumpToSummary?.invoke()
+                        },
+                        onAiSummaryReturnClick = {
+                            summaryReturnTarget?.let { target ->
+                                summaryNavigationController.restoreReturnTarget?.invoke(target)
+                            }
+                            summaryReturnTarget = null
                         },
                     )
                 }
@@ -233,6 +257,69 @@ fun ReadingPage(
                                 val scrollState = rememberScrollState()
 
                                 val scope = rememberCoroutineScope()
+
+                                summaryNavigationController.jumpToSummary = {
+                                    scope.launch {
+                                        when (readingRenderer) {
+                                            ReadingRendererPreference.WebView -> {
+                                                if (scrollState.value != 0) {
+                                                    scrollState.animateScrollTo(0)
+                                                }
+                                            }
+
+                                            ReadingRendererPreference.NativeComponent -> {
+                                                if (
+                                                    listState.firstVisibleItemIndex != 0 ||
+                                                        listState.firstVisibleItemScrollOffset != 0
+                                                ) {
+                                                    listState.animateScrollToItem(0)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                summaryNavigationController.restoreReturnTarget = { target ->
+                                    scope.launch {
+                                        when (target) {
+                                            is SummaryReturnTarget.Scroll -> {
+                                                if (scrollState.value != target.value) {
+                                                    scrollState.animateScrollTo(target.value)
+                                                }
+                                            }
+
+                                            is SummaryReturnTarget.List -> {
+                                                if (
+                                                    listState.firstVisibleItemIndex != target.index ||
+                                                        listState.firstVisibleItemScrollOffset !=
+                                                            target.offset
+                                                ) {
+                                                    listState.animateScrollToItem(
+                                                        target.index,
+                                                        target.offset,
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                LaunchedEffect(scrollState, readingRenderer, readerState.articleId) {
+                                    if (readingRenderer == ReadingRendererPreference.WebView) {
+                                        snapshotFlow { scrollState.value }
+                                            .collect { latestReadingPosition = SummaryReturnTarget.Scroll(it) }
+                                    }
+                                }
+
+                                LaunchedEffect(listState, readingRenderer, readerState.articleId) {
+                                    if (readingRenderer == ReadingRendererPreference.NativeComponent) {
+                                        snapshotFlow {
+                                            SummaryReturnTarget.List(
+                                                index = listState.firstVisibleItemIndex,
+                                                offset = listState.firstVisibleItemScrollOffset,
+                                            )
+                                        }.collect { latestReadingPosition = it }
+                                    }
+                                }
 
                                 LaunchedEffect(bringToTop) {
                                     if (bringToTop) {

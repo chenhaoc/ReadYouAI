@@ -2,7 +2,10 @@ package me.ash.reader.ui.component.webview
 
 object WebViewScript {
 
-    fun get(boldCharacters: Boolean) = """
+    fun get(
+        boldCharacters: Boolean,
+        normalizeDarkTextColors: Boolean,
+    ) = """
 const BR_WORD_STEM_PERCENTAGE = 0.7;
 const MAX_FIXATION_PARTS = 4;
 const FIXATION_LOWER_BOUND = 0
@@ -75,7 +78,56 @@ function setBold(enabled) {
     }
 }
 
+function parseComputedColor(color) {
+    const match = color?.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (!match) return null;
+    return {
+        r: Number(match[1]),
+        g: Number(match[2]),
+        b: Number(match[3]),
+    };
+}
+
+function luminanceChannel(value) {
+    const normalized = value / 255;
+    if (normalized <= 0.03928) return normalized / 12.92;
+    return Math.pow((normalized + 0.055) / 1.055, 2.4);
+}
+
+function isDarkForeground(color) {
+    const rgb = parseComputedColor(color);
+    if (!rgb) return false;
+    const luminance =
+        0.2126 * luminanceChannel(rgb.r) +
+        0.7152 * luminanceChannel(rgb.g) +
+        0.0722 * luminanceChannel(rgb.b);
+    return luminance < 0.2;
+}
+
+function normalizeDarkTextColors() {
+    const selectors = ['[style*="color"]', 'font[color]', '[color]'].join(',');
+    document.querySelectorAll(selectors).forEach((element) => {
+        if (!(element instanceof HTMLElement)) return;
+        if (element.closest('a, pre, code, svg, img, video, iframe, object, embed, button, input, textarea')) {
+            return;
+        }
+        const computedColor = window.getComputedStyle(element).color;
+        if (!isDarkForeground(computedColor)) return;
+        const useBoldColor =
+            element.closest('h1, h2, h3, h4, h5, h6, strong, b') !== null;
+        element.style.setProperty(
+            'color',
+            useBoldColor ? 'var(--bold-text-color)' : 'var(--text-color)',
+            'important'
+        );
+        if (element.hasAttribute('color')) {
+            element.removeAttribute('color');
+        }
+    });
+}
+
 ${if (boldCharacters) "setBold(true);" else ""}
+${if (normalizeDarkTextColors) "normalizeDarkTextColors();" else ""}
 
 var images = document.querySelectorAll("img");
 

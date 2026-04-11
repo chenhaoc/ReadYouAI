@@ -382,4 +382,5 @@
     <string name="ai_summary_error">摘要生成失败：%1$s</string>
     <string name="ai_summary_ready">摘要</string>
     <string name="go_to_summary">跳转到摘要</string>
+    <string name="return_to_reading_position">返回刚才位置</string>
 </resources>
