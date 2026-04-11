@@ -145,6 +145,18 @@ fun ArticleListReaderPage(
                 state = queueState,
                 onPlayItem = viewModel::playPlaylistItem,
                 onPauseCurrent = viewModel::stopQueuePlayback,
+                onSeekCurrent = viewModel::seekCurrentPlayback,
+                onOpenCurrentArticle = { articleId ->
+                    scope.launch {
+                        queueDrawerState.hide()
+                        navigator.navigateTo(
+                            pane = ListDetailPaneScaffoldRole.Detail,
+                            contentKey = ArticleData(articleId = articleId),
+                        )
+                    }
+                },
+                onPrevious = viewModel::previousQueuePlayback,
+                onNext = viewModel::skipQueuePlayback,
                 onRemove = viewModel::removeFromPlaylist,
                 onMoveUp = viewModel::movePlaylistItemUp,
                 onMoveDown = viewModel::movePlaylistItemDown,
@@ -266,6 +278,7 @@ fun ArticleListReaderPage(
                     modifier = Modifier.align(Alignment.BottomCenter),
                     state = queueState,
                     onTogglePlay = viewModel::toggleQueuePlayback,
+                    onSeekToSegment = viewModel::seekCurrentPlayback,
                     onNext = viewModel::skipQueuePlayback,
                     onOpenQueue = { scope.launch { queueDrawerState.show() } },
                 )

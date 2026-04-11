@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
-
 @Serializable
 data class TtsQueueSnapshot(
     val articleIds: List<String> = emptyList(),
@@ -16,11 +15,14 @@ data class TtsQueueSnapshot(
     val wasPlaying: Boolean = false,
     val currentProgress: Float? = null,
     val currentSegmentIndex: Int? = null,
+    val currentSegmentCount: Int? = null,
+    val bookmarks: List<TtsPlaybackBookmark> = emptyList(),
 )
 
 data class TtsQueuePlayableArticle(
     val item: TtsQueueItem,
     val htmlContent: String,
+    val segmentCharCounts: List<Int> = emptyList(),
 )
 
 sealed interface TtsPlaybackEvent {
@@ -90,6 +92,42 @@ class TtsQueueController(
         coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) { playCurrentArticle() }
     }
 
+    fun skipToPrevious() {
+        val currentIndex = _state.value.currentIndex ?: return
+        if (currentIndex <= 0) {
+            seekCurrent(0)
+            return
+        }
+        val previousItem = _state.value.items[currentIndex - 1]
+        _state.value =
+            _state.value.copy(
+                currentArticleId = previousItem.articleId,
+                playbackState = TtsQueuePlaybackState.Preparing,
+            )
+        persistAsync()
+        coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) { playCurrentArticle() }
+    }
+
+    fun seekCurrent(segmentIndex: Int) {
+        val articleId = _state.value.currentArticleId ?: return
+        val safeSegmentIndex =
+            if (_state.value.currentSegmentCount > 0) {
+                segmentIndex.coerceIn(0, _state.value.currentSegmentCount - 1)
+            } else {
+                segmentIndex.coerceAtLeast(0)
+            }
+        playbackClient.stop()
+        updateBookmark(articleId) { bookmark ->
+            bookmark.copy(segmentIndex = safeSegmentIndex)
+        }
+        _state.value =
+            _state.value.copy(
+                playbackState = TtsQueuePlaybackState.Preparing,
+            )
+        persistAsync()
+        coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) { playCurrentArticle() }
+    }
+
     fun remove(articleId: String) {
         val wasCurrent = _state.value.currentArticleId == articleId
         _state.value = TtsQueueReducer.remove(_state.value, articleId)
@@ -141,13 +179,30 @@ class TtsQueueController(
         val currentArticleId =
             snapshot.currentArticleId?.takeIf { currentId -> items.any { it.articleId == currentId } }
                 ?: items.firstOrNull()?.articleId
+        val legacyBookmark =
+            snapshot.currentArticleId?.let { articleId ->
+                if (snapshot.bookmarks.none { it.articleId == articleId }) {
+                    TtsPlaybackBookmark(
+                        articleId = articleId,
+                        segmentIndex = snapshot.currentSegmentIndex ?: 0,
+                        segmentCharCounts =
+                            List(snapshot.currentSegmentCount ?: 0) { 1 },
+                    )
+                } else {
+                    null
+                }
+            }
+        val bookmarks =
+            (snapshot.bookmarks + listOfNotNull(legacyBookmark))
+                .filter { items.any { item -> item.articleId == it.articleId } }
+                .associateBy(TtsPlaybackBookmark::articleId)
 
         _state.value =
             TtsQueueState(
                 items = items,
                 currentArticleId = currentArticleId,
                 playbackState = TtsQueuePlaybackState.Idle,
-                currentSegmentIndex = snapshot.currentSegmentIndex ?: 0,
+                bookmarks = bookmarks,
             )
         persistAsync()
 
@@ -160,10 +215,13 @@ class TtsQueueController(
         when (event) {
             TtsPlaybackEvent.Completed -> onPlaybackCompleted()
             is TtsPlaybackEvent.Progress ->
-                _state.value =
-                    _state.value.copy(
-                        currentSegmentIndex = (event.current - 1).coerceAtLeast(0),
-                    )
+                currentArticleId()?.let { articleId ->
+                    updateBookmark(articleId) { bookmark ->
+                        bookmark.copy(
+                            segmentIndex = (event.current - 1).coerceAtLeast(0),
+                        )
+                    }
+                }
             TtsPlaybackEvent.Failed ->
                 _state.value =
                     _state.value.copy(playbackState = TtsQueuePlaybackState.Error)
@@ -200,9 +258,30 @@ class TtsQueueController(
             return
         }
 
+        val existingBookmark = _state.value.bookmarks[currentArticleId]
+        val segmentCharCounts =
+            when {
+                playableArticle.segmentCharCounts.isNotEmpty() -> playableArticle.segmentCharCounts
+                existingBookmark?.segmentCharCounts?.isNotEmpty() == true ->
+                    existingBookmark?.segmentCharCounts.orEmpty()
+                else -> listOf(1)
+            }
+        val safeSegmentIndex =
+            existingBookmark?.segmentIndex?.coerceIn(
+                minimumValue = 0,
+                maximumValue = (segmentCharCounts.lastIndex).coerceAtLeast(0),
+            ) ?: 0
+        updateBookmark(currentArticleId) {
+            TtsPlaybackBookmark(
+                articleId = currentArticleId,
+                segmentIndex = safeSegmentIndex,
+                segmentCharCounts = segmentCharCounts,
+            )
+        }
+
         playbackClient.play(
             article = playableArticle,
-            startSegmentIndex = _state.value.currentSegmentIndex,
+            startSegmentIndex = safeSegmentIndex,
         )
         _state.value =
             _state.value.copy(
@@ -212,6 +291,19 @@ class TtsQueueController(
         persistAsync()
     }
 
+    private fun currentArticleId(): String? = _state.value.currentArticleId
+
+    private fun updateBookmark(
+        articleId: String,
+        transform: (TtsPlaybackBookmark) -> TtsPlaybackBookmark,
+    ) {
+        val current = _state.value.bookmarks[articleId] ?: TtsPlaybackBookmark(articleId = articleId)
+        _state.value =
+            _state.value.copy(
+                bookmarks = _state.value.bookmarks + (articleId to transform(current)),
+            )
+    }
+
     private fun persistAsync() {
         val snapshot =
             TtsQueueSnapshot(
@@ -219,6 +311,8 @@ class TtsQueueController(
                 currentArticleId = _state.value.currentArticleId,
                 wasPlaying = _state.value.playbackState == TtsQueuePlaybackState.Reading,
                 currentSegmentIndex = _state.value.currentSegmentIndex,
+                currentSegmentCount = _state.value.currentSegmentCount,
+                bookmarks = _state.value.bookmarks.values.toList(),
             )
         coroutineScope.launch { snapshotStore.writeSnapshot(snapshot) }
     }

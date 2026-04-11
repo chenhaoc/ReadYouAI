@@ -1,5 +1,7 @@
 package me.ash.reader.infrastructure.android.ttsqueue
 
+import kotlinx.serialization.Serializable
+
 data class TtsQueueItem(
     val articleId: String,
     val title: String,
@@ -15,17 +17,39 @@ enum class TtsQueuePlaybackState {
     Error,
 }
 
+@Serializable
+data class TtsPlaybackBookmark(
+    val articleId: String,
+    val segmentIndex: Int = 0,
+    val segmentCharCounts: List<Int> = emptyList(),
+) {
+    val segmentCount: Int
+        get() = segmentCharCounts.size
+}
+
 data class TtsQueueState(
     val items: List<TtsQueueItem> = emptyList(),
     val currentArticleId: String? = null,
     val playbackState: TtsQueuePlaybackState = TtsQueuePlaybackState.Idle,
-    val currentSegmentIndex: Int = 0,
+    val bookmarks: Map<String, TtsPlaybackBookmark> = emptyMap(),
 ) {
     val currentIndex: Int?
         get() = items.indexOfFirst { it.articleId == currentArticleId }.takeIf { it >= 0 }
 
     val currentItem: TtsQueueItem?
         get() = currentIndex?.let(items::getOrNull)
+
+    val currentBookmark: TtsPlaybackBookmark?
+        get() = currentArticleId?.let(bookmarks::get)
+
+    val currentSegmentIndex: Int
+        get() = currentBookmark?.segmentIndex ?: 0
+
+    val currentSegmentCount: Int
+        get() = currentBookmark?.segmentCount ?: 0
+
+    val currentSegmentCharCounts: List<Int>
+        get() = currentBookmark?.segmentCharCounts ?: emptyList()
 }
 
 object TtsQueueReducer {
@@ -36,11 +60,15 @@ object TtsQueueReducer {
     }
 
     fun playNow(state: TtsQueueState, item: TtsQueueItem): TtsQueueState {
-        val withoutItem = state.items.filterNot { it.articleId == item.articleId }
+        val items =
+            if (state.items.any { it.articleId == item.articleId }) {
+                state.items
+            } else {
+                state.items + item
+            }
         return state.copy(
-            items = listOf(item) + withoutItem,
+            items = items,
             currentArticleId = item.articleId,
-            currentSegmentIndex = 0,
         )
     }
 
@@ -50,7 +78,6 @@ object TtsQueueReducer {
         return state.copy(
             currentArticleId = nextItem?.articleId,
             playbackState = if (nextItem == null) TtsQueuePlaybackState.Idle else state.playbackState,
-            currentSegmentIndex = 0,
         )
     }
 
@@ -72,9 +99,9 @@ object TtsQueueReducer {
         return state.copy(
             items = updatedItems,
             currentArticleId = updatedCurrentArticleId,
+            bookmarks = state.bookmarks - articleId,
             playbackState =
                 if (updatedCurrentArticleId == null) TtsQueuePlaybackState.Idle else state.playbackState,
-            currentSegmentIndex = if (state.currentArticleId == articleId) 0 else state.currentSegmentIndex,
         )
     }
 
@@ -83,7 +110,7 @@ object TtsQueueReducer {
             items = emptyList(),
             currentArticleId = null,
             playbackState = TtsQueuePlaybackState.Idle,
-            currentSegmentIndex = 0,
+            bookmarks = emptyMap(),
         )
 
     fun moveUp(state: TtsQueueState, articleId: String): TtsQueueState {

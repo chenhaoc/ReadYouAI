@@ -28,6 +28,7 @@ import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueState
 fun TtsMiniPlayer(
     state: TtsQueueState,
     onTogglePlay: () -> Unit,
+    onSeekToSegment: (Int) -> Unit,
     onNext: () -> Unit,
     onOpenQueue: () -> Unit,
     modifier: Modifier = Modifier,
@@ -39,53 +40,69 @@ fun TtsMiniPlayer(
             modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-                .clickable(onClick = onOpenQueue),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
         shape = MaterialTheme.shapes.extraLarge,
         tonalElevation = 8.dp,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Icon(
-                imageVector = Icons.Rounded.QueueMusic,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f).clickable(onClick = onOpenQueue),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.QueueMusic,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Column {
+                        Text(
+                            text = currentItem.title,
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = "${(state.currentIndex ?: 0) + 1}/${state.items.size} · ${currentItem.feedName}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                IconButton(onClick = onTogglePlay) {
+                    Icon(
+                        imageVector =
+                            if (state.playbackState == TtsQueuePlaybackState.Reading) {
+                                Icons.Rounded.Pause
+                            } else {
+                                Icons.Rounded.PlayArrow
+                            },
+                        contentDescription = null,
+                    )
+                }
+                IconButton(onClick = onNext) {
+                    Icon(
+                        imageVector = Icons.Rounded.SkipNext,
+                        contentDescription = null,
+                    )
+                }
+            }
+
+            TtsPlaybackProgressBar(
+                currentSegmentIndex = state.currentSegmentIndex,
+                segmentCharCounts = state.currentSegmentCharCounts,
+                onSeekToSegment = onSeekToSegment,
+                modifier = Modifier.fillMaxWidth(),
             )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = currentItem.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = "${(state.currentIndex ?: 0) + 1}/${state.items.size} · ${currentItem.feedName}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            IconButton(onClick = onTogglePlay) {
-                Icon(
-                    imageVector =
-                        if (state.playbackState == TtsQueuePlaybackState.Reading) {
-                            Icons.Rounded.Pause
-                        } else {
-                            Icons.Rounded.PlayArrow
-                        },
-                    contentDescription = null,
-                )
-            }
-            IconButton(onClick = onNext) {
-                Icon(
-                    imageVector = Icons.Rounded.SkipNext,
-                    contentDescription = null,
-                )
-            }
         }
     }
 }

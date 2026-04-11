@@ -76,8 +76,10 @@ class TextToSpeechManager @Inject constructor(
 
     fun readHtml(htmlContent: String, startSegmentIndex: Int = 0) {
         coroutineScope.launch {
-            val plainText = Html.fromHtml(htmlContent, Html.FROM_HTML_MODE_LEGACY).toString()
-            readText(plainText, startSegmentIndex = startSegmentIndex)
+            readText(
+                text = htmlToPlainText(htmlContent),
+                startSegmentIndex = startSegmentIndex,
+            )
         }
     }
 
@@ -94,7 +96,7 @@ class TextToSpeechManager @Inject constructor(
                     .firstOrNull()?.locale
         }
 
-        val textSegments = text.split("\n").filterNot { it.isBlank() }
+        val textSegments = splitSpeakableSegments(text)
         val total = textSegments.size
         if (total == 0) {
             state = State.Idle
@@ -136,6 +138,17 @@ class TextToSpeechManager @Inject constructor(
         state = State.Idle
     }
 }
+
+internal fun htmlToPlainText(htmlContent: String): String =
+    Html.fromHtml(htmlContent, Html.FROM_HTML_MODE_LEGACY).toString()
+
+internal fun splitSpeakableSegments(text: String): List<String> =
+    text.split("\n")
+        .map(String::trim)
+        .filter(String::isNotBlank)
+
+internal fun htmlSegmentCharCounts(htmlContent: String): List<Int> =
+    splitSpeakableSegments(htmlToPlainText(htmlContent)).map(String::length)
 
 @RequiresApi(Build.VERSION_CODES.Q)
 private fun Context.detectLocaleFromText(

@@ -23,6 +23,7 @@ class TtsQueueControllerTest {
                     currentArticleId = "a",
                     wasPlaying = true,
                     currentSegmentIndex = 1,
+                    currentSegmentCount = 3,
                 )
             )
 
@@ -43,8 +44,8 @@ class TtsQueueControllerTest {
         val repository =
             FakeArticleRepository(
                 mapOf(
-                    "b" to playableArticle("b"),
-                    "c" to playableArticle("c"),
+                    "b" to playableArticle("b", segmentCharCounts = listOf(10)),
+                    "c" to playableArticle("c", segmentCharCounts = listOf(10)),
                 )
             )
         val playbackClient = FakePlaybackClient()
@@ -69,8 +70,8 @@ class TtsQueueControllerTest {
         val repository =
             FakeArticleRepository(
                 mapOf(
-                    "a" to playableArticle("a"),
-                    "b" to playableArticle("b"),
+                    "a" to playableArticle("a", segmentCharCounts = listOf(10)),
+                    "b" to playableArticle("b", segmentCharCounts = listOf(10)),
                 )
             )
         val playbackClient = FakePlaybackClient()
@@ -99,7 +100,7 @@ class TtsQueueControllerTest {
         val repository =
             FakeArticleRepository(
                 mapOf(
-                    "a" to playableArticle("a", html = "<p>db</p>"),
+                    "a" to playableArticle("a", html = "<p>db</p>", segmentCharCounts = listOf(10)),
                 )
             )
         val playbackClient = FakePlaybackClient()
@@ -133,12 +134,13 @@ class TtsQueueControllerTest {
                     currentArticleId = "a",
                     wasPlaying = true,
                     currentSegmentIndex = 2,
+                    currentSegmentCount = 4,
                 )
             )
         val repository =
             FakeArticleRepository(
                 mapOf(
-                    "a" to playableArticle("a", html = "<p>db</p>"),
+                    "a" to playableArticle("a", html = "<p>db</p>", segmentCharCounts = listOf(10, 10, 10, 10)),
                 )
             )
         val playbackClient = FakePlaybackClient()
@@ -163,7 +165,7 @@ class TtsQueueControllerTest {
         val repository =
             FakeArticleRepository(
                 mapOf(
-                    "a" to playableArticle("a", html = "<p>db</p>"),
+                    "a" to playableArticle("a", html = "<p>db</p>", segmentCharCounts = listOf(10, 10, 10, 10)),
                 )
             )
         val playbackClient = FakePlaybackClient()
@@ -190,6 +192,74 @@ class TtsQueueControllerTest {
     }
 
     @Test
+    fun seekCurrent_restarts_playback_from_requested_segment() = runTest {
+        val snapshotStore = FakeSnapshotStore(null)
+        val repository =
+            FakeArticleRepository(
+                mapOf(
+                    "a" to playableArticle("a", html = "<p>db</p>", segmentCharCounts = listOf(10, 10, 10, 10, 10)),
+                )
+            )
+        val playbackClient = FakePlaybackClient()
+        val controller =
+            TtsQueueController(
+                snapshotStore = snapshotStore,
+                articleRepository = repository,
+                playbackClient = playbackClient,
+                coroutineScope = backgroundScope,
+            )
+
+        controller.playNow(playableArticle("a").item)
+        advanceUntilIdle()
+        controller.handlePlaybackEvent(TtsPlaybackEvent.Progress(current = 2, total = 5))
+        advanceUntilIdle()
+
+        controller.seekCurrent(segmentIndex = 3)
+        advanceUntilIdle()
+
+        assertEquals(listOf(0, 3), playbackClient.playedStartSegmentIndices)
+        assertEquals(3, controller.state.value.currentSegmentIndex)
+        assertEquals(5, controller.state.value.currentSegmentCount)
+    }
+
+    @Test
+    fun switching_articles_preserves_each_articles_bookmark() = runTest {
+        val snapshotStore = FakeSnapshotStore(null)
+        val repository =
+            FakeArticleRepository(
+                mapOf(
+                    "a" to playableArticle("a", html = "<p>a1</p>\n<p>a2</p>\n<p>a3</p>", segmentCharCounts = listOf(10, 10, 10)),
+                    "b" to playableArticle("b", html = "<p>b1</p>\n<p>b2</p>", segmentCharCounts = listOf(10, 10)),
+                )
+            )
+        val playbackClient = FakePlaybackClient()
+        val controller =
+            TtsQueueController(
+                snapshotStore = snapshotStore,
+                articleRepository = repository,
+                playbackClient = playbackClient,
+                coroutineScope = backgroundScope,
+            )
+
+        controller.playNow(playableArticle("a").item)
+        advanceUntilIdle()
+        controller.handlePlaybackEvent(TtsPlaybackEvent.Progress(current = 2, total = 3))
+        advanceUntilIdle()
+
+        controller.playNow(playableArticle("b").item)
+        advanceUntilIdle()
+        controller.handlePlaybackEvent(TtsPlaybackEvent.Progress(current = 2, total = 2))
+        advanceUntilIdle()
+
+        controller.playNow(playableArticle("a").item)
+        advanceUntilIdle()
+
+        assertEquals(listOf("a", "b", "a"), playbackClient.playedArticleIds)
+        assertEquals(listOf(0, 0, 1), playbackClient.playedStartSegmentIndices)
+        assertEquals(listOf("a", "b"), controller.state.value.items.map(TtsQueueItem::articleId))
+    }
+
+    @Test
     fun resolvePlayableHtmlContent_falls_back_to_short_description_then_title() {
         assertEquals(
             "<p>short</p>",
@@ -209,7 +279,11 @@ class TtsQueueControllerTest {
         )
     }
 
-    private fun playableArticle(id: String, html: String = "<p>$id</p>") =
+    private fun playableArticle(
+        id: String,
+        html: String = "<p>$id</p>",
+        segmentCharCounts: List<Int> = listOf(10),
+    ) =
         TtsQueuePlayableArticle(
             item =
                 TtsQueueItem(
@@ -218,6 +292,7 @@ class TtsQueueControllerTest {
                     feedName = "feed-$id",
                 ),
             htmlContent = html,
+            segmentCharCounts = segmentCharCounts,
         )
 }
 

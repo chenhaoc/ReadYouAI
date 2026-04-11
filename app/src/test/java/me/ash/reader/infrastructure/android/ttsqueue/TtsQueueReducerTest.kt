@@ -2,6 +2,7 @@ package me.ash.reader.infrastructure.android.ttsqueue
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TtsQueueReducerTest {
@@ -19,13 +20,23 @@ class TtsQueueReducerTest {
     }
 
     @Test
-    fun playNow_moves_existing_item_to_head_and_marks_it_current() {
+    fun playNow_keeps_existing_order_and_marks_item_current() {
         var state = TtsQueueState(items = listOf(item("a"), item("b")), currentArticleId = "a")
 
         state = TtsQueueReducer.playNow(state, item("b"))
 
-        assertEquals(listOf("b", "a"), state.items.map(TtsQueueItem::articleId))
+        assertEquals(listOf("a", "b"), state.items.map(TtsQueueItem::articleId))
         assertEquals("b", state.currentArticleId)
+    }
+
+    @Test
+    fun playNow_appends_missing_item_without_reordering_existing_items() {
+        val state = TtsQueueState(items = listOf(item("a"), item("b")), currentArticleId = "a")
+
+        val updated = TtsQueueReducer.playNow(state, item("c"))
+
+        assertEquals(listOf("a", "b", "c"), updated.items.map(TtsQueueItem::articleId))
+        assertEquals("c", updated.currentArticleId)
     }
 
     @Test
@@ -67,6 +78,46 @@ class TtsQueueReducerTest {
 
         assertEquals(emptyList<String>(), updated.items.map(TtsQueueItem::articleId))
         assertNull(updated.currentArticleId)
+    }
+
+    @Test
+    fun remove_drops_bookmark_for_removed_article() {
+        val state =
+            TtsQueueState(
+                items = listOf(item("a"), item("b")),
+                currentArticleId = "a",
+                bookmarks =
+                    mapOf(
+                        "a" to TtsPlaybackBookmark(articleId = "a", segmentIndex = 1, segmentCharCounts = listOf(20, 30)),
+                        "b" to TtsPlaybackBookmark(articleId = "b", segmentIndex = 0, segmentCharCounts = listOf(50)),
+                    ),
+            )
+
+        val updated = TtsQueueReducer.remove(state, "a")
+
+        assertEquals(listOf("b"), updated.items.map(TtsQueueItem::articleId))
+        assertEquals(setOf("b"), updated.bookmarks.keys)
+    }
+
+    @Test
+    fun clear_resets_queue_and_bookmarks() {
+        val state =
+            TtsQueueState(
+                items = listOf(item("a")),
+                currentArticleId = "a",
+                playbackState = TtsQueuePlaybackState.Reading,
+                bookmarks =
+                    mapOf(
+                        "a" to TtsPlaybackBookmark(articleId = "a", segmentIndex = 1, segmentCharCounts = listOf(20, 30)),
+                    ),
+            )
+
+        val cleared = TtsQueueReducer.clear(state)
+
+        assertTrue(cleared.items.isEmpty())
+        assertNull(cleared.currentArticleId)
+        assertTrue(cleared.bookmarks.isEmpty())
+        assertEquals(TtsQueuePlaybackState.Idle, cleared.playbackState)
     }
 
     private fun item(id: String) =

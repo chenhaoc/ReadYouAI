@@ -1096,6 +1096,10 @@ constructor(
         ttsQueueController.skipToNext()
     }
 
+    fun previousQueuePlayback() {
+        ttsQueueController.skipToPrevious()
+    }
+
     fun clearPlaylist() {
         ttsQueueController.clear()
     }
@@ -1127,6 +1131,10 @@ constructor(
                 ttsQueueController.playNow(it)
             }
         }
+    }
+
+    fun seekCurrentPlayback(segmentIndex: Int) {
+        ttsQueueController.seekCurrent(segmentIndex)
     }
 
     fun toggleQueuePlayback() {

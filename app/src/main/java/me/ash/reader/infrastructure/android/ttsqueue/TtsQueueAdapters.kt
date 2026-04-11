@@ -13,6 +13,7 @@ import kotlinx.serialization.json.Json
 import me.ash.reader.domain.model.article.ArticleWithFeed
 import me.ash.reader.domain.repository.ArticleDao
 import me.ash.reader.infrastructure.android.TextToSpeechManager
+import me.ash.reader.infrastructure.android.htmlSegmentCharCounts
 import me.ash.reader.ui.ext.DataStoreKey
 import me.ash.reader.ui.ext.dataStore
 import me.ash.reader.ui.ext.put
@@ -49,14 +50,16 @@ constructor(
 ) : TtsQueueArticleRepository {
     override suspend fun getById(articleId: String): TtsQueuePlayableArticle? {
         return articleDao.queryById(articleId)?.let { articleWithFeed ->
+            val playableHtml =
+                resolvePlayableHtmlContent(
+                    rawDescription = articleWithFeed.article.rawDescription,
+                    shortDescription = articleWithFeed.article.shortDescription,
+                    title = articleWithFeed.article.title,
+                ) ?: return null
             TtsQueuePlayableArticle(
                 item = articleWithFeed.toQueueItem(),
-                htmlContent =
-                    resolvePlayableHtmlContent(
-                        rawDescription = articleWithFeed.article.rawDescription,
-                        shortDescription = articleWithFeed.article.shortDescription,
-                        title = articleWithFeed.article.title,
-                    ) ?: return null,
+                htmlContent = playableHtml,
+                segmentCharCounts = htmlSegmentCharCounts(playableHtml),
             )
         }
     }

@@ -1,18 +1,24 @@
 package me.ash.reader.ui.page.home.reading.queue
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,29 +36,126 @@ import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueItem
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueuePlaybackState
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueState
 
-internal enum class TtsQueueItemControl {
-    Play,
-    Pause,
-}
-
-internal fun resolveQueueItemControl(
+@Composable
+private fun TtsNowPlayingCard(
     state: TtsQueueState,
-    articleId: String,
-): TtsQueueItemControl =
-    if (
-        state.currentArticleId == articleId &&
-        state.playbackState == TtsQueuePlaybackState.Reading
+    onOpenCurrentArticle: (String) -> Unit,
+    onSeekCurrent: (Int) -> Unit,
+    onTogglePlay: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+) {
+    val currentItem = state.currentItem
+    val playbackControlEnabled =
+        currentItem != null && state.playbackState != TtsQueuePlaybackState.Preparing
+
+    Card(
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ),
+        shape = MaterialTheme.shapes.extraLarge,
     ) {
-        TtsQueueItemControl.Pause
-    } else {
-        TtsQueueItemControl.Play
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (currentItem == null) {
+                Text(
+                    text = stringResource(id = R.string.playlist_empty),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            } else {
+                Column {
+                    Text(
+                        text = "${(state.currentIndex ?: 0) + 1}/${state.items.size}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Column(
+                        modifier =
+                            Modifier.clickable {
+                                onOpenCurrentArticle(currentItem.articleId)
+                            },
+                    ) {
+                        Text(
+                            text = currentItem.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = currentItem.feedName,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+
+                TtsPlaybackProgressBar(
+                    currentSegmentIndex = state.currentSegmentIndex,
+                    segmentCharCounts = state.currentSegmentCharCounts,
+                    onSeekToSegment = onSeekCurrent,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(
+                        onClick = onPrevious,
+                        enabled = playbackControlEnabled,
+                        modifier = Modifier.size(52.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.ArrowBack,
+                            contentDescription = null,
+                        )
+                    }
+                    IconButton(
+                        onClick = onTogglePlay,
+                        enabled = playbackControlEnabled,
+                        modifier = Modifier.size(60.dp),
+                    ) {
+                        Icon(
+                            imageVector =
+                                if (state.playbackState == TtsQueuePlaybackState.Reading) {
+                                    Icons.Rounded.Pause
+                                } else {
+                                    Icons.Rounded.PlayArrow
+                                },
+                            contentDescription = null,
+                        )
+                    }
+                    IconButton(
+                        onClick = onNext,
+                        enabled = playbackControlEnabled,
+                        modifier = Modifier.size(52.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.SkipNext,
+                            contentDescription = null,
+                        )
+                    }
+                }
+            }
+        }
     }
+}
 
 @Composable
 fun TtsQueueSheet(
     state: TtsQueueState,
     onPlayItem: (String) -> Unit,
     onPauseCurrent: () -> Unit,
+    onSeekCurrent: (Int) -> Unit,
+    onOpenCurrentArticle: (String) -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
     onRemove: (String) -> Unit,
     onMoveUp: (String) -> Unit,
     onMoveDown: (String) -> Unit,
@@ -84,26 +187,38 @@ fun TtsQueueSheet(
             }
         }
 
+        TtsNowPlayingCard(
+            state = state,
+            onOpenCurrentArticle = onOpenCurrentArticle,
+            onSeekCurrent = onSeekCurrent,
+            onTogglePlay = {
+                when (state.playbackState) {
+                    TtsQueuePlaybackState.Reading -> onPauseCurrent()
+                    TtsQueuePlaybackState.Preparing -> Unit
+                    else -> state.currentArticleId?.let(onPlayItem)
+                }
+            },
+            onPrevious = onPrevious,
+            onNext = onNext,
+        )
+
         if (state.items.isEmpty()) {
-            Text(
-                text = stringResource(id = R.string.playlist_empty),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             return@Column
         }
 
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(state.items, key = TtsQueueItem::articleId) { item ->
                 val isCurrent = item.articleId == state.currentArticleId
-                val control = resolveQueueItemControl(state = state, articleId = item.articleId)
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(
                         modifier =
-                            Modifier.weight(1f).padding(end = 8.dp),
+                            Modifier
+                                .weight(1f)
+                                .clickable { onPlayItem(item.articleId) }
+                                .padding(end = 8.dp),
                     ) {
                         Text(
                             text = item.title,
@@ -128,24 +243,6 @@ fun TtsQueueSheet(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    IconButton(
-                        onClick = {
-                            when (control) {
-                                TtsQueueItemControl.Play -> onPlayItem(item.articleId)
-                                TtsQueueItemControl.Pause -> onPauseCurrent()
-                            }
-                        }
-                    ) {
-                        Icon(
-                            imageVector =
-                                when (control) {
-                                    TtsQueueItemControl.Play -> Icons.Rounded.PlayArrow
-                                    TtsQueueItemControl.Pause -> Icons.Rounded.Pause
-                                },
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
                         )
                     }
                     IconButton(onClick = { onMoveUp(item.articleId) }) {
