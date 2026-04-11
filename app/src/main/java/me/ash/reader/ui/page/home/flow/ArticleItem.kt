@@ -95,13 +95,28 @@ fun ArticleItem(
 ) {
     val feed = articleWithFeed.feed
     val article = articleWithFeed.article
+    val translationPreview =
+        remember(feed.isTranslationEnabled, article.translationBlocksZh, article.title, article.shortDescription) {
+            if (feed.isTranslationEnabled) {
+                resolveTranslatedListPreview(
+                    translationBlocks = article.translationBlocksZh,
+                    fallbackTitle = article.title,
+                    fallbackDescription = article.shortDescription,
+                )
+            } else {
+                ArticleListTranslationPreview(
+                    title = article.title,
+                    shortDescription = article.shortDescription,
+                )
+            }
+        }
 
     ArticleItem(
         modifier = modifier,
         feedName = feed.name,
         feedIconUrl = feed.icon,
-        title = article.title,
-        shortDescription = article.shortDescription,
+        title = translationPreview.title,
+        shortDescription = translationPreview.shortDescription,
         timeString = article.dateString,
         imgData = article.img,
         isStarred = article.isStarred,

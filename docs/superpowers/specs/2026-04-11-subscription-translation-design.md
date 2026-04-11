@@ -2,7 +2,7 @@
 
 ## Summary
 
-Add subscription-scoped translation controls to ReadYou so that individual subscriptions can opt in to article translation. For enabled subscriptions, the reading top bar will expose a manual `Translate` action with a loading spinner, and subscriptions can also opt into automatic translation on article open.
+Add subscription-scoped translation controls to ReadYou so that individual subscriptions can opt in to article translation. For enabled subscriptions, the reading top bar will expose a manual `Translate` action with a loading spinner, subscriptions can also opt into automatic translation on article open, and feed-scoped article lists can automatically pre-translate visible articles.
 
 The first version will translate article text blocks into Simplified Chinese and render them in bilingual form: each original text block is followed immediately by its translated counterpart. This design intentionally avoids whole-document replacement and instead introduces a structured content-block pipeline so both reading renderers can share the same translation result.
 
@@ -14,6 +14,7 @@ The first version will translate article text blocks into Simplified Chinese and
 - Show a spinner while translation is in progress.
 - Render bilingual reading content as `original block -> translated block`.
 - Cache translation results per article to avoid repeated requests.
+- Reuse article translation cache to show translated title and summary in feed-scoped article lists.
 - Reuse the existing AI provider configuration (`base URL`, `API key`, `model`) instead of creating a second provider stack.
 
 ## Non-Goals
@@ -70,6 +71,19 @@ When an article opens, translation starts automatically only if all of the follo
 - There is no in-flight translation request for the same article.
 
 Automatic and manual translation failures surface an error to the user so timeouts and provider issues are visible instead of silently disappearing.
+
+### Feed Article List
+
+When the user enters a single feed whose translation is enabled:
+
+- The article list automatically detects currently visible articles.
+- The list translation queue prioritizes visible articles first.
+- The queue then prefetches the next four articles after the visible window.
+- Only one article is translated at a time in the background.
+- List items switch to translated title and translated summary as soon as cached blocks become available.
+- If no translation cache exists yet, the list item falls back to the original title and short description.
+
+This behavior intentionally applies only to feed-scoped lists, not group views or the global article list, so automatic translation stays bounded and predictable.
 
 ## Design Options Considered
 
@@ -191,6 +205,17 @@ The AI prompt instructs the model to return only structured JSON with the same I
 
 The client then maps the returned list back to source blocks by ID.
 
+### List Translation Preview
+
+The article list does not store a second list-only translation payload.
+
+Instead, it derives a lightweight preview directly from `translationBlocksZh`:
+
+- list title: first translated block
+- list summary: the next one or two translated blocks, joined into a short preview
+
+If translated blocks are absent or invalid, the list falls back to `Article.title` and `Article.shortDescription`.
+
 ### Hashing and Cache Validity
 
 Generate `translationSourceHash` from the exact ordered translation-source payload, not from raw HTML.
@@ -248,6 +273,18 @@ This keeps parity with the native renderer and reduces malformed-model-output ri
 4. The app starts translating the first prioritized batch near the current reading position instead of waiting for the full article.
 5. Additional batches continue in the background while the article is being read.
 6. If translation fails, the app keeps already translated blocks and shows an error prompt.
+
+### Feed List Translation
+
+1. User opens a feed whose translation is enabled.
+2. The feed list watches visible article items and waits briefly for scrolling to settle.
+3. The app collects visible article IDs, then appends the next four article IDs after the visible window.
+4. The resulting queue is deduplicated and compared to the previous queue to avoid redundant work.
+5. The view model translates at most one queued article at a time.
+6. Each queued article reuses the same article-level translation pipeline and writes back into `translationBlocksZh`.
+7. Once cache is updated, paging invalidation refreshes the corresponding list row and the translated preview appears.
+
+For full-content feeds, the list translation path only uses existing full-content cache. It does not fetch missing full content during list scrolling, which avoids combining full-content fetch latency with translation latency in the scrolling path.
 
 ### Refresh Translation
 

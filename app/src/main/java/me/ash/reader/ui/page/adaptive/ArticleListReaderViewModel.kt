@@ -297,6 +297,9 @@ constructor(
     private val isAiSummaryCardVisible = MutableStateFlow(true)
     private val translationFocusIndex = MutableStateFlow(0)
     private var translationJob: Job? = null
+    private val pendingListTranslationArticleIds = linkedSetOf<String>()
+    private var listTranslationJob: Job? = null
+    private var activeListTranslationArticleId: String? = null
 
     private val currentArticle: Article?
         get() = readingUiState.value.articleWithFeed?.article
@@ -905,6 +908,18 @@ constructor(
         translationFocusIndex.value = index.coerceAtLeast(0)
     }
 
+    fun updateListTranslationTargets(feed: Feed?, articleIds: List<String>) {
+        if (feed?.isTranslationEnabled != true || feed.isBrowser) {
+            clearListTranslationTargets(cancelActive = true)
+            return
+        }
+        pendingListTranslationArticleIds.clear()
+        pendingListTranslationArticleIds.addAll(
+            articleIds.distinct().filter { it != activeListTranslationArticleId }
+        )
+        ensureListTranslationJob()
+    }
+
     fun updateAiSummaryCardVisible(isVisible: Boolean) {
         isAiSummaryCardVisible.value = isVisible
     }
@@ -912,6 +927,38 @@ constructor(
     private fun cancelTranslationJob() {
         translationJob?.cancel()
         translationJob = null
+    }
+
+    private fun clearListTranslationTargets(cancelActive: Boolean) {
+        pendingListTranslationArticleIds.clear()
+        if (cancelActive) {
+            listTranslationJob?.cancel()
+            listTranslationJob = null
+            activeListTranslationArticleId = null
+        }
+    }
+
+    private fun ensureListTranslationJob() {
+        if (listTranslationJob?.isActive == true || pendingListTranslationArticleIds.isEmpty()) return
+        val job =
+            viewModelScope.launch {
+                while (pendingListTranslationArticleIds.isNotEmpty()) {
+                    val nextArticleId = pendingListTranslationArticleIds.firstOrNull() ?: break
+                    pendingListTranslationArticleIds.remove(nextArticleId)
+                    activeListTranslationArticleId = nextArticleId
+                    translateArticleFromList(nextArticleId)
+                }
+            }
+        listTranslationJob = job
+        job.invokeOnCompletion {
+            if (listTranslationJob === job) {
+                listTranslationJob = null
+                activeListTranslationArticleId = null
+                if (pendingListTranslationArticleIds.isNotEmpty()) {
+                    ensureListTranslationJob()
+                }
+            }
+        }
     }
 
     private fun isTranslationRequestCurrent(articleId: String): Boolean {
@@ -934,6 +981,82 @@ constructor(
     private fun serializeTranslatedBlocks(
         blocks: List<me.ash.reader.domain.repository.TranslatedArticleBlock>,
     ): String? = blocks.takeIf { it.isNotEmpty() }?.let { Gson().toJson(it) }
+
+    private suspend fun translateArticleFromList(articleId: String) {
+        if (currentArticle?.id == articleId && (translationJob?.isActive == true || readingUiState.value.isTranslationLoading)) {
+            return
+        }
+        val articleWithFeed = rssService.get().findArticleById(articleId) ?: return
+        if (!articleWithFeed.feed.isTranslationEnabled || articleWithFeed.feed.isBrowser) return
+
+        val settings = settingsProvider.settings
+        if (settings.aiApiKey.value.isEmpty() || settings.aiBaseUrl.value.isEmpty()) return
+
+        val content =
+            if (articleWithFeed.feed.isFullContent) {
+                readerCacheHelper.readFullContent(articleId).getOrNull()?.takeIf { it.isNotBlank() }
+            } else {
+                articleWithFeed.article.rawDescription
+            } ?: return
+
+        val blocks =
+            ArticleContentBlockParser.parse(
+                content = content,
+                baseUrl = articleWithFeed.article.link,
+            )
+        val eligibleBlocks = ArticleContentBlockParser.translationSourcePayload(blocks)
+        if (eligibleBlocks.isEmpty()) return
+
+        val sourceHash = ArticleContentBlockParser.translationSourceHash(blocks)
+        val existingTranslations =
+            if (articleWithFeed.article.translationSourceHash == sourceHash) {
+                normalizeStoredTranslations(blocks, articleWithFeed.article.translationBlocksZh)
+            } else {
+                emptyList()
+            }
+        if (
+            translatedBlockCount(blocks, existingTranslations.map { it.id }.toSet()) ==
+                translatableBlockCount(blocks)
+        ) {
+            return
+        }
+
+        val nextBatch =
+            buildPrioritizedTranslationBatch(
+                blocks = blocks,
+                translatedBlockIds = existingTranslations.map { it.id }.toSet(),
+                preferredStartIndex = 0,
+            )
+        if (nextBatch.isEmpty()) return
+
+        when (
+            val result =
+                aiTranslationRepository.translateBlocks(
+                    baseUrl = settings.aiBaseUrl.value,
+                    apiKey = settings.aiApiKey.value,
+                    model = settings.aiModel.value.ifEmpty { "gpt-3.5-turbo" },
+                    prompt =
+                        settings.aiTranslationPrompt.value.ifEmpty {
+                            DEFAULT_TRANSLATION_PROMPT
+                        },
+                    sourceBlocks = nextBatch,
+                )
+        ) {
+            is me.ash.reader.infrastructure.net.ApiResult.Success -> {
+                val mergedTranslations =
+                    (existingTranslations + result.data)
+                        .associateBy { it.id }
+                        .let { translatedMap -> blocks.mapNotNull { block -> translatedMap[block.id] } }
+                val serializedTranslation = serializeTranslatedBlocks(mergedTranslations) ?: return
+                articleDao.updateTranslation(
+                    articleId = articleId,
+                    translationBlocksZh = serializedTranslation,
+                    translationSourceHash = sourceHash,
+                )
+            }
+            else -> return
+        }
+    }
 }
 
 data class FlowUiState(val pagerData: PagerData, val nextFilterState: FilterState? = null)

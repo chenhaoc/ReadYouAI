@@ -68,6 +68,8 @@ import androidx.compose.ui.zIndex
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import me.ash.reader.R
@@ -566,6 +568,43 @@ fun FlowPage(
                     val listState = remember(pager) { listState }
 
                     val isSyncing by rememberUpdatedState(isSyncing)
+
+                    LaunchedEffect(pagingItems, filterState.feed?.id, filterState.feed?.isTranslationEnabled) {
+                        if (
+                            filterState.feed?.isTranslationEnabled != true ||
+                                filterState.feed?.isBrowser == true
+                        ) {
+                            viewModel.updateListTranslationTargets(feed = null, articleIds = emptyList())
+                            return@LaunchedEffect
+                        }
+                        snapshotFlow {
+                            val visibleArticleItems =
+                                listState.layoutInfo.visibleItemsInfo
+                                    .filter { it.contentType == CONTENT_TYPE_ARTICLE }
+                            val visibleArticleIds =
+                                visibleArticleItems.mapNotNull { it.key as? String }
+                            val lastVisibleArticleIndex = visibleArticleItems.lastOrNull()?.index ?: -1
+                            val subsequentArticleIds = mutableListOf<String>()
+                            for (index in lastVisibleArticleIndex + 1 until pagingItems.itemCount) {
+                                val item = pagingItems.peek(index) as? ArticleFlowItem.Article ?: continue
+                                subsequentArticleIds += item.articleWithFeed.article.id
+                                if (subsequentArticleIds.size >= 4) break
+                            }
+                            buildListTranslationTargetIds(
+                                visibleArticleIds = visibleArticleIds,
+                                subsequentArticleIds = subsequentArticleIds,
+                                prefetchCount = 4,
+                            )
+                        }
+                            .distinctUntilChanged()
+                            .debounce(400)
+                            .collect { targetIds ->
+                                viewModel.updateListTranslationTargets(
+                                    feed = filterState.feed,
+                                    articleIds = targetIds,
+                                )
+                            }
+                    }
 
                     LaunchedEffect(pagingItems) {
                         snapshotFlow { pagingItems.loadState.isIdle }
