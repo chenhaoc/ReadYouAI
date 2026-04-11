@@ -53,6 +53,7 @@ fun Content(
     contentPadding: PaddingValues = PaddingValues(),
     onImageClick: ((imgUrl: String, altText: String) -> Unit)? = null,
     onAiSummaryToggleExpand: () -> Unit = {},
+    onAiSummaryVisibilityChanged: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     val subheadUpperCase = LocalReadingSubheadUpperCase.current
@@ -86,6 +87,7 @@ fun Content(
                     error = aiSummaryError,
                     isExpanded = isAiSummaryExpanded,
                     onToggleExpanded = onAiSummaryToggleExpand,
+                    onVisibilityChanged = onAiSummaryVisibilityChanged,
                 )
             }
         }

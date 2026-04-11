@@ -273,7 +273,7 @@ constructor(
 
     private val _readerState: MutableStateFlow<ReaderState> = MutableStateFlow(ReaderState())
     val readerStateStateFlow = _readerState.asStateFlow()
-    private val isReaderNearTop = MutableStateFlow(true)
+    private val isAiSummaryCardVisible = MutableStateFlow(true)
 
     private val currentArticle: Article?
         get() = readingUiState.value.articleWithFeed?.article
@@ -487,14 +487,13 @@ constructor(
                     ?: ""
             val settings = settingsProvider.settings
             val keepInlineVisible = currentState.shouldRenderAiSummaryInline
-            val keepInlineExpanded =
-                keepInlineVisible && (currentState.isAiSummaryExpanded || currentState.aiSummary != null)
+            val keepInlineExpanded = keepInlineVisible && currentState.isAiSummaryExpanded
             val isAutoTrigger = trigger == SummaryTrigger.AUTO
 
             _readingUiState.update {
                 it.copy(
                     isAiSummaryLoading = true,
-                    isAiSummaryInlineLoading = keepInlineVisible,
+                    isAiSummaryInlineLoading = keepInlineExpanded,
                     aiSummaryError = null,
                     isAiSummaryExpanded = keepInlineExpanded,
                     shouldShowAiSummaryReadyPrompt = false,
@@ -534,7 +533,7 @@ constructor(
                                     (currentArticle ?: return@launch).copy(aiSummary = result.data)
                             )
                     _readingUiState.update {
-                        val shouldExpandInlineSummary = keepInlineVisible && isReaderNearTop.value
+                        val shouldExpandInlineSummary = isAiSummaryCardVisible.value
                         it.copy(
                             articleWithFeed = updatedArticleWithFeed,
                             aiSummary = result.data,
@@ -542,7 +541,7 @@ constructor(
                             isAiSummaryInlineLoading = false,
                             aiSummaryError = null,
                             isAiSummaryExpanded = shouldExpandInlineSummary,
-                            shouldRenderAiSummaryInline = keepInlineVisible,
+                            shouldRenderAiSummaryInline = shouldExpandInlineSummary,
                             shouldShowAiSummaryReadyPrompt = !shouldExpandInlineSummary,
                         )
                     }
@@ -586,25 +585,9 @@ constructor(
 
     fun toggleAiSummaryExpanded() {
         if (readingUiState.value.aiSummary == null && readingUiState.value.isAiSummaryLoading) {
-            _readingUiState.update {
-                it.copy(
-                    shouldRenderAiSummaryInline = true,
-                    isAiSummaryExpanded = true,
-                    isAiSummaryInlineLoading = true,
-                    shouldShowAiSummaryReadyPrompt = false,
-                )
-            }
             return
         }
         if (readingUiState.value.aiSummary == null && !readingUiState.value.isAiSummaryLoading) {
-            _readingUiState.update {
-                it.copy(
-                    shouldRenderAiSummaryInline = true,
-                    isAiSummaryExpanded = true,
-                    isAiSummaryInlineLoading = true,
-                    shouldShowAiSummaryReadyPrompt = false,
-                )
-            }
             requestAiSummary(SummaryTrigger.MANUAL)
             return
         }
@@ -629,8 +612,8 @@ constructor(
         }
     }
 
-    fun updateReaderNearTop(isNearTop: Boolean) {
-        isReaderNearTop.value = isNearTop
+    fun updateAiSummaryCardVisible(isVisible: Boolean) {
+        isAiSummaryCardVisible.value = isVisible
     }
 }
 

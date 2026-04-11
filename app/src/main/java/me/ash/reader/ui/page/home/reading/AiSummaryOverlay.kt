@@ -20,10 +20,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import kotlin.math.max
+import kotlin.math.min
 import me.ash.reader.R
 
 @Composable
@@ -33,9 +44,33 @@ fun AiSummaryCard(
     error: String?,
     isExpanded: Boolean,
     onToggleExpanded: () -> Unit = {},
+    onVisibilityChanged: (Boolean) -> Unit = {},
 ) {
+    val view = LocalView.current
+    val density = LocalDensity.current
+    val minVisibleHeight = with(density) { 24.dp.toPx() }
+    var lastVisibility by remember { mutableStateOf<Boolean?>(null) }
+
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
+        modifier =
+            Modifier.fillMaxWidth()
+                .padding(top = 20.dp)
+                .onGloballyPositioned { coordinates ->
+                    val bounds: Rect = coordinates.boundsInWindow()
+                    val viewportWidth = view.width.toFloat()
+                    val viewportHeight = view.height.toFloat()
+                    val visibleWidth =
+                        max(0f, min(bounds.right, viewportWidth) - max(bounds.left, 0f))
+                    val visibleHeight =
+                        max(0f, min(bounds.bottom, viewportHeight) - max(bounds.top, 0f))
+                    val isVisible =
+                        visibleWidth > 0f &&
+                            visibleHeight >= min(minVisibleHeight, bounds.height)
+                    if (lastVisibility != isVisible) {
+                        lastVisibility = isVisible
+                        onVisibilityChanged(isVisible)
+                    }
+                },
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         tonalElevation = 1.dp,

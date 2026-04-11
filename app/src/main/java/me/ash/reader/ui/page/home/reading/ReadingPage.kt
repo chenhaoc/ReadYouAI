@@ -255,10 +255,6 @@ fun ReadingPage(
                                         }
                                         .collectAsStateValue(initial = false)
 
-                                LaunchedEffect(showTopDivider, readerState.articleId) {
-                                    viewModel.updateReaderNearTop(!showTopDivider)
-                                }
-
                                 CompositionLocalProvider(
                                     LocalTextStyle provides
                                         LocalTextStyle.current.run {
@@ -289,8 +285,7 @@ fun ReadingPage(
                                             contentPadding = paddings,
                                             content = content.text ?: "",
                                             aiSummary = readingUiState.aiSummary,
-                                            isAiSummaryLoading =
-                                                readingUiState.isAiSummaryInlineLoading,
+                                            isAiSummaryLoading = readingUiState.isAiSummaryLoading,
                                             aiSummaryError = readingUiState.aiSummaryError,
                                             isAiSummaryExpanded =
                                                 readingUiState.isAiSummaryExpanded,
@@ -308,6 +303,9 @@ fun ReadingPage(
                                             },
                                             onAiSummaryToggleExpand = {
                                                 viewModel.toggleAiSummaryExpanded()
+                                            },
+                                            onAiSummaryVisibilityChanged = {
+                                                viewModel.updateAiSummaryCardVisible(it)
                                             },
                                         )
                                         PullToLoadIndicator(
