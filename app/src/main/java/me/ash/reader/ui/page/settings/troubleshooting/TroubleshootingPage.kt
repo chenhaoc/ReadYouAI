@@ -165,7 +165,10 @@ fun TroubleshootingPage(onBack: () -> Unit, viewModel: TroubleshootingViewModel 
                     Spacer(modifier = Modifier.height(24.dp))
                 }
                 item {
-                    Subtitle(modifier = Modifier.padding(horizontal = 24.dp), text = "Worker infos")
+                    Subtitle(
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                        text = stringResource(R.string.worker_infos),
+                    )
                 }
                 items(onetimeWorkerInfos) {
                     WorkInfo(
@@ -185,7 +188,7 @@ fun TroubleshootingPage(onBack: () -> Unit, viewModel: TroubleshootingViewModel 
                     item {
                         Subtitle(
                             modifier = Modifier.padding(horizontal = 24.dp).padding(top = 24.dp),
-                            text = "Sync errors",
+                            text = stringResource(R.string.sync_errors),
                         )
                     }
                     items(syncLogList) { SyncLogItem(log = it) }

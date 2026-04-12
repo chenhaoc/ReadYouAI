@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -100,6 +101,9 @@ fun FeedsPagePreview(
             filterBarFilled = filterBarFilled,
             filterBarPadding = filterBarPadding,
             filterBarTonalElevation = filterBarTonalElevation,
+            extraActionIcon = Icons.AutoMirrored.Rounded.QueueMusic,
+            extraActionContentDescription = stringResource(R.string.playlist),
+            onExtraActionClick = {},
         ) {
             filter = it
         }

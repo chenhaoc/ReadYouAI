@@ -17,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
@@ -28,6 +29,12 @@ import me.ash.reader.infrastructure.preference.LocalThemeIndex
 import me.ash.reader.ui.ext.surfaceColorAtElevation
 import me.ash.reader.ui.theme.palette.onDark
 
+fun filterBarContainerHeight(filterBarStyle: Int): Dp =
+    when (filterBarStyle) {
+        FlowFilterBarStylePreference.Icon.value -> 64.dp
+        else -> 80.dp
+    }
+
 @Composable
 fun FilterBar(
     modifier: Modifier = Modifier,
@@ -36,6 +43,10 @@ fun FilterBar(
     filterBarFilled: Boolean,
     filterBarPadding: Dp,
     filterBarTonalElevation: Dp,
+    extraActionIcon: ImageVector? = null,
+    extraActionContentDescription: String? = null,
+    extraActionSelected: Boolean = false,
+    onExtraActionClick: (() -> Unit)? = null,
     filterOnClick: (Filter) -> Unit = {},
 ) {
     val view = LocalView.current
@@ -46,10 +57,7 @@ fun FilterBar(
         MaterialTheme.colorScheme.primaryContainer
     } onDark MaterialTheme.colorScheme.secondaryContainer
 
-    val containerHeight = when (filterBarStyle) {
-        FlowFilterBarStylePreference.Icon.value -> 64.dp
-        else -> 80.dp
-    }
+    val containerHeight = filterBarContainerHeight(filterBarStyle)
 
     Surface(
         color = MaterialTheme.colorScheme.surfaceColorAtElevation(filterBarTonalElevation),
@@ -103,6 +111,31 @@ fun FilterBar(
 //                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                         view.playSoundEffect(SoundEffectConstants.CLICK)
                         filterOnClick(item)
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        indicatorColor = indicatorColor,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        selectedIconColor = MaterialTheme.colorScheme.contentColorFor(indicatorColor),
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        selectedTextColor = MaterialTheme.colorScheme.onSurface
+                    )
+                )
+            }
+            if (extraActionIcon != null && onExtraActionClick != null) {
+                NavigationBarItem(
+                    modifier = Modifier.height(containerHeight),
+                    alwaysShowLabel = false,
+                    icon = {
+                        Icon(
+                            imageVector = extraActionIcon,
+                            contentDescription = extraActionContentDescription,
+                        )
+                    },
+                    label = null,
+                    selected = extraActionSelected,
+                    onClick = {
+                        view.playSoundEffect(SoundEffectConstants.CLICK)
+                        onExtraActionClick()
                     },
                     colors = NavigationBarItemDefaults.colors(
                         indicatorColor = indicatorColor,

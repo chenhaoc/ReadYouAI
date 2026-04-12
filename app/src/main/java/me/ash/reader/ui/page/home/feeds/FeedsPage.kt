@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.ModalBottomSheetValue
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.UnfoldLess
@@ -97,7 +98,9 @@ fun FeedsPage(
     feedsViewModel: FeedsViewModel = hiltViewModel(),
     subscribeViewModel: SubscribeViewModel = hiltViewModel(),
     navigateToSettings: () -> Unit,
-    navigationToFlow: () -> Unit,
+    navigationToFlow: (String?) -> Unit,
+    onOpenQueue: () -> Unit,
+    isQueueOpen: Boolean,
     navigateToAccountList: () -> Unit,
     navigateToAccountDetail: (Int) -> Unit,
 ) {
@@ -175,61 +178,60 @@ fun FeedsPage(
     val groupDrawerState =
         rememberModalBottomSheetState(initialValue = ModalBottomSheetValue.Hidden, skipHalfExpanded = true)
     val feedDrawerState = rememberModalBottomSheetState(initialValue = ModalBottomSheetValue.Hidden, skipHalfExpanded = true)
-
-    BackHandler(true) { context.findActivity()?.moveTaskToBack(false) }
+    BackHandler(!isQueueOpen) { context.findActivity()?.moveTaskToBack(false) }
 
     RYScaffold(
-        topBarTonalElevation = topBarTonalElevation.value.dp,
-        //        containerTonalElevation = groupListTonalElevation.value.dp,
-        topBar = {
-            TopAppBar(
-                modifier =
-                    Modifier.clickable(
-                        onClick = {
-                            scope.launch {
-                                if (listState.firstVisibleItemIndex != 0) {
-                                    listState.animateScrollToItem(0)
+            topBarTonalElevation = topBarTonalElevation.value.dp,
+            //        containerTonalElevation = groupListTonalElevation.value.dp,
+            topBar = {
+                TopAppBar(
+                    modifier =
+                        Modifier.clickable(
+                            onClick = {
+                                scope.launch {
+                                    if (listState.firstVisibleItemIndex != 0) {
+                                        listState.animateScrollToItem(0)
+                                    }
                                 }
-                            }
-                        },
-                        indication = null,
-                        interactionSource = remember { MutableInteractionSource() },
-                    ),
-                title = {},
-                navigationIcon = {
-                    FeedbackIconButton(
-                        modifier = Modifier.size(20.dp),
-                        imageVector = Icons.Outlined.Settings,
-                        contentDescription = stringResource(R.string.settings),
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        showBadge = newVersion.whetherNeedUpdate(currentVersion, skipVersion),
-                    ) {
-                        navigateToSettings()
-                    }
-                },
-                actions = {
-                    if (subscribeViewModel.rssService.get().addSubscription) {
+                            },
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() },
+                        ),
+                    title = {},
+                    navigationIcon = {
                         FeedbackIconButton(
-                            imageVector = Icons.Rounded.Add,
-                            contentDescription = stringResource(R.string.subscribe),
+                            modifier = Modifier.size(20.dp),
+                            imageVector = Icons.Outlined.Settings,
+                            contentDescription = stringResource(R.string.settings),
                             tint = MaterialTheme.colorScheme.onSurface,
+                            showBadge = newVersion.whetherNeedUpdate(currentVersion, skipVersion),
                         ) {
-                            subscribeViewModel.showDrawer()
+                            navigateToSettings()
                         }
-                    }
-                },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor =
-                            MaterialTheme.colorScheme.surfaceColorAtElevation(
-                                topBarTonalElevation.value.dp
-                            )
-                    ),
-            )
-        },
-        content = {
-            PullToRefreshBox(state = syncingState, isRefreshing = isSyncing, onRefresh = doSync) {
-                LazyColumn(modifier = Modifier.fillMaxSize().drawVerticalScrollIndicator(listState), state = listState) {
+                    },
+                    actions = {
+                        if (subscribeViewModel.rssService.get().addSubscription) {
+                            FeedbackIconButton(
+                                imageVector = Icons.Rounded.Add,
+                                contentDescription = stringResource(R.string.subscribe),
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            ) {
+                                subscribeViewModel.showDrawer()
+                            }
+                        }
+                    },
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor =
+                                MaterialTheme.colorScheme.surfaceColorAtElevation(
+                                    topBarTonalElevation.value.dp
+                                )
+                        ),
+                )
+            },
+            content = {
+                PullToRefreshBox(state = syncingState, isRefreshing = isSyncing, onRefresh = doSync) {
+                    LazyColumn(modifier = Modifier.fillMaxSize().drawVerticalScrollIndicator(listState), state = listState) {
                     item {
                         DisplayText(text = feedsUiState.account?.name ?: "", desc = "") {
                             hapticFeedback.performHapticFeedback(HapticFeedbackType.ContextClick)
@@ -242,7 +244,7 @@ fun FeedsPage(
                             desc = importantSum.ifEmpty { stringResource(R.string.loading) },
                         ) {
                             feedsViewModel.changeFilter(filterState.copy(group = null, feed = null))
-                            navigationToFlow()
+                            navigationToFlow(null)
                         }
                     }
 
@@ -298,7 +300,7 @@ fun FeedsPage(
                                 feedsViewModel.changeFilter(
                                     filterState.copy(group = group, feed = null)
                                 )
-                                navigationToFlow()
+                                navigationToFlow(null)
                             }
 
                             feeds.forEachIndexed { index, feed ->
@@ -312,7 +314,7 @@ fun FeedsPage(
                                         feedsViewModel.changeFilter(
                                             filterState.copy(feed = feed, group = null)
                                         )
-                                        navigationToFlow()
+                                        navigationToFlow(null)
                                     },
                                     onLongClick = { scope.launch { feedDrawerState.show() } },
                                 )
@@ -328,27 +330,31 @@ fun FeedsPage(
                         )
                     }
                 }
-            }
-        },
-        bottomBar = {
-            FilterBar(
-                modifier =
-                    with(sharedTransitionScope) {
-                        Modifier.sharedElement(
-                            sharedContentState = rememberSharedContentState("filterBar"),
-                            animatedVisibilityScope = animatedVisibilityScope,
-                        )
-                    },
-                filter = filterState.filter,
-                filterBarStyle = filterBarStyle.value,
-                filterBarFilled = true,
-                filterBarPadding = filterBarPadding.dp,
-                filterBarTonalElevation = filterBarTonalElevation.value.dp,
-            ) {
-                feedsViewModel.changeFilter(filterState.copy(filter = it))
-            }
-        },
-    )
+                }
+            },
+            bottomBar = {
+                FilterBar(
+                    modifier =
+                        with(sharedTransitionScope) {
+                            Modifier.sharedElement(
+                                sharedContentState = rememberSharedContentState("filterBar"),
+                                animatedVisibilityScope = animatedVisibilityScope,
+                            )
+                        },
+                    filter = filterState.filter,
+                    filterBarStyle = filterBarStyle.value,
+                    filterBarFilled = true,
+                    filterBarPadding = filterBarPadding.dp,
+                    filterBarTonalElevation = filterBarTonalElevation.value.dp,
+                    extraActionIcon = Icons.AutoMirrored.Rounded.QueueMusic,
+                    extraActionContentDescription = stringResource(R.string.playlist),
+                    extraActionSelected = isQueueOpen,
+                    onExtraActionClick = onOpenQueue,
+                ) {
+                    feedsViewModel.changeFilter(filterState.copy(filter = it))
+                }
+            },
+        )
 
     SubscribeDialog(subscribeViewModel = subscribeViewModel)
 

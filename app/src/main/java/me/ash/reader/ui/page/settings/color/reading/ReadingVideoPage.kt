@@ -85,7 +85,7 @@ fun ReadingVideoPage(
                     ) {}
                     SettingItem(
                         title = stringResource(R.string.horizontal_padding),
-                        desc = "dp",
+                        desc = null,
                         onClick = {},
                     ) {}
                 }

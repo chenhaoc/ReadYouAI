@@ -32,6 +32,7 @@ import me.ash.reader.infrastructure.preference.LocalMarkAsReadOnScroll
 import me.ash.reader.infrastructure.preference.LocalOpenLink
 import me.ash.reader.infrastructure.preference.LocalOpenLinkSpecificBrowser
 import me.ash.reader.infrastructure.preference.LocalPullToSwitchArticle
+import me.ash.reader.infrastructure.preference.LocalReadingTtsMiniPlayer
 import me.ash.reader.infrastructure.preference.LocalSettings
 import me.ash.reader.infrastructure.preference.LocalSharedContent
 import me.ash.reader.infrastructure.preference.LocalSortUnreadArticles
@@ -41,6 +42,7 @@ import me.ash.reader.infrastructure.preference.SharedContentPreference
 import me.ash.reader.infrastructure.preference.SortUnreadArticlesPreference
 import me.ash.reader.infrastructure.preference.SwipeEndActionPreference
 import me.ash.reader.infrastructure.preference.SwipeStartActionPreference
+import me.ash.reader.infrastructure.preference.not
 import me.ash.reader.ui.component.base.DisplayText
 import me.ash.reader.ui.component.base.FeedbackIconButton
 import me.ash.reader.ui.component.base.RYScaffold
@@ -65,6 +67,7 @@ fun InteractionPage(
     val hideEmptyGroups = LocalHideEmptyGroups.current
     val sortUnreadArticles = LocalSortUnreadArticles.current
     val pullToSwitchArticle = LocalPullToSwitchArticle.current
+    val showFloatingPlayerButton = LocalReadingTtsMiniPlayer.current
     val openLink = LocalOpenLink.current
     val openLinkSpecificBrowser = LocalOpenLinkSpecificBrowser.current
     val sharedContent = LocalSharedContent.current
@@ -184,6 +187,16 @@ fun InteractionPage(
                             showPullToLoadDialog = true
                         },
                     )
+                    SettingItem(
+                        title = stringResource(R.string.show_tts_mini_player),
+                        onClick = {
+                            (!showFloatingPlayerButton).put(context, scope)
+                        },
+                    ) {
+                        RYSwitch(activated = showFloatingPlayerButton.value) {
+                            (!showFloatingPlayerButton).put(context, scope)
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(24.dp))
 

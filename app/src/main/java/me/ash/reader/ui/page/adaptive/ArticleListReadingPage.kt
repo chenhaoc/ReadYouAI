@@ -13,9 +13,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.LocalBackgroundTextMeasurementExecutor
-import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.ModalBottomSheetValue
-import androidx.compose.material.rememberModalBottomSheetState
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.layout.AnimatedPane
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
@@ -35,10 +32,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import me.ash.reader.ui.component.base.BottomDrawer
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import java.util.concurrent.Executors
 import kotlinx.coroutines.delay
@@ -47,11 +42,8 @@ import kotlinx.parcelize.Parcelize
 import me.ash.reader.ui.component.reader.ExpandedContentWidth
 import me.ash.reader.ui.component.reader.LocalTextContentWidth
 import me.ash.reader.ui.component.reader.MediumContentWidth
-import me.ash.reader.ui.ext.collectAsStateValue
 import me.ash.reader.ui.page.home.flow.FlowPage
 import me.ash.reader.ui.page.home.reading.ReadingPage
-import me.ash.reader.ui.page.home.reading.queue.TtsMiniPlayer
-import me.ash.reader.ui.page.home.reading.queue.TtsQueueSheet
 import timber.log.Timber
 
 @Parcelize data class ArticleData(val articleId: String, val listIndex: Int? = null) : Parcelable
@@ -59,7 +51,6 @@ import timber.log.Timber
 @OptIn(
     ExperimentalMaterial3AdaptiveApi::class,
     ExperimentalSharedTransitionApi::class,
-    ExperimentalMaterialApi::class,
 )
 @Composable
 fun ArticleListReaderPage(
@@ -69,19 +60,12 @@ fun ArticleListReaderPage(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     viewModel: ArticleListReaderViewModel,
+    onOpenQueue: () -> Unit,
+    isQueueOpen: Boolean,
     onBack: () -> Unit,
     onNavigateToStylePage: () -> Unit,
 ) {
-
     val scope = rememberCoroutineScope()
-    val queueState = viewModel.ttsQueueState.collectAsStateValue()
-    val currentContentKey = navigator.currentDestination?.contentKey
-    val queueDrawerState =
-        rememberModalBottomSheetState(
-            initialValue = ModalBottomSheetValue.Hidden,
-            skipHalfExpanded = true,
-        )
-
     val backBehavior = BackNavigationBehavior.PopUntilScaffoldValueChange
 
     val hiddenAnchor = remember(scaffoldDirective) { PaneExpansionAnchor.Offset.fromStart(0.dp) }
@@ -127,10 +111,6 @@ fun ArticleListReaderPage(
         }
     }
 
-    BackHandler(queueDrawerState.isVisible) {
-        scope.launch { queueDrawerState.hide() }
-    }
-
     val contentWidth =
         when (navigationAction) {
             NavigationAction.HideList,
@@ -141,100 +121,38 @@ fun ArticleListReaderPage(
     val animatedContentWidth by animateDpAsState(contentWidth)
     val animatedListAlpha by animateFloatAsState(listAlpha)
 
-    BottomDrawer(
-        modifier = modifier,
-        drawerState = queueDrawerState,
-        sheetContent = {
-            TtsQueueSheet(
-                state = queueState,
-                onPlayItem = viewModel::playPlaylistItem,
-                onPauseCurrent = viewModel::stopQueuePlayback,
-                onSeekCurrent = viewModel::seekCurrentPlayback,
-                onOpenCurrentArticle = { articleId ->
-                    scope.launch {
-                        queueDrawerState.hide()
-                        navigator.navigateTo(
-                            pane = ListDetailPaneScaffoldRole.Detail,
-                            contentKey = ArticleData(articleId = articleId),
-                        )
+    Box(modifier = modifier.fillMaxSize()) {
+        NavigableListDetailPaneScaffold(
+            navigator = navigator,
+            modifier = Modifier.fillMaxSize(),
+            defaultBackBehavior = backBehavior,
+            paneExpansionDragHandle = { Spacer(modifier = Modifier.width(2.dp)) },
+            paneExpansionState = paneExpansionState,
+            listPane = {
+                if (navigationAction == NavigationAction.ExpandList) {
+                    BackHandler(!isQueueOpen) {
+                        listAlpha = 1f
+                        scope.launch { paneExpansionState.animateTo(expandedAnchor) }
                     }
-                },
-                onPrevious = viewModel::previousQueuePlayback,
-                onNext = viewModel::skipQueuePlayback,
-                onRemove = viewModel::removeFromPlaylist,
-                onMoveUp = viewModel::movePlaylistItemUp,
-                onMoveDown = viewModel::movePlaylistItemDown,
-                onClear = viewModel::clearPlaylist,
-            )
-        },
-    ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            NavigableListDetailPaneScaffold(
-                navigator = navigator,
-                modifier = Modifier.fillMaxSize(),
-                defaultBackBehavior = backBehavior,
-                paneExpansionDragHandle = { Spacer(modifier = Modifier.width(2.dp)) },
-                paneExpansionState = paneExpansionState,
-                listPane = {
-                    if (navigationAction == NavigationAction.ExpandList) {
-                        BackHandler {
-                            listAlpha = 1f
-                            scope.launch { paneExpansionState.animateTo(expandedAnchor) }
-                        }
-                    }
-                    AnimatedPane(
-                        enterTransition = motionDataProvider.calculateEnterTransition(paneRole),
-                        exitTransition = motionDataProvider.calculateExitTransition(paneRole),
+                }
+                AnimatedPane(
+                    enterTransition = motionDataProvider.calculateEnterTransition(paneRole),
+                    exitTransition = motionDataProvider.calculateExitTransition(paneRole),
+                ) {
+                    CompositionLocalProvider(
+                        LocalBackgroundTextMeasurementExecutor provides
+                            Executors.newSingleThreadExecutor()
                     ) {
-                        CompositionLocalProvider(
-                            LocalBackgroundTextMeasurementExecutor provides
-                                Executors.newSingleThreadExecutor()
-                        ) {
-                            Box(modifier = Modifier.alpha(animatedListAlpha)) {
-                                FlowPage(
-                                    sharedTransitionScope = sharedTransitionScope,
-                                    animatedVisibilityScope = animatedVisibilityScope,
-                                    viewModel = viewModel,
-                                    onNavigateUp = onBack,
-                                    onOpenQueue = { scope.launch { queueDrawerState.show() } },
-                                    isTwoPane = isTwoPane,
-                                    navigateToArticle = { id, index ->
-                                        scope.launch {
-                                            navigator.navigateTo(
-                                                pane = ListDetailPaneScaffoldRole.Detail,
-                                                contentKey =
-                                                    ArticleData(articleId = id, listIndex = index),
-                                            )
-                                        }
-                                    },
-                                )
-                            }
-                        }
-                    }
-                },
-                detailPane = {
-                    AnimatedPane(
-                        enterTransition = motionDataProvider.calculateEnterTransition(paneRole),
-                        exitTransition = motionDataProvider.calculateExitTransition(paneRole),
-                    ) {
-                        val contentKey = navigator.currentDestination?.contentKey
-                        LaunchedEffect(contentKey) {
-                            if (contentKey == null) {
-                                delay(100L)
-                                viewModel.clearReadingData()
-                            } else {
-                                viewModel.initData(
-                                    articleId = contentKey.articleId,
-                                    listIndex = contentKey.listIndex,
-                                )
-                            }
-                        }
-
-                        CompositionLocalProvider(LocalTextContentWidth provides animatedContentWidth) {
-                            ReadingPage(
+                        Box(modifier = Modifier.alpha(animatedListAlpha)) {
+                            FlowPage(
+                                sharedTransitionScope = sharedTransitionScope,
+                                animatedVisibilityScope = animatedVisibilityScope,
                                 viewModel = viewModel,
-                                navigationAction = navigationAction,
-                                onLoadArticle = { id, index ->
+                                onNavigateUp = onBack,
+                                onOpenQueue = onOpenQueue,
+                                isQueueOpen = isQueueOpen,
+                                isTwoPane = isTwoPane,
+                                navigateToArticle = { id, index ->
                                     scope.launch {
                                         navigator.navigateTo(
                                             pane = ListDetailPaneScaffoldRole.Detail,
@@ -243,51 +161,75 @@ fun ArticleListReaderPage(
                                         )
                                     }
                                 },
-                                onNavAction = {
-                                    when (it) {
-                                        NavigationAction.Close -> {
-                                            if (navigator.canNavigateBack(backBehavior)) {
-                                                scope
-                                                    .launch { navigator.navigateBack(backBehavior) }
-                                                    .invokeOnCompletion {
-                                                        viewModel.clearReadingData()
-                                                    }
-                                            } else {
-                                                onBack()
-                                            }
-                                        }
-                                        NavigationAction.HideList -> {
-                                            scope.launch {
-                                                listAlpha = 0f
-                                                paneExpansionState.animateTo(hiddenAnchor)
-                                            }
-                                        }
-                                        NavigationAction.ExpandList -> {
-                                            listAlpha = 1f
-                                            scope.launch {
-                                                paneExpansionState.animateTo(expandedAnchor)
-                                            }
-                                        }
-                                    }
-                                },
-                                onNavigateToStylePage = onNavigateToStylePage,
-                                onOpenQueue = { scope.launch { queueDrawerState.show() } },
                             )
                         }
                     }
-                },
-            )
+                }
+            },
+            detailPane = {
+                AnimatedPane(
+                    enterTransition = motionDataProvider.calculateEnterTransition(paneRole),
+                    exitTransition = motionDataProvider.calculateExitTransition(paneRole),
+                ) {
+                    val contentKey = navigator.currentDestination?.contentKey
+                    LaunchedEffect(contentKey) {
+                        if (contentKey == null) {
+                            delay(100L)
+                            viewModel.clearReadingData()
+                        } else {
+                            viewModel.initData(
+                                articleId = contentKey.articleId,
+                                listIndex = contentKey.listIndex,
+                            )
+                        }
+                    }
 
-            if (queueState.items.isNotEmpty() && currentContentKey == null) {
-                TtsMiniPlayer(
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                    state = queueState,
-                    onTogglePlay = viewModel::toggleQueuePlayback,
-                    onSeekToSegment = viewModel::seekCurrentPlayback,
-                    onNext = viewModel::skipQueuePlayback,
-                    onOpenQueue = { scope.launch { queueDrawerState.show() } },
-                )
-            }
-        }
+                    CompositionLocalProvider(LocalTextContentWidth provides animatedContentWidth) {
+                        ReadingPage(
+                            viewModel = viewModel,
+                            navigationAction = navigationAction,
+                            onLoadArticle = { id, index ->
+                                scope.launch {
+                                    navigator.navigateTo(
+                                        pane = ListDetailPaneScaffoldRole.Detail,
+                                        contentKey =
+                                            ArticleData(articleId = id, listIndex = index),
+                                    )
+                                }
+                            },
+                            onNavAction = {
+                                when (it) {
+                                    NavigationAction.Close -> {
+                                        if (navigator.canNavigateBack(backBehavior)) {
+                                            scope
+                                                .launch { navigator.navigateBack(backBehavior) }
+                                                .invokeOnCompletion {
+                                                    viewModel.clearReadingData()
+                                                }
+                                        } else {
+                                            onBack()
+                                        }
+                                    }
+                                    NavigationAction.HideList -> {
+                                        scope.launch {
+                                            listAlpha = 0f
+                                            paneExpansionState.animateTo(hiddenAnchor)
+                                        }
+                                    }
+                                    NavigationAction.ExpandList -> {
+                                        listAlpha = 1f
+                                        scope.launch {
+                                            paneExpansionState.animateTo(expandedAnchor)
+                                        }
+                                    }
+                                }
+                            },
+                            onNavigateToStylePage = onNavigateToStylePage,
+                            onOpenQueue = onOpenQueue,
+                        )
+                    }
+                }
+            },
+        )
     }
 }

@@ -50,6 +50,7 @@ data class Settings(
     val readingTheme: ReadingThemePreference = ReadingThemePreference.default,
     val readingPageTonalElevation: ReadingPageTonalElevationPreference = ReadingPageTonalElevationPreference.default,
     val readingAutoHideToolbar: ReadingAutoHideToolbarPreference = ReadingAutoHideToolbarPreference.default,
+    val readingTtsMiniPlayer: ReadingTtsMiniPlayerPreference = ReadingTtsMiniPlayerPreference.default,
     val readingTextFontSize: Int = ReadingTextFontSizePreference.default,
     val readingTextLineHeight: Float = ReadingTextLineHeightPreference.default,
     val readingLetterSpacing: Float = ReadingTextLetterSpacingPreference.default,

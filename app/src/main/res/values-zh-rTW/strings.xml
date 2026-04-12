@@ -175,6 +175,9 @@
     <string name="alignment">對齊</string>
     <string name="general">一般</string>
     <string name="auto_hide_toolbars">自動隱藏工具列</string>
+    <string name="show_tts_mini_player">顯示懸浮播放按鈕</string>
+    <string name="worker_infos">Worker 資訊</string>
+    <string name="sync_errors">同步錯誤</string>
     <string name="rearrange_buttons">重新排列按鈕</string>
     <string name="images">圖片</string>
     <string name="rounded_corners">圓角</string>

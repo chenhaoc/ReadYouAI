@@ -33,10 +33,10 @@ import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FabPosition
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
@@ -123,6 +123,7 @@ fun FlowPage(
     viewModel: ArticleListReaderViewModel,
     onNavigateUp: () -> Unit,
     onOpenQueue: () -> Unit,
+    isQueueOpen: Boolean,
     navigateToArticle: (String, Int) -> Unit,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -454,7 +455,7 @@ fun FlowPage(
             },
             content = {
                 RYExtensibleVisibility(modifier = Modifier.zIndex(1f), visible = onSearch) {
-                    BackHandler(onSearch) { onSearch = false }
+                    BackHandler(onSearch && !isQueueOpen) { onSearch = false }
                     SearchBar(
                         value = filterUiState.searchContent ?: "",
                         placeholder =
@@ -489,7 +490,7 @@ fun FlowPage(
                 }
 
                 RYExtensibleVisibility(markAsRead) {
-                    BackHandler(markAsRead) { markAsRead = false }
+                    BackHandler(markAsRead && !isQueueOpen) { markAsRead = false }
 
                     MarkAsReadBar {
                         markAsRead = false
@@ -756,13 +757,6 @@ fun FlowPage(
                     }
                 }
             },
-            floatingActionButton = {
-                PlaylistQueueFab(
-                    visible = true,
-                    onClick = onOpenQueue,
-                )
-            },
-            floatingActionButtonPosition = FabPosition.End,
             bottomBar = {
                 FilterBar(
                     modifier =
@@ -777,6 +771,10 @@ fun FlowPage(
                     filterBarFilled = true,
                     filterBarPadding = filterBarPadding.dp,
                     filterBarTonalElevation = filterBarTonalElevation.value.dp,
+                    extraActionIcon = Icons.AutoMirrored.Rounded.QueueMusic,
+                    extraActionContentDescription = stringResource(R.string.playlist),
+                    extraActionSelected = isQueueOpen,
+                    onExtraActionClick = onOpenQueue,
                 ) {
                     if (filterUiState.filter != it) {
                         viewModel.changeFilter(filterUiState.copy(filter = it))

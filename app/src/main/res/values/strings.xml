@@ -207,6 +207,9 @@
     <string name="alignment">Alignment</string>
     <string name="general">General</string>
     <string name="auto_hide_toolbars">Automatically hide toolbars</string>
+    <string name="show_tts_mini_player">Show floating player button</string>
+    <string name="worker_infos">Worker infos</string>
+    <string name="sync_errors">Sync errors</string>
     <string name="rearrange_buttons">Rearrange buttons</string>
     <string name="images">Images</string>
     <string name="rounded_corners">Rounded corners</string>

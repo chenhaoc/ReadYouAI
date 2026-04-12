@@ -2,7 +2,7 @@
 
 ## Goal
 
-Replace the scrolling queue-item progress UI with a fixed player card at the top of the queue sheet, keep queue order stable while switching playback, and persist playback progress per article.
+Replace the scrolling queue-item progress UI with a fixed player card at the top of the queue sheet, keep queue order stable while switching playback, persist playback progress per article, and expose queue controls through a global floating entry instead of a page-bound mini player.
 
 ## Confirmed Interaction
 
@@ -13,13 +13,21 @@ Replace the scrolling queue-item progress UI with a fixed player card at the top
   - previous / play-pause / next controls
   - one full-width draggable progress bar
 - Tapping the player card title opens the current article reading page.
+- Queue sheet presentation is root-scoped, so the same playlist drawer is shared by feeds, flow, and reading contexts.
 - The queue list remains scrollable below the card.
 - Tapping the title/info area of a queue item starts playback for that item.
 - Queue item order does not change when playback changes.
 - Queue items keep explicit move-up, move-down, and delete controls.
 - Previous and next wrap at queue boundaries instead of stopping on the first or last item.
 - While the queue sheet is open, system back should close the queue sheet before leaving the page.
-- The article flow page shows a playlist entry in the bottom-right floating action area that opens the same queue sheet.
+- Feeds and flow pages expose the queue from a fourth bottom-bar action, and style previews should show the same extra action.
+- The reading mini player is removed.
+- A global floating queue button is available when the queue is non-empty and the user enables it in settings.
+- The floating button:
+  - supports left/right edge docking
+  - opens the queue sheet on tap
+  - toggles play/pause on long press
+  - snaps to the nearest edge after drag release
 
 ## Playback Progress Model
 
@@ -54,3 +62,4 @@ Replace the scrolling queue-item progress UI with a fixed player card at the top
 - No sentence-level or character-level exact resume.
 - No separate draggable progress UI on the reading page.
 - No automatic queue reordering on play.
+- No freeform floating-button position persistence beyond left/right docking.
