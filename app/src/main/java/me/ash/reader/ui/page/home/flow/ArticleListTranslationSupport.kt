@@ -5,6 +5,7 @@ import me.ash.reader.ui.page.home.reading.ArticleContentBlock
 import me.ash.reader.ui.page.home.reading.ArticleContentBlockType
 import me.ash.reader.ui.page.home.reading.TranslationSourceBlock
 import me.ash.reader.ui.page.home.reading.TRANSLATION_TITLE_BLOCK_ID
+import me.ash.reader.ui.page.home.reading.resolveTranslatedSummary
 import me.ash.reader.ui.page.home.reading.resolveTranslatedTitle
 
 data class ArticleListTranslationPreview(
@@ -34,12 +35,7 @@ fun resolveTranslatedListPreview(
         )
     }
     val translatedTitle = resolveTranslatedTitle(translationBlocks) ?: fallbackTitle
-    val translatedSummary =
-        translatedBlocks
-            .firstOrNull { it.id != TRANSLATION_TITLE_BLOCK_ID }
-            ?.translatedText
-            ?.trim()
-            .orEmpty()
+    val translatedSummary = resolveTranslatedSummary(translationBlocks).orEmpty()
     return ArticleListTranslationPreview(
         title = translatedTitle,
         shortDescription = translatedSummary.ifBlank { fallbackDescription },

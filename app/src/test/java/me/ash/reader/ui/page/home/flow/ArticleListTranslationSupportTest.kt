@@ -37,6 +37,7 @@ class ArticleListTranslationSupportTest {
                 translationBlocks =
                     """
                     [
+                      {"id":"heading_1","translatedText":"导语标题"},
                       {"id":"paragraph_1","translatedText":"第一段摘要"},
                       {"id":"list_title","translatedText":"中文标题"},
                       {"id":"p2","translatedText":"第二段摘要"}

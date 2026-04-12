@@ -54,6 +54,9 @@ import me.ash.reader.infrastructure.rss.ReaderCacheHelper
 import me.ash.reader.ui.page.home.flow.buildListTranslationSourceBlocks
 import me.ash.reader.ui.page.home.reading.ArticleContentBlockParser
 import me.ash.reader.ui.page.home.reading.buildPrioritizedTranslationBatch
+import me.ash.reader.ui.page.home.reading.decodeStoredTranslationBlocks
+import me.ash.reader.ui.page.home.reading.selectExtraTranslations
+import me.ash.reader.ui.page.home.reading.selectTranslationsForCurrentBlocks
 import me.ash.reader.ui.page.home.reading.translatableBlockCount
 import me.ash.reader.ui.page.home.reading.translatedBlockCount
 import timber.log.Timber
@@ -61,7 +64,7 @@ import timber.log.Timber
 private const val TAG = "FlowViewModel"
 private const val DEFAULT_TRANSLATION_PROMPT =
     "Translate the input JSON array into Simplified Chinese. Return JSON only. Preserve every id, keep the original order, do not summarize, do not omit content, and set translatedText for each item.\n\n"
-private const val MAX_LIST_TRANSLATION_CONCURRENCY = 3
+private const val MAX_LIST_TRANSLATION_CONCURRENCY = 5
 
 private enum class SummaryTrigger {
     MANUAL,
@@ -646,16 +649,16 @@ constructor(
             val translatableCount = translatableBlockCount(blocks)
             val sourceHash = ArticleContentBlockParser.translationSourceHash(blocks)
             val isAutoTrigger = trigger == TranslationTrigger.AUTO
-            val existingTranslations =
+            val storedTranslations =
                 if (article.translationSourceHash == sourceHash) {
-                    normalizeStoredTranslations(blocks, article.translationBlocksZh)
+                    decodeStoredTranslationBlocks(article.translationBlocksZh)
                 } else {
                     emptyList()
                 }
+            val existingTranslations =
+                selectTranslationsForCurrentBlocks(blocks = blocks, storedBlocks = storedTranslations)
             val storedExtraTranslations =
-                decodeStoredTranslations(article.translationBlocksZh).filter { storedBlock ->
-                    blocks.none { it.id == storedBlock.id }
-                }
+                selectExtraTranslations(blocks = blocks, storedBlocks = storedTranslations)
             val existingTranslatedCount =
                 translatedBlockCount(blocks, existingTranslations.map { it.id }.toSet())
 
@@ -666,7 +669,8 @@ constructor(
                 if (!isTranslationRequestCurrent(articleId)) return@launch
                 _readingUiState.update {
                     it.copy(
-                        translatedContentBlocks = serializeTranslatedBlocks(existingTranslations),
+                        translatedContentBlocks =
+                            serializeTranslatedBlocks(storedExtraTranslations + existingTranslations),
                         shouldRenderTranslationInline = true,
                         hasAutoTranslationAttempted = true,
                         translatedBlockCount = existingTranslatedCount,
@@ -863,11 +867,15 @@ constructor(
                 translatableBlockCount = translatableCount,
             )
         }
-        val storedTranslations = normalizeStoredTranslations(blocks, article.translationBlocksZh)
+        val storedBlocks = decodeStoredTranslationBlocks(article.translationBlocksZh)
+        val storedTranslations =
+            selectTranslationsForCurrentBlocks(blocks = blocks, storedBlocks = storedBlocks)
+        val storedExtraTranslations =
+            selectExtraTranslations(blocks = blocks, storedBlocks = storedBlocks)
         val translatedCount =
             translatedBlockCount(blocks, storedTranslations.map { it.id }.toSet())
         return TranslationContentState(
-            payload = serializeTranslatedBlocks(storedTranslations),
+            payload = serializeTranslatedBlocks(storedExtraTranslations + storedTranslations),
             translatedBlockCount = translatedCount,
             translatableBlockCount = translatableCount,
         )
@@ -973,21 +981,6 @@ constructor(
             readingUiState.value.articleWithFeed?.article?.id == articleId
     }
 
-    private fun normalizeStoredTranslations(
-        blocks: List<me.ash.reader.ui.page.home.reading.ArticleContentBlock>,
-        rawTranslationBlocks: String?,
-    ): List<me.ash.reader.domain.repository.TranslatedArticleBlock> {
-        val translatedBlockMap = decodeStoredTranslations(rawTranslationBlocks).associateBy { it.id }
-        return blocks.mapNotNull { block -> translatedBlockMap[block.id] }
-    }
-
-    private fun decodeStoredTranslations(
-        rawTranslationBlocks: String?,
-    ): List<me.ash.reader.domain.repository.TranslatedArticleBlock> {
-        return me.ash.reader.domain.repository.ArticleTranslationPayloadCodec
-            .decodeStoredBlocks(rawTranslationBlocks)
-    }
-
     private fun serializeTranslatedBlocks(
         blocks: List<me.ash.reader.domain.repository.TranslatedArticleBlock>,
     ): String? = blocks.takeIf { it.isNotEmpty() }?.let { Gson().toJson(it) }
@@ -1018,7 +1011,12 @@ constructor(
         if (eligibleBlocks.isEmpty()) return
 
         val sourceHash = ArticleContentBlockParser.translationSourceHash(blocks)
-        val existingTranslations = decodeStoredTranslations(articleWithFeed.article.translationBlocksZh)
+        val existingTranslations =
+            if (articleWithFeed.article.translationSourceHash == sourceHash) {
+                decodeStoredTranslationBlocks(articleWithFeed.article.translationBlocksZh)
+            } else {
+                emptyList()
+            }
 
         val nextBatch =
             buildListTranslationSourceBlocks(
