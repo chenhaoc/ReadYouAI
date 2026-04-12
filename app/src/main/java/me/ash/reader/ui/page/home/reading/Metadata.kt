@@ -33,6 +33,7 @@ fun Metadata(
     publishedDate: Date,
     modifier: Modifier = Modifier,
     author: String? = null,
+    translatedTitle: String? = null,
 ) {
     val context = LocalContext.current
     val titleBold = LocalReadingTitleBold.current
@@ -43,6 +44,7 @@ fun Metadata(
     val fontFamily = LocalReadingFonts.current.asFontFamily(context)
 
     val titleUpperCaseString by remember { derivedStateOf { title.uppercase() } }
+    val translatedTitleText = translatedTitle?.trim().takeIf { !it.isNullOrBlank() }
 
     val labelColor = MaterialTheme.colorScheme.outline.copy(alpha = .7f)
 
@@ -74,6 +76,19 @@ fun Metadata(
             textAlign = titleAlign,
         )
         Spacer(modifier = Modifier.height(4.dp))
+        translatedTitleText?.let {
+            Text(
+                modifier = Modifier.fillMaxWidth(),
+                text = it,
+                color = MaterialTheme.colorScheme.primary,
+                style =
+                    MaterialTheme.typography.titleLarge
+                        .merge(fontFamily = fontFamily)
+                        .applyTextDirection(requiresBidi = it.requiresBidi()),
+                textAlign = titleAlign,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+        }
         author?.let {
             if (it.isNotEmpty()) {
                 Text(

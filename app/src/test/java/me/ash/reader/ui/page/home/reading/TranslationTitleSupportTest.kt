@@ -1,0 +1,37 @@
+package me.ash.reader.ui.page.home.reading
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Test
+
+class TranslationTitleSupportTest {
+
+    @Test
+    fun resolveTranslatedTitleReturnsDedicatedTitleBlock() {
+        val translatedTitle =
+            resolveTranslatedTitle(
+                """
+                [
+                  {"id":"paragraph_1","translatedText":"第一段"},
+                  {"id":"list_title","translatedText":"中文标题"}
+                ]
+                """.trimIndent()
+            )
+
+        assertEquals("中文标题", translatedTitle)
+    }
+
+    @Test
+    fun resolveTranslatedTitleReturnsNullWhenTitleBlockIsMissing() {
+        val translatedTitle =
+            resolveTranslatedTitle(
+                """
+                [
+                  {"id":"paragraph_1","translatedText":"第一段"}
+                ]
+                """.trimIndent()
+            )
+
+        assertNull(translatedTitle)
+    }
+}

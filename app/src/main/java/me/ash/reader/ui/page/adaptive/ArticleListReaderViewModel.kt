@@ -51,6 +51,7 @@ import me.ash.reader.infrastructure.di.IODispatcher
 import me.ash.reader.infrastructure.preference.PullToLoadNextFeedPreference
 import me.ash.reader.infrastructure.preference.SettingsProvider
 import me.ash.reader.infrastructure.rss.ReaderCacheHelper
+import me.ash.reader.ui.page.home.flow.buildListTranslationSourceBlocks
 import me.ash.reader.ui.page.home.reading.ArticleContentBlockParser
 import me.ash.reader.ui.page.home.reading.buildPrioritizedTranslationBatch
 import me.ash.reader.ui.page.home.reading.translatableBlockCount
@@ -60,6 +61,7 @@ import timber.log.Timber
 private const val TAG = "FlowViewModel"
 private const val DEFAULT_TRANSLATION_PROMPT =
     "Translate the input JSON array into Simplified Chinese. Return JSON only. Preserve every id, keep the original order, do not summarize, do not omit content, and set translatedText for each item.\n\n"
+private const val MAX_LIST_TRANSLATION_CONCURRENCY = 3
 
 private enum class SummaryTrigger {
     MANUAL,
@@ -298,8 +300,8 @@ constructor(
     private val translationFocusIndex = MutableStateFlow(0)
     private var translationJob: Job? = null
     private val pendingListTranslationArticleIds = linkedSetOf<String>()
-    private var listTranslationJob: Job? = null
-    private var activeListTranslationArticleId: String? = null
+    private val listTranslationJobs = mutableMapOf<String, Job>()
+    private val activeListTranslationArticleIds = mutableSetOf<String>()
 
     private val currentArticle: Article?
         get() = readingUiState.value.articleWithFeed?.article
@@ -650,6 +652,10 @@ constructor(
                 } else {
                     emptyList()
                 }
+            val storedExtraTranslations =
+                decodeStoredTranslations(article.translationBlocksZh).filter { storedBlock ->
+                    blocks.none { it.id == storedBlock.id }
+                }
             val existingTranslatedCount =
                 translatedBlockCount(blocks, existingTranslations.map { it.id }.toSet())
 
@@ -723,7 +729,7 @@ constructor(
                         if (!isTranslationRequestCurrent(articleId)) return@launch
                         result.data.forEach { accumulatedTranslations[it.id] = it }
                         val mergedTranslations =
-                            blocks.mapNotNull { block -> accumulatedTranslations[block.id] }
+                            storedExtraTranslations + blocks.mapNotNull { block -> accumulatedTranslations[block.id] }
                         val serializedTranslation = serializeTranslatedBlocks(mergedTranslations)
                             ?: return@launch
                         val translatedCount =
@@ -787,7 +793,9 @@ constructor(
             }
             if (!isTranslationRequestCurrent(articleId)) return@launch
             val serializedTranslation =
-                serializeTranslatedBlocks(blocks.mapNotNull { block -> accumulatedTranslations[block.id] })
+                serializeTranslatedBlocks(
+                    storedExtraTranslations + blocks.mapNotNull { block -> accumulatedTranslations[block.id] }
+                )
             _readingUiState.update {
                 it.copy(
                     isTranslationLoading = false,
@@ -915,9 +923,9 @@ constructor(
         }
         pendingListTranslationArticleIds.clear()
         pendingListTranslationArticleIds.addAll(
-            articleIds.distinct().filter { it != activeListTranslationArticleId }
+            articleIds.distinct().filter { it !in activeListTranslationArticleIds }
         )
-        ensureListTranslationJob()
+        ensureListTranslationJobs()
     }
 
     fun updateAiSummaryCardVisible(isVisible: Boolean) {
@@ -932,31 +940,29 @@ constructor(
     private fun clearListTranslationTargets(cancelActive: Boolean) {
         pendingListTranslationArticleIds.clear()
         if (cancelActive) {
-            listTranslationJob?.cancel()
-            listTranslationJob = null
-            activeListTranslationArticleId = null
+            listTranslationJobs.values.forEach { it.cancel() }
+            listTranslationJobs.clear()
+            activeListTranslationArticleIds.clear()
         }
     }
 
-    private fun ensureListTranslationJob() {
-        if (listTranslationJob?.isActive == true || pendingListTranslationArticleIds.isEmpty()) return
-        val job =
-            viewModelScope.launch {
-                while (pendingListTranslationArticleIds.isNotEmpty()) {
-                    val nextArticleId = pendingListTranslationArticleIds.firstOrNull() ?: break
-                    pendingListTranslationArticleIds.remove(nextArticleId)
-                    activeListTranslationArticleId = nextArticleId
+    private fun ensureListTranslationJobs() {
+        while (
+            pendingListTranslationArticleIds.isNotEmpty() &&
+                activeListTranslationArticleIds.size < MAX_LIST_TRANSLATION_CONCURRENCY
+        ) {
+            val nextArticleId = pendingListTranslationArticleIds.firstOrNull() ?: break
+            pendingListTranslationArticleIds.remove(nextArticleId)
+            activeListTranslationArticleIds += nextArticleId
+            val job =
+                viewModelScope.launch {
                     translateArticleFromList(nextArticleId)
                 }
-            }
-        listTranslationJob = job
-        job.invokeOnCompletion {
-            if (listTranslationJob === job) {
-                listTranslationJob = null
-                activeListTranslationArticleId = null
-                if (pendingListTranslationArticleIds.isNotEmpty()) {
-                    ensureListTranslationJob()
-                }
+            listTranslationJobs[nextArticleId] = job
+            job.invokeOnCompletion {
+                listTranslationJobs.remove(nextArticleId)
+                activeListTranslationArticleIds.remove(nextArticleId)
+                ensureListTranslationJobs()
             }
         }
     }
@@ -971,11 +977,15 @@ constructor(
         blocks: List<me.ash.reader.ui.page.home.reading.ArticleContentBlock>,
         rawTranslationBlocks: String?,
     ): List<me.ash.reader.domain.repository.TranslatedArticleBlock> {
-        val translatedBlockMap =
-            me.ash.reader.domain.repository.ArticleTranslationPayloadCodec
-                .decodeStoredBlocks(rawTranslationBlocks)
-                .associateBy { it.id }
+        val translatedBlockMap = decodeStoredTranslations(rawTranslationBlocks).associateBy { it.id }
         return blocks.mapNotNull { block -> translatedBlockMap[block.id] }
+    }
+
+    private fun decodeStoredTranslations(
+        rawTranslationBlocks: String?,
+    ): List<me.ash.reader.domain.repository.TranslatedArticleBlock> {
+        return me.ash.reader.domain.repository.ArticleTranslationPayloadCodec
+            .decodeStoredBlocks(rawTranslationBlocks)
     }
 
     private fun serializeTranslatedBlocks(
@@ -1008,25 +1018,15 @@ constructor(
         if (eligibleBlocks.isEmpty()) return
 
         val sourceHash = ArticleContentBlockParser.translationSourceHash(blocks)
-        val existingTranslations =
-            if (articleWithFeed.article.translationSourceHash == sourceHash) {
-                normalizeStoredTranslations(blocks, articleWithFeed.article.translationBlocksZh)
-            } else {
-                emptyList()
-            }
-        if (
-            translatedBlockCount(blocks, existingTranslations.map { it.id }.toSet()) ==
-                translatableBlockCount(blocks)
-        ) {
-            return
-        }
+        val existingTranslations = decodeStoredTranslations(articleWithFeed.article.translationBlocksZh)
 
         val nextBatch =
-            buildPrioritizedTranslationBatch(
+            buildListTranslationSourceBlocks(
+                articleTitle = articleWithFeed.article.title,
                 blocks = blocks,
-                translatedBlockIds = existingTranslations.map { it.id }.toSet(),
-                preferredStartIndex = 0,
-            )
+            ).filter { sourceBlock ->
+                existingTranslations.none { it.id == sourceBlock.id }
+            }
         if (nextBatch.isEmpty()) return
 
         when (
@@ -1046,7 +1046,8 @@ constructor(
                 val mergedTranslations =
                     (existingTranslations + result.data)
                         .associateBy { it.id }
-                        .let { translatedMap -> blocks.mapNotNull { block -> translatedMap[block.id] } }
+                        .values
+                        .toList()
                 val serializedTranslation = serializeTranslatedBlocks(mergedTranslations) ?: return
                 articleDao.updateTranslation(
                     articleId = articleId,

@@ -65,6 +65,7 @@ fun Content(
     val uriHandler = LocalUriHandler.current
     val contentBlocks = ArticleContentBlockParser.parse(content = content, baseUrl = link ?: "")
     val translatedBlockMap = parseTranslatedBlockMap(translatedContentBlocks)
+    val translatedTitle = resolveTranslatedTitle(translatedContentBlocks)
 
     val headline =
         @Composable {
@@ -73,6 +74,7 @@ fun Content(
                     Metadata(
                         feedName = feedName,
                         title = title,
+                        translatedTitle = translatedTitle,
                         author = author,
                         publishedDate = publishedDate,
                         modifier = Modifier.roundClick { link?.let { uriHandler.openUri(it) } },

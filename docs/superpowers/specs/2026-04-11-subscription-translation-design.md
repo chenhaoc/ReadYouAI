@@ -79,7 +79,7 @@ When the user enters a single feed whose translation is enabled:
 - The article list automatically detects currently visible articles.
 - The list translation queue prioritizes visible articles first.
 - The queue then prefetches the next four articles after the visible window.
-- Only one article is translated at a time in the background.
+- Up to three articles are translated concurrently in the background.
 - List items switch to translated title and translated summary as soon as cached blocks become available.
 - If no translation cache exists yet, the list item falls back to the original title and short description.
 
@@ -211,10 +211,12 @@ The article list does not store a second list-only translation payload.
 
 Instead, it derives a lightweight preview directly from `translationBlocksZh`:
 
-- list title: first translated block
-- list summary: the next one or two translated blocks, joined into a short preview
+- list title: the dedicated translated `list_title` block
+- list summary: the translated first paragraph block
 
 If translated blocks are absent or invalid, the list falls back to `Article.title` and `Article.shortDescription`.
+
+The reading-page metadata header reuses the same `list_title` block. When present, the header shows the original title first and the translated Chinese title directly below it, keeping the `original -> translation` reading order consistent with the bilingual article body.
 
 ### Hashing and Cache Validity
 
@@ -280,9 +282,10 @@ This keeps parity with the native renderer and reduces malformed-model-output ri
 2. The feed list watches visible article items and waits briefly for scrolling to settle.
 3. The app collects visible article IDs, then appends the next four article IDs after the visible window.
 4. The resulting queue is deduplicated and compared to the previous queue to avoid redundant work.
-5. The view model translates at most one queued article at a time.
-6. Each queued article reuses the same article-level translation pipeline and writes back into `translationBlocksZh`.
-7. Once cache is updated, paging invalidation refreshes the corresponding list row and the translated preview appears.
+5. The view model translates up to three queued articles concurrently.
+6. Each queued article sends only two fields for translation: the article title and the first paragraph-like body block.
+7. Each queued article writes the result back into `translationBlocksZh` using the shared article translation cache.
+8. Once cache is updated, paging invalidation refreshes the corresponding list row and the translated preview appears.
 
 For full-content feeds, the list translation path only uses existing full-content cache. It does not fetch missing full content during list scrolling, which avoids combining full-content fetch latency with translation latency in the scrolling path.
 
