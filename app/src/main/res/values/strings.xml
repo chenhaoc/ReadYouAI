@@ -404,12 +404,12 @@
     <string name="ai_fetch_models_error">Failed to fetch models. Check your URL and API key.</string>
     <string name="ai_summarization_prompt">Summarization Prompt</string>
     <string name="ai_summarization_prompt_hint">Customize how articles are summarized</string>
-    <string name="ai_summarization_prompt_default">Please provide a concise summary of the following article in 3-5 bullet points:\n\n</string>
+    <string name="ai_summarization_prompt_default" translatable="false">You are a summarizer. Generate a concise summary of the given text. Output ONLY the summary in Chinese, nothing else.</string>
     <string name="ai_translation_prompt">Translation Prompt</string>
     <string name="ai_translation_prompt_hint">Customize how article blocks are translated</string>
     <string name="ai_translation_prompt_default">Translate the input JSON array into Simplified Chinese. Return JSON only. Preserve every id, keep the original order, do not summarize, do not omit content, and set translatedText for each item.\n\n</string>
     <string name="ai_auto_summary">Auto AI Summary</string>
-    <string name="ai_auto_summary_desc">Automatically summarize articles without an existing summary when opened</string>
+    <string name="ai_auto_summary_desc">Automatically summarize articles without an existing summary when opened. This setting is used as the default for new subscriptions.</string>
     <string name="api_configuration">API Configuration</string>
     <string name="summarization_settings">Summarization Settings</string>
     <string name="backup_restore">Backup &amp; Restore</string>

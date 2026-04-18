@@ -191,6 +191,7 @@ interface FeedDao {
                         isBrowser = existing.isBrowser,
                         isTranslationEnabled = existing.isTranslationEnabled,
                         isAutoTranslate = existing.isAutoTranslate,
+                        isAutoSummary = existing.isAutoSummary,
                     )
                 if (updated == existing) {
                     null

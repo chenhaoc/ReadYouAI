@@ -169,6 +169,15 @@ constructor(
         }
     }
 
+    fun changeAutoSummaryPreset() {
+        viewModelScope.launch(ioDispatcher) {
+            _feedOptionUiState.value.feed?.let { feed ->
+                rssService.get().updateFeed(feed.copy(isAutoSummary = !feed.isAutoSummary))
+                fetchFeed(feed.id)
+            }
+        }
+    }
+
     fun delete(callback: () -> Unit = {}) {
         _feedOptionUiState.value.feed?.let {
             applicationScope.launch(ioDispatcher) {

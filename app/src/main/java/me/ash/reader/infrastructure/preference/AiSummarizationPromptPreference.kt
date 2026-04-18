@@ -12,6 +12,7 @@ import me.ash.reader.ui.ext.DataStoreKey
 import me.ash.reader.ui.ext.DataStoreKey.Companion.aiSummarizationPrompt
 import me.ash.reader.ui.ext.dataStore
 import me.ash.reader.ui.ext.put
+import me.ash.reader.ui.page.home.reading.resolveAiSummarizationPrompt
 
 val LocalAiSummarizationPrompt = compositionLocalOf { AiSummarizationPromptPreference.default }
 
@@ -23,8 +24,10 @@ data class AiSummarizationPromptPreference(val value: String) : Preference() {
         }
     }
 
-    fun toDesc(context: Context): String = 
-        value.ifEmpty { context.getString(R.string.ai_summarization_prompt_default).lines().first() }
+    fun toDesc(context: Context): String =
+        resolveAiSummarizationPrompt(
+            value.ifEmpty { context.getString(R.string.ai_summarization_prompt_default) }
+        ).lineSequence().first().trim()
 
     companion object {
         val default = AiSummarizationPromptPreference("")

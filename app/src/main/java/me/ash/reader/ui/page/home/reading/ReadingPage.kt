@@ -43,7 +43,6 @@ import kotlin.math.abs
 import kotlinx.coroutines.launch
 import me.ash.reader.R
 import me.ash.reader.infrastructure.android.TextToSpeechManager
-import me.ash.reader.infrastructure.preference.LocalAiAutoSummary
 import me.ash.reader.infrastructure.preference.LocalOpenLink
 import me.ash.reader.infrastructure.preference.LocalOpenLinkSpecificBrowser
 import me.ash.reader.infrastructure.preference.LocalPullToSwitchArticle
@@ -87,7 +86,6 @@ fun ReadingPage(
 ) {
     val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
-    val aiAutoSummary = LocalAiAutoSummary.current
     val isPullToSwitchArticleEnabled = LocalPullToSwitchArticle.current.value
     val readingUiState = viewModel.readingUiState.collectAsStateValue()
     val readerState = viewModel.readerStateStateFlow.collectAsStateValue()
@@ -136,13 +134,15 @@ fun ReadingPage(
 
     LaunchedEffect(
         readerState.articleId,
-        aiAutoSummary.value,
+        readingUiState.articleWithFeed?.feed?.isAutoSummary,
         readingUiState.shouldAutoGenerateAiSummary,
     ) {
         if (
             readerState.articleId != null &&
-                aiAutoSummary.value &&
-                readingUiState.shouldAutoGenerateAiSummary
+                shouldAutoSummarize(
+                    feedAutoSummary = readingUiState.articleWithFeed?.feed?.isAutoSummary == true,
+                    state = readingUiState,
+                )
         ) {
             viewModel.autoSummarizeCurrentArticle()
         }

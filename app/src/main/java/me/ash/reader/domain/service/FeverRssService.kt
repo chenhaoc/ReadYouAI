@@ -100,6 +100,7 @@ constructor(
         isBrowser: Boolean,
         isTranslationEnabled: Boolean,
         isAutoTranslate: Boolean,
+        isAutoSummary: Boolean,
     ) {
         throw FeverAPIException("Unsupported")
     }

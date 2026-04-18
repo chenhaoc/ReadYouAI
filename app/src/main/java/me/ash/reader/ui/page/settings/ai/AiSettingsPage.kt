@@ -29,7 +29,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import kotlinx.coroutines.launch
 import me.ash.reader.R
 import me.ash.reader.infrastructure.preference.LocalAiBaseUrl
 import me.ash.reader.infrastructure.preference.LocalAiApiKey
@@ -37,8 +36,6 @@ import me.ash.reader.infrastructure.preference.LocalAiAutoSummary
 import me.ash.reader.infrastructure.preference.LocalAiModel
 import me.ash.reader.infrastructure.preference.LocalAiSummarizationPrompt
 import me.ash.reader.infrastructure.preference.LocalAiTranslationPrompt
-import me.ash.reader.infrastructure.preference.LocalSettings
-import me.ash.reader.infrastructure.net.ApiResult
 import me.ash.reader.ui.component.base.DisplayText
 import me.ash.reader.ui.component.base.FeedbackIconButton
 import me.ash.reader.ui.component.base.RYScaffold
@@ -47,6 +44,7 @@ import me.ash.reader.ui.component.base.RadioDialog
 import me.ash.reader.ui.component.base.RadioDialogOption
 import me.ash.reader.ui.component.base.Subtitle
 import me.ash.reader.ui.component.base.TextFieldDialog
+import me.ash.reader.ui.page.home.reading.resolveAiSummarizationPrompt
 import me.ash.reader.ui.page.settings.SettingItem
 import me.ash.reader.ui.theme.palette.onLight
 
@@ -62,7 +60,6 @@ fun AiSettingsPage(
     val aiSummarizationPrompt = LocalAiSummarizationPrompt.current
     val aiTranslationPrompt = LocalAiTranslationPrompt.current
     val aiAutoSummary = LocalAiAutoSummary.current
-    val settings = LocalSettings.current
     
     val scope = rememberCoroutineScope()
     
@@ -268,7 +265,8 @@ fun AiSettingsPage(
     }
 
     TextFieldDialog(
-        textFieldState = rememberTextFieldState(aiSummarizationPrompt.value),
+        textFieldState =
+            rememberTextFieldState(resolveAiSummarizationPrompt(aiSummarizationPrompt.value)),
         visible = promptDialogVisible,
         title = stringResource(R.string.ai_summarization_prompt),
         placeholder = stringResource(R.string.ai_summarization_prompt_hint),

@@ -102,6 +102,7 @@ fun FeedOptionDrawer(
                     selectedTranslationEnabledPreset =
                         feedOptionUiState.feed?.isTranslationEnabled ?: false,
                     selectedAutoTranslatePreset = feedOptionUiState.feed?.isAutoTranslate ?: false,
+                    selectedAutoSummaryPreset = feedOptionUiState.feed?.isAutoSummary ?: false,
                     isMoveToGroup = true,
                     showGroup = feedOptionViewModel.rssService.get().moveSubscription,
                     showUnsubscribe = feedOptionViewModel.rssService.get().deleteSubscription,
@@ -121,6 +122,9 @@ fun FeedOptionDrawer(
                     },
                     autoTranslatePresetOnClick = {
                         feedOptionViewModel.changeAutoTranslatePreset()
+                    },
+                    autoSummaryPresetOnClick = {
+                        feedOptionViewModel.changeAutoSummaryPreset()
                     },
                     clearArticlesOnClick = {
                         feedOptionViewModel.showClearDialog()

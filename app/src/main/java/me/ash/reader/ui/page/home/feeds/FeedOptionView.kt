@@ -37,6 +37,7 @@ fun FeedOptionView(
     selectedOpenInBrowserPreset: Boolean = false,
     selectedTranslationEnabledPreset: Boolean = false,
     selectedAutoTranslatePreset: Boolean = false,
+    selectedAutoSummaryPreset: Boolean = false,
     isMoveToGroup: Boolean = false,
     showGroup: Boolean = true,
     showUnsubscribe: Boolean = true,
@@ -47,6 +48,7 @@ fun FeedOptionView(
     openInBrowserPresetOnClick: () -> Unit = {},
     translationEnabledPresetOnClick: () -> Unit = {},
     autoTranslatePresetOnClick: () -> Unit = {},
+    autoSummaryPresetOnClick: () -> Unit = {},
     clearArticlesOnClick: () -> Unit = {},
     unsubscribeOnClick: () -> Unit = {},
     onGroupClick: (groupId: String) -> Unit = {},
@@ -65,6 +67,7 @@ fun FeedOptionView(
             selectedOpenInBrowserPreset = selectedOpenInBrowserPreset,
             selectedTranslationEnabledPreset = selectedTranslationEnabledPreset,
             selectedAutoTranslatePreset = selectedAutoTranslatePreset,
+            selectedAutoSummaryPreset = selectedAutoSummaryPreset,
             showUnsubscribe = showUnsubscribe,
             notSubscribeMode = notSubscribeMode,
             allowNotificationPresetOnClick = allowNotificationPresetOnClick,
@@ -72,6 +75,7 @@ fun FeedOptionView(
             openInBrowserPresetOnClick = openInBrowserPresetOnClick,
             translationEnabledPresetOnClick = translationEnabledPresetOnClick,
             autoTranslatePresetOnClick = autoTranslatePresetOnClick,
+            autoSummaryPresetOnClick = autoSummaryPresetOnClick,
             clearArticlesOnClick = clearArticlesOnClick,
             unsubscribeOnClick = unsubscribeOnClick,
         )
@@ -117,6 +121,7 @@ private fun Preset(
     selectedOpenInBrowserPreset: Boolean = false,
     selectedTranslationEnabledPreset: Boolean = false,
     selectedAutoTranslatePreset: Boolean = false,
+    selectedAutoSummaryPreset: Boolean = false,
     showUnsubscribe: Boolean = true,
     notSubscribeMode: Boolean = false,
     allowNotificationPresetOnClick: () -> Unit = {},
@@ -124,6 +129,7 @@ private fun Preset(
     openInBrowserPresetOnClick: () -> Unit = {},
     translationEnabledPresetOnClick: () -> Unit = {},
     autoTranslatePresetOnClick: () -> Unit = {},
+    autoSummaryPresetOnClick: () -> Unit = {},
     clearArticlesOnClick: () -> Unit = {},
     unsubscribeOnClick: () -> Unit = {},
 ) {
@@ -201,6 +207,13 @@ private fun Preset(
             selected = selectedAutoTranslatePreset,
         ) {
             autoTranslatePresetOnClick()
+        }
+        RYSelectionChip(
+            modifier = Modifier,
+            content = stringResource(R.string.ai_auto_summary),
+            selected = selectedAutoSummaryPreset,
+        ) {
+            autoSummaryPresetOnClick()
         }
         if (notSubscribeMode) {
             RYSelectionChip(

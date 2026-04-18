@@ -60,6 +60,7 @@ abstract class AbstractRssRepository(
         isBrowser: Boolean,
         isTranslationEnabled: Boolean = false,
         isAutoTranslate: Boolean = false,
+        isAutoSummary: Boolean = false,
     ) {
         val accountId = accountService.getCurrentAccountId()
         val feed =
@@ -75,6 +76,7 @@ abstract class AbstractRssRepository(
                 isFullContent = isFullContent,
                 isTranslationEnabled = isTranslationEnabled,
                 isAutoTranslate = isAutoTranslate,
+                isAutoSummary = isAutoSummary,
             )
         val articles =
             searchedFeed.entries.map { rssHelper.buildArticleFromSyndEntry(feed, accountId, it) }

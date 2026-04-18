@@ -353,6 +353,8 @@
     <string name="parse_full_content_desc">从网页获取完整内容</string>
     <string name="enable">启用</string>
     <string name="disable">停用</string>
+    <string name="ai_settings">AI</string>
+    <string name="ai_settings_desc">配置 AI 摘要</string>
     <string name="ai_base_url">API 地址</string>
     <string name="ai_base_url_hint">输入 API 地址</string>
     <string name="ai_api_key">API 密钥</string>
@@ -365,7 +367,7 @@
     <string name="ai_translation_prompt">翻译提示词</string>
     <string name="ai_translation_prompt_hint">自定义文章分段翻译方式</string>
     <string name="ai_auto_summary">自动 AI 摘要</string>
-    <string name="ai_auto_summary_desc">打开尚无摘要的文章时自动生成摘要</string>
+    <string name="ai_auto_summary_desc">打开尚无摘要的文章时自动生成摘要。该设置会作为新订阅源的默认值。</string>
     <string name="api_configuration">API 配置</string>
     <string name="summarization_settings">摘要设置</string>
     <string name="backup_restore">备份与恢复</string>

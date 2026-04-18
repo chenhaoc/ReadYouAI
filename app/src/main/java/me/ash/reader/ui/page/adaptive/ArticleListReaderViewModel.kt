@@ -59,6 +59,7 @@ import me.ash.reader.ui.page.home.flow.buildListTranslationSourceBlocks
 import me.ash.reader.ui.page.home.reading.ArticleContentBlockParser
 import me.ash.reader.ui.page.home.reading.buildPrioritizedTranslationBatch
 import me.ash.reader.ui.page.home.reading.decodeStoredTranslationBlocks
+import me.ash.reader.ui.page.home.reading.resolveAiSummarizationPrompt
 import me.ash.reader.ui.page.home.reading.selectExtraTranslations
 import me.ash.reader.ui.page.home.reading.selectTranslationsForCurrentBlocks
 import me.ash.reader.ui.page.home.reading.translatableBlockCount
@@ -575,9 +576,7 @@ constructor(
                 baseUrl = settings.aiBaseUrl.value,
                 apiKey = settings.aiApiKey.value,
                 model = settings.aiModel.value.ifEmpty { "gpt-3.5-turbo" },
-                prompt = settings.aiSummarizationPrompt.value.ifEmpty {
-                    "Please provide a concise summary of the following article in 3-5 bullet points:\n\n"
-                },
+                prompt = resolveAiSummarizationPrompt(settings.aiSummarizationPrompt.value),
                 articleContent = articleContent
             )
 

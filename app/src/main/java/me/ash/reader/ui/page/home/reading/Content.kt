@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -17,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -63,8 +65,13 @@ fun Content(
     val textContentWidth = LocalTextContentWidth.current
     val maxWidthModifier = Modifier.widthIn(max = textContentWidth)
     val uriHandler = LocalUriHandler.current
-    val contentBlocks = ArticleContentBlockParser.parse(content = content, baseUrl = link ?: "")
-    val translatedBlockMap = parseTranslatedBlockMap(translatedContentBlocks)
+    val contentBlocks =
+        remember(content, link) {
+            ArticleContentBlockParser.parse(content = content, baseUrl = link ?: "")
+        }
+    val translatedBlockMap = remember(translatedContentBlocks) {
+        parseTranslatedBlockMap(translatedContentBlocks)
+    }
     val translatedTitle = resolveTranslatedTitle(translatedContentBlocks)
 
     val headline =
@@ -122,7 +129,7 @@ fun Content(
                             summarySection()
 
                             RYWebView(
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = Modifier.fillMaxWidth(),
                                 content =
                                     buildWebViewBilingualContent(
                                         content = content,
@@ -148,7 +155,7 @@ fun Content(
                         state = listState,
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        item {
+                        item(key = "reading_header") {
                             // Top bar height
                             Spacer(modifier = Modifier.height(64.dp))
                             // padding
@@ -178,7 +185,7 @@ fun Content(
                             )
                         }
 
-                        item {
+                        item(key = "reading_footer") {
                             Spacer(modifier = Modifier.height(128.dp))
                             Spacer(
                                 modifier = Modifier.height(contentPadding.calculateBottomPadding())
