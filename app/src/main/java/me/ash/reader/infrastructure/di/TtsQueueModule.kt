@@ -1,13 +1,17 @@
 package me.ash.reader.infrastructure.di
 
+import android.content.Context
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
+import me.ash.reader.infrastructure.android.TtsPlaybackService
 import me.ash.reader.infrastructure.android.ttsqueue.ArticleDaoTtsQueueArticleRepository
 import me.ash.reader.infrastructure.android.ttsqueue.DataStoreTtsQueueSnapshotStore
 import me.ash.reader.infrastructure.android.ttsqueue.TextToSpeechQueuePlaybackClient
+import me.ash.reader.infrastructure.android.ttsqueue.TtsPlaybackServiceLauncher
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueArticleRepository
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueController
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueuePlaybackClient
@@ -38,16 +42,32 @@ object TtsQueueModule {
 
     @Provides
     @Singleton
+    fun provideTtsPlaybackServiceLauncher(
+        @ApplicationContext context: Context,
+    ): TtsPlaybackServiceLauncher = object : TtsPlaybackServiceLauncher {
+        override fun startService() {
+            TtsPlaybackService.startService(context)
+        }
+
+        override fun stopService() {
+            TtsPlaybackService.stopService(context)
+        }
+    }
+
+    @Provides
+    @Singleton
     fun provideTtsQueueController(
         snapshotStore: TtsQueueSnapshotStore,
         articleRepository: TtsQueueArticleRepository,
         playbackClient: TtsQueuePlaybackClient,
+        serviceLauncher: TtsPlaybackServiceLauncher,
         @ApplicationScope coroutineScope: CoroutineScope,
     ): TtsQueueController =
         TtsQueueController(
             snapshotStore = snapshotStore,
             articleRepository = articleRepository,
             playbackClient = playbackClient,
+            serviceLauncher = serviceLauncher,
             coroutineScope = coroutineScope,
         )
 }

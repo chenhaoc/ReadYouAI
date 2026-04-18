@@ -15,7 +15,7 @@ class TtsQueueOverlayViewModel @Inject constructor(
     val queueState: StateFlow<TtsQueueState> = ttsQueueController.state
 
     fun stopQueuePlayback() {
-        ttsQueueController.stop()
+        ttsQueueController.pause()
     }
 
     fun skipQueuePlayback() {

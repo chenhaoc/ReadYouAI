@@ -54,6 +54,7 @@ class TtsQueueControllerTest {
                 snapshotStore = snapshotStore,
                 articleRepository = repository,
                 playbackClient = playbackClient,
+                serviceLauncher = NoOpServiceLauncher,
                 coroutineScope = backgroundScope,
             )
 
@@ -80,6 +81,7 @@ class TtsQueueControllerTest {
                 snapshotStore = snapshotStore,
                 articleRepository = repository,
                 playbackClient = playbackClient,
+                serviceLauncher = NoOpServiceLauncher,
                 coroutineScope = backgroundScope,
             )
 
@@ -109,6 +111,7 @@ class TtsQueueControllerTest {
                 snapshotStore = snapshotStore,
                 articleRepository = repository,
                 playbackClient = playbackClient,
+                serviceLauncher = NoOpServiceLauncher,
                 coroutineScope = backgroundScope,
             )
 
@@ -149,6 +152,7 @@ class TtsQueueControllerTest {
                 snapshotStore = snapshotStore,
                 articleRepository = repository,
                 playbackClient = playbackClient,
+                serviceLauncher = NoOpServiceLauncher,
                 coroutineScope = backgroundScope,
             )
 
@@ -174,6 +178,7 @@ class TtsQueueControllerTest {
                 snapshotStore = snapshotStore,
                 articleRepository = repository,
                 playbackClient = playbackClient,
+                serviceLauncher = NoOpServiceLauncher,
                 coroutineScope = backgroundScope,
             )
 
@@ -191,6 +196,38 @@ class TtsQueueControllerTest {
         assertEquals(1, controller.state.value.currentSegmentIndex)
     }
 
+
+    @Test
+    fun pause_keeps_current_article_and_service_running() = runTest {
+        val snapshotStore = FakeSnapshotStore(null)
+        val repository =
+            FakeArticleRepository(
+                mapOf(
+                    "a" to playableArticle("a", segmentCharCounts = listOf(10, 10)),
+                )
+            )
+        val playbackClient = FakePlaybackClient()
+        val serviceLauncher = RecordingServiceLauncher()
+        val controller =
+            TtsQueueController(
+                snapshotStore = snapshotStore,
+                articleRepository = repository,
+                playbackClient = playbackClient,
+                serviceLauncher = serviceLauncher,
+                coroutineScope = backgroundScope,
+            )
+
+        controller.playNow(playableArticle("a").item)
+        advanceUntilIdle()
+        controller.pause()
+        advanceUntilIdle()
+
+        assertEquals("a", controller.state.value.currentArticleId)
+        assertEquals(TtsQueuePlaybackState.Idle, controller.state.value.playbackState)
+        assertEquals(1, serviceLauncher.startCount)
+        assertEquals(0, serviceLauncher.stopCount)
+    }
+
     @Test
     fun seekCurrent_restarts_playback_from_requested_segment() = runTest {
         val snapshotStore = FakeSnapshotStore(null)
@@ -206,6 +243,7 @@ class TtsQueueControllerTest {
                 snapshotStore = snapshotStore,
                 articleRepository = repository,
                 playbackClient = playbackClient,
+                serviceLauncher = NoOpServiceLauncher,
                 coroutineScope = backgroundScope,
             )
 
@@ -238,6 +276,7 @@ class TtsQueueControllerTest {
                 snapshotStore = snapshotStore,
                 articleRepository = repository,
                 playbackClient = playbackClient,
+                serviceLauncher = NoOpServiceLauncher,
                 coroutineScope = backgroundScope,
             )
 
@@ -268,6 +307,7 @@ class TtsQueueControllerTest {
                 snapshotStore = snapshotStore,
                 articleRepository = repository,
                 playbackClient = playbackClient,
+                serviceLauncher = NoOpServiceLauncher,
                 coroutineScope = backgroundScope,
             )
 
@@ -300,6 +340,7 @@ class TtsQueueControllerTest {
                 snapshotStore = snapshotStore,
                 articleRepository = repository,
                 playbackClient = playbackClient,
+                serviceLauncher = NoOpServiceLauncher,
                 coroutineScope = backgroundScope,
             )
 
@@ -391,4 +432,22 @@ private class FakePlaybackClient : TtsQueuePlaybackClient {
     }
 
     override fun stop() = Unit
+}
+
+private object NoOpServiceLauncher : TtsPlaybackServiceLauncher {
+    override fun startService() = Unit
+    override fun stopService() = Unit
+}
+
+private class RecordingServiceLauncher : TtsPlaybackServiceLauncher {
+    var startCount: Int = 0
+    var stopCount: Int = 0
+
+    override fun startService() {
+        startCount += 1
+    }
+
+    override fun stopService() {
+        stopCount += 1
+    }
 }

@@ -403,4 +403,10 @@
     <string name="playlist_count">%1$d 项</string>
     <string name="playlist_empty">播放列表为空</string>
     <string name="reading_stats_summary">本文 %1$d 字，阅读约 %2$d 分钟，音频约 %3$d 分钟</string>
+    <string name="tts_playback_channel">TTS 播放</string>
+    <string name="tts_playing">正在播放</string>
+    <string name="tts_action_previous">上一条</string>
+    <string name="tts_action_pause">暂停</string>
+    <string name="tts_action_play">播放</string>
+    <string name="tts_action_next">下一条</string>
 </resources>

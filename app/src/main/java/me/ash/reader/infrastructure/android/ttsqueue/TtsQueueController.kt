@@ -51,10 +51,16 @@ interface TtsQueuePlaybackClient {
     fun stop()
 }
 
+interface TtsPlaybackServiceLauncher {
+    fun startService()
+    fun stopService()
+}
+
 class TtsQueueController(
     private val snapshotStore: TtsQueueSnapshotStore,
     private val articleRepository: TtsQueueArticleRepository,
     private val playbackClient: TtsQueuePlaybackClient,
+    private val serviceLauncher: TtsPlaybackServiceLauncher,
     private val coroutineScope: CoroutineScope,
 ) {
     private val _state = MutableStateFlow(TtsQueueState())
@@ -82,6 +88,7 @@ class TtsQueueController(
                 playbackState = TtsQueuePlaybackState.Preparing
             )
         persistAsync()
+        serviceLauncher.startService()
         coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) { playCurrentArticle() }
     }
 
@@ -89,7 +96,14 @@ class TtsQueueController(
         if (_state.value.currentArticleId == null) return
         _state.value = _state.value.copy(playbackState = TtsQueuePlaybackState.Preparing)
         persistAsync()
+        serviceLauncher.startService()
         coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) { playCurrentArticle() }
+    }
+
+    fun pause() {
+        playbackClient.stop()
+        _state.value = _state.value.copy(playbackState = TtsQueuePlaybackState.Idle)
+        persistAsync()
     }
 
     fun skipToPrevious() {
@@ -143,9 +157,8 @@ class TtsQueueController(
     }
 
     fun stop() {
-        playbackClient.stop()
-        _state.value = _state.value.copy(playbackState = TtsQueuePlaybackState.Idle)
-        persistAsync()
+        pause()
+        serviceLauncher.stopService()
     }
 
     fun skipToNext() {
@@ -160,6 +173,7 @@ class TtsQueueController(
         playbackClient.stop()
         _state.value = TtsQueueReducer.clear(_state.value)
         persistAsync()
+        serviceLauncher.stopService()
     }
 
     suspend fun restore() {
@@ -201,6 +215,7 @@ class TtsQueueController(
         persistAsync()
 
         if (snapshot.wasPlaying && currentArticleId != null) {
+            serviceLauncher.startService()
             playCurrentArticle()
         }
     }
@@ -234,6 +249,7 @@ class TtsQueueController(
         if (advanced.currentArticleId == null) {
             _state.value = advanced.copy(playbackState = TtsQueuePlaybackState.Idle)
             persistAsync()
+            serviceLauncher.stopService()
             return
         }
 
@@ -293,6 +309,7 @@ class TtsQueueController(
                 playbackState = TtsQueuePlaybackState.Preparing,
             )
         persistAsync()
+        serviceLauncher.startService()
         coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) { playCurrentArticle() }
     }
 

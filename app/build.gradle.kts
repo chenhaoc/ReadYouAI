@@ -191,6 +191,7 @@ dependencies {
     implementation(libs.glance.appwidget.preview)
     implementation(libs.glance.material3)
     implementation(libs.glance.preview)
+    implementation(libs.media)
 
     implementation(libs.navigation3.runtime)
     implementation(libs.navigation3.ui)

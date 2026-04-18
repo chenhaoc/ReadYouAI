@@ -448,4 +448,10 @@
     <string name="playlist_count">%1$d items</string>
     <string name="playlist_empty">Playlist is empty</string>
     <string name="reading_stats_summary">This article %1$d chars, about %2$d min read, about %3$d min audio</string>
+    <string name="tts_playback_channel">TTS Playback</string>
+    <string name="tts_playing">Playing</string>
+    <string name="tts_action_previous">Previous</string>
+    <string name="tts_action_pause">Pause</string>
+    <string name="tts_action_play">Play</string>
+    <string name="tts_action_next">Next</string>
 </resources>
