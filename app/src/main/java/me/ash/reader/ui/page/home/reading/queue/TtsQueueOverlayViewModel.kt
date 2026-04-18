@@ -7,6 +7,7 @@ import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueController
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueuePlaybackState
 import kotlinx.coroutines.flow.StateFlow
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueState
+import me.ash.reader.infrastructure.android.ttsqueue.TtsSleepTimerOption
 
 @HiltViewModel
 class TtsQueueOverlayViewModel @Inject constructor(
@@ -24,6 +25,20 @@ class TtsQueueOverlayViewModel @Inject constructor(
 
     fun previousQueuePlayback() {
         ttsQueueController.skipToPrevious()
+    }
+
+
+    fun previousQueueSegment() {
+        ttsQueueController.skipToPreviousSegment()
+    }
+
+
+    fun nextQueueSegment() {
+        ttsQueueController.skipToNextSegment()
+    }
+
+    fun setSleepTimer(option: TtsSleepTimerOption) {
+        ttsQueueController.setSleepTimer(option)
     }
 
     fun clearPlaylist() {

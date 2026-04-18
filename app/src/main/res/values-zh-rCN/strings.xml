@@ -409,4 +409,8 @@
     <string name="tts_action_pause">暂停</string>
     <string name="tts_action_play">播放</string>
     <string name="tts_action_next">下一条</string>
+    <string name="sleep_timer">定时播放</string>
+    <string name="sleep_timer_off">关闭</string>
+    <string name="sleep_timer_minutes">%1$d 分钟</string>
+    <string name="sleep_timer_current_audio_end">当前音频结束</string>
 </resources>

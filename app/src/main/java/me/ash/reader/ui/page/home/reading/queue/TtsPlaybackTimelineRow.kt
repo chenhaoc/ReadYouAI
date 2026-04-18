@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -28,11 +29,12 @@ internal fun TtsPlaybackTimelineRow(
 
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = formatMsToTime(durationEstimate.currentMs),
-            modifier = Modifier.widthIn(min = 44.dp),
+            modifier = Modifier.widthIn(min = 36.dp),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -44,7 +46,7 @@ internal fun TtsPlaybackTimelineRow(
         )
         Text(
             text = formatMsToTime(durationEstimate.totalMs),
-            modifier = Modifier.widthIn(min = 44.dp),
+            modifier = Modifier.widthIn(min = 36.dp),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.End,

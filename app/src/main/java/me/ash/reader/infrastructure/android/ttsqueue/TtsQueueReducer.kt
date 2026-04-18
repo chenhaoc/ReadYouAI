@@ -2,6 +2,11 @@ package me.ash.reader.infrastructure.android.ttsqueue
 
 import kotlinx.serialization.Serializable
 
+private const val FIVE_MINUTES_MS = 5 * 60 * 1000L
+private const val TEN_MINUTES_MS = 10 * 60 * 1000L
+private const val FIFTEEN_MINUTES_MS = 15 * 60 * 1000L
+private const val THIRTY_MINUTES_MS = 30 * 60 * 1000L
+
 data class TtsQueueItem(
     val articleId: String,
     val title: String,
@@ -15,6 +20,23 @@ enum class TtsQueuePlaybackState {
     Preparing,
     Reading,
     Error,
+}
+
+enum class TtsSleepTimerOption(val durationMs: Long? = null) {
+    Off,
+    FiveMinutes(durationMs = FIVE_MINUTES_MS),
+    TenMinutes(durationMs = TEN_MINUTES_MS),
+    FifteenMinutes(durationMs = FIFTEEN_MINUTES_MS),
+    ThirtyMinutes(durationMs = THIRTY_MINUTES_MS),
+    CurrentArticleEnd,
+}
+
+data class TtsSleepTimerState(
+    val option: TtsSleepTimerOption = TtsSleepTimerOption.Off,
+    val targetArticleId: String? = null,
+) {
+    val enabled: Boolean
+        get() = option != TtsSleepTimerOption.Off
 }
 
 @Serializable
@@ -32,6 +54,7 @@ data class TtsQueueState(
     val currentArticleId: String? = null,
     val playbackState: TtsQueuePlaybackState = TtsQueuePlaybackState.Idle,
     val bookmarks: Map<String, TtsPlaybackBookmark> = emptyMap(),
+    val sleepTimer: TtsSleepTimerState = TtsSleepTimerState(),
 ) {
     val currentIndex: Int?
         get() = items.indexOfFirst { it.articleId == currentArticleId }.takeIf { it >= 0 }
@@ -50,6 +73,12 @@ data class TtsQueueState(
 
     val currentSegmentCharCounts: List<Int>
         get() = currentBookmark?.segmentCharCounts ?: emptyList()
+
+    val hasPreviousSegment: Boolean
+        get() = currentSegmentIndex > 0
+
+    val hasNextSegment: Boolean
+        get() = currentSegmentCount > 0 && currentSegmentIndex < currentSegmentCount - 1
 }
 
 object TtsQueueReducer {
@@ -111,6 +140,7 @@ object TtsQueueReducer {
             currentArticleId = null,
             playbackState = TtsQueuePlaybackState.Idle,
             bookmarks = emptyMap(),
+            sleepTimer = TtsSleepTimerState(),
         )
 
     fun moveUp(state: TtsQueueState, articleId: String): TtsQueueState {

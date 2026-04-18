@@ -454,4 +454,8 @@
     <string name="tts_action_pause">Pause</string>
     <string name="tts_action_play">Play</string>
     <string name="tts_action_next">Next</string>
+    <string name="sleep_timer">Sleep timer</string>
+    <string name="sleep_timer_off">Off</string>
+    <string name="sleep_timer_minutes">%1$d min</string>
+    <string name="sleep_timer_current_audio_end">Current audio end</string>
 </resources>

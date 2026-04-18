@@ -7,17 +7,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -29,11 +23,15 @@ fun TtsMiniPlayer(
     state: TtsQueueState,
     onTogglePlay: () -> Unit,
     onSeekToSegment: (Int) -> Unit,
-    onNext: () -> Unit,
+    onPreviousSegment: () -> Unit,
+    onPreviousArticle: () -> Unit,
+    onNextArticle: () -> Unit,
+    onNextSegment: () -> Unit,
     onOpenQueue: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val currentItem = state.currentItem ?: return
+    val playbackControlEnabled = state.playbackState != TtsQueuePlaybackState.Preparing
 
     Surface(
         modifier =
@@ -46,56 +44,51 @@ fun TtsMiniPlayer(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            Column(
+                modifier = Modifier.clickable(onClick = onOpenQueue),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
+                Text(
+                    text = currentItem.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 Row(
-                    modifier = Modifier.weight(1f).clickable(onClick = onOpenQueue),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.QueueMusic,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                    Text(
+                        text = currentItem.feedName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
                     )
-                    Column {
-                        Text(
-                            text = currentItem.title,
-                            style = MaterialTheme.typography.titleSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = "${(state.currentIndex ?: 0) + 1}/${state.items.size} · ${currentItem.feedName}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-                IconButton(onClick = onTogglePlay) {
-                    Icon(
-                        imageVector =
-                            if (state.playbackState == TtsQueuePlaybackState.Reading) {
-                                Icons.Rounded.Pause
-                            } else {
-                                Icons.Rounded.PlayArrow
-                            },
-                        contentDescription = null,
-                    )
-                }
-                IconButton(onClick = onNext) {
-                    Icon(
-                        imageVector = Icons.Rounded.SkipNext,
-                        contentDescription = null,
+                    Text(
+                        text = "${(state.currentIndex ?: 0) + 1}/${state.items.size}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
+
+            TtsPlaybackControlsRow(
+                playbackState = state.playbackState,
+                controlEnabled = playbackControlEnabled,
+                canSkipToPreviousSegment = state.hasPreviousSegment,
+                canSkipToNextSegment = state.hasNextSegment,
+                onPreviousSegment = onPreviousSegment,
+                onPreviousArticle = onPreviousArticle,
+                onTogglePlay = onTogglePlay,
+                onNextArticle = onNextArticle,
+                onNextSegment = onNextSegment,
+            )
 
             TtsPlaybackTimelineRow(
                 currentSegmentIndex = state.currentSegmentIndex,

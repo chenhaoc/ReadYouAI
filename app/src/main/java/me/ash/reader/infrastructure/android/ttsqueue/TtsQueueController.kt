@@ -2,12 +2,15 @@ package me.ash.reader.infrastructure.android.ttsqueue
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+
 @Serializable
 data class TtsQueueSnapshot(
     val articleIds: List<String> = emptyList(),
@@ -66,6 +69,8 @@ class TtsQueueController(
     private val _state = MutableStateFlow(TtsQueueState())
     val state = _state.asStateFlow()
 
+    private var sleepTimerJob: Job? = null
+
     init {
         coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
             playbackClient.events.collectLatest { event ->
@@ -85,8 +90,8 @@ class TtsQueueController(
     fun playNow(item: TtsQueueItem) {
         _state.value =
             TtsQueueReducer.playNow(_state.value, item).copy(
-                playbackState = TtsQueuePlaybackState.Preparing
-            )
+                playbackState = TtsQueuePlaybackState.Preparing,
+            ).syncSleepTimerTarget()
         persistAsync()
         serviceLauncher.startService()
         coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) { playCurrentArticle() }
@@ -114,6 +119,11 @@ class TtsQueueController(
         playIndex(previousIndex)
     }
 
+    fun skipToPreviousSegment() {
+        if (!_state.value.hasPreviousSegment) return
+        seekCurrent(_state.value.currentSegmentIndex - 1)
+    }
+
     fun seekCurrent(segmentIndex: Int) {
         val articleId = _state.value.currentArticleId ?: return
         val safeSegmentIndex =
@@ -136,7 +146,7 @@ class TtsQueueController(
 
     fun remove(articleId: String) {
         val wasCurrent = _state.value.currentArticleId == articleId
-        _state.value = TtsQueueReducer.remove(_state.value, articleId)
+        _state.value = TtsQueueReducer.remove(_state.value, articleId).syncSleepTimerTarget()
         persistAsync()
         if (wasCurrent) {
             coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -158,6 +168,7 @@ class TtsQueueController(
 
     fun stop() {
         pause()
+        clearSleepTimer()
         serviceLauncher.stopService()
     }
 
@@ -169,8 +180,43 @@ class TtsQueueController(
         playIndex(nextIndex)
     }
 
+    fun skipToNextSegment() {
+        if (!_state.value.hasNextSegment) return
+        seekCurrent(_state.value.currentSegmentIndex + 1)
+    }
+
+    fun setSleepTimer(option: TtsSleepTimerOption) {
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+
+        _state.value =
+            _state.value.copy(
+                sleepTimer =
+                    when (option) {
+                        TtsSleepTimerOption.Off -> TtsSleepTimerState()
+                        TtsSleepTimerOption.CurrentArticleEnd ->
+                            TtsSleepTimerState(
+                                option = option,
+                                targetArticleId = _state.value.currentArticleId,
+                            )
+                        else -> TtsSleepTimerState(option = option)
+                    },
+            )
+        persistAsync()
+
+        option.durationMs?.let { durationMs ->
+            sleepTimerJob = coroutineScope.launch {
+                delay(durationMs)
+                sleepTimerJob = null
+                stop()
+            }
+        }
+    }
+
     fun clear() {
         playbackClient.stop()
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
         _state.value = TtsQueueReducer.clear(_state.value)
         persistAsync()
         serviceLauncher.stopService()
@@ -239,10 +285,16 @@ class TtsQueueController(
     }
 
     private suspend fun onPlaybackCompleted() {
+        val completedArticleId = _state.value.currentArticleId
+        if (completedArticleId != null && shouldStopAfterCurrentArticle(completedArticleId)) {
+            stop()
+            return
+        }
+
         val advanced =
             TtsQueueReducer.advance(_state.value).copy(
-                playbackState = TtsQueuePlaybackState.Preparing
-            )
+                playbackState = TtsQueuePlaybackState.Preparing,
+            ).syncSleepTimerTarget()
         _state.value = advanced
         persistAsync()
 
@@ -262,8 +314,8 @@ class TtsQueueController(
         if (playableArticle == null) {
             _state.value =
                 TtsQueueReducer.remove(_state.value, currentArticleId).copy(
-                    playbackState = TtsQueuePlaybackState.Error
-                )
+                    playbackState = TtsQueuePlaybackState.Error,
+                ).syncSleepTimerTarget()
             persistAsync()
             return
         }
@@ -273,13 +325,13 @@ class TtsQueueController(
             when {
                 playableArticle.segmentCharCounts.isNotEmpty() -> playableArticle.segmentCharCounts
                 existingBookmark?.segmentCharCounts?.isNotEmpty() == true ->
-                    existingBookmark?.segmentCharCounts.orEmpty()
+                    existingBookmark.segmentCharCounts
                 else -> listOf(1)
             }
         val safeSegmentIndex =
             existingBookmark?.segmentIndex?.coerceIn(
                 minimumValue = 0,
-                maximumValue = (segmentCharCounts.lastIndex).coerceAtLeast(0),
+                maximumValue = segmentCharCounts.lastIndex.coerceAtLeast(0),
             ) ?: 0
         updateBookmark(currentArticleId) {
             TtsPlaybackBookmark(
@@ -307,10 +359,29 @@ class TtsQueueController(
             _state.value.copy(
                 currentArticleId = targetItem.articleId,
                 playbackState = TtsQueuePlaybackState.Preparing,
-            )
+            ).syncSleepTimerTarget()
         persistAsync()
         serviceLauncher.startService()
         coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) { playCurrentArticle() }
+    }
+
+    private fun clearSleepTimer() {
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        if (!_state.value.sleepTimer.enabled) return
+        _state.value = _state.value.copy(sleepTimer = TtsSleepTimerState())
+        persistAsync()
+    }
+
+    private fun shouldStopAfterCurrentArticle(articleId: String): Boolean {
+        val sleepTimer = _state.value.sleepTimer
+        return sleepTimer.option == TtsSleepTimerOption.CurrentArticleEnd &&
+            sleepTimer.targetArticleId == articleId
+    }
+
+    private fun TtsQueueState.syncSleepTimerTarget(): TtsQueueState {
+        if (sleepTimer.option != TtsSleepTimerOption.CurrentArticleEnd) return this
+        return copy(sleepTimer = sleepTimer.copy(targetArticleId = currentArticleId))
     }
 
     private fun currentArticleId(): String? = _state.value.currentArticleId

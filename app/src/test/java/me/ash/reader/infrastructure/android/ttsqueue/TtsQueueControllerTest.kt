@@ -3,6 +3,7 @@ package me.ash.reader.infrastructure.android.ttsqueue
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
@@ -226,6 +227,103 @@ class TtsQueueControllerTest {
         assertEquals(TtsQueuePlaybackState.Idle, controller.state.value.playbackState)
         assertEquals(1, serviceLauncher.startCount)
         assertEquals(0, serviceLauncher.stopCount)
+    }
+
+    @Test
+    fun skipToNextSegment_restarts_playback_from_next_segment() = runTest {
+        val snapshotStore = FakeSnapshotStore(null)
+        val repository =
+            FakeArticleRepository(
+                mapOf(
+                    "a" to playableArticle("a", segmentCharCounts = listOf(10, 10, 10)),
+                )
+            )
+        val playbackClient = FakePlaybackClient()
+        val controller =
+            TtsQueueController(
+                snapshotStore = snapshotStore,
+                articleRepository = repository,
+                playbackClient = playbackClient,
+                serviceLauncher = NoOpServiceLauncher,
+                coroutineScope = backgroundScope,
+            )
+
+        controller.playNow(playableArticle("a").item)
+        advanceUntilIdle()
+        controller.skipToNextSegment()
+        advanceUntilIdle()
+
+        assertEquals(listOf(0, 1), playbackClient.playedStartSegmentIndices)
+        assertEquals(1, controller.state.value.currentSegmentIndex)
+    }
+
+    @Test
+    fun sleepTimer_stops_playback_after_selected_duration() = runTest {
+        val snapshotStore = FakeSnapshotStore(null)
+        val repository =
+            FakeArticleRepository(
+                mapOf(
+                    "a" to playableArticle("a", segmentCharCounts = listOf(10, 10, 10)),
+                )
+            )
+        val playbackClient = FakePlaybackClient()
+        val serviceLauncher = RecordingServiceLauncher()
+        val controller =
+            TtsQueueController(
+                snapshotStore = snapshotStore,
+                articleRepository = repository,
+                playbackClient = playbackClient,
+                serviceLauncher = serviceLauncher,
+                coroutineScope = backgroundScope,
+            )
+
+        controller.playNow(playableArticle("a").item)
+        advanceUntilIdle()
+        controller.setSleepTimer(TtsSleepTimerOption.FiveMinutes)
+
+        advanceTimeBy((TtsSleepTimerOption.FiveMinutes.durationMs ?: 0L) + 1L)
+        advanceUntilIdle()
+
+        assertEquals(TtsSleepTimerOption.Off, controller.state.value.sleepTimer.option)
+        assertEquals(TtsQueuePlaybackState.Idle, controller.state.value.playbackState)
+        assertEquals(1, serviceLauncher.stopCount)
+    }
+
+    @Test
+    fun sleepTimer_currentArticleEnd_stops_before_advancing_queue() = runTest {
+        val snapshotStore = FakeSnapshotStore(null)
+        val repository =
+            FakeArticleRepository(
+                mapOf(
+                    "a" to playableArticle("a", segmentCharCounts = listOf(10, 10)),
+                    "b" to playableArticle("b", segmentCharCounts = listOf(10, 10)),
+                )
+            )
+        val playbackClient = FakePlaybackClient()
+        val serviceLauncher = RecordingServiceLauncher()
+        val controller =
+            TtsQueueController(
+                snapshotStore = snapshotStore,
+                articleRepository = repository,
+                playbackClient = playbackClient,
+                serviceLauncher = serviceLauncher,
+                coroutineScope = backgroundScope,
+            )
+
+        controller.playNow(playableArticle("a").item)
+        controller.enqueue(playableArticle("b").item)
+        advanceUntilIdle()
+        controller.setSleepTimer(TtsSleepTimerOption.CurrentArticleEnd)
+        advanceUntilIdle()
+
+        controller.handlePlaybackEvent(TtsPlaybackEvent.Completed)
+        advanceUntilIdle()
+
+        assertEquals("a", controller.state.value.currentArticleId)
+        assertEquals(TtsSleepTimerOption.Off, controller.state.value.sleepTimer.option)
+        assertEquals(TtsQueuePlaybackState.Idle, controller.state.value.playbackState)
+        assertEquals(listOf("a"), playbackClient.playedArticleIds)
+        assertEquals(1, serviceLauncher.stopCount)
     }
 
     @Test

@@ -134,6 +134,9 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
                     onPlayItem = overlayViewModel::playPlaylistItem,
                     onPauseCurrent = overlayViewModel::stopQueuePlayback,
                     onSeekCurrent = overlayViewModel::seekCurrentPlayback,
+                    onPreviousSegment = overlayViewModel::previousQueueSegment,
+                    onNextSegment = overlayViewModel::nextQueueSegment,
+                    onSetSleepTimer = overlayViewModel::setSleepTimer,
                     onOpenCurrentArticle = { articleId ->
                         scope.launch {
                             queueDrawerState.hide()
