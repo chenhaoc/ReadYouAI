@@ -102,11 +102,11 @@ private fun buildTranslatedHtml(
             ArticleContentBlockType.Heading ->
                 "margin: 0 16px 18px; color: inherit; opacity: 0.92; font-weight: 600;"
             ArticleContentBlockType.ListItem ->
-                "margin: 0 16px 14px 36px; color: inherit; opacity: 0.88; font-style: italic;"
+                "margin: 0 16px 14px 36px; color: inherit; opacity: 0.88;"
             ArticleContentBlockType.Quote ->
                 "margin: 0 16px 18px; padding-left: 12px; border-left: 3px solid rgba(127,127,127,.35); color: inherit; opacity: 0.88; font-style: italic;"
             else ->
-                "margin: 0 16px 18px; color: inherit; opacity: 0.88; font-style: italic;"
+                "margin: 0 16px 18px; color: inherit; opacity: 0.88;"
         }
     return """<p class="ry-translation-block" style="$style">$escapedText</p>"""
 }
