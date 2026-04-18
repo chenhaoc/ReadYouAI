@@ -305,6 +305,7 @@ class TtsQueueController(
             return
         }
 
+        serviceLauncher.startService()
         playCurrentArticle()
     }
 

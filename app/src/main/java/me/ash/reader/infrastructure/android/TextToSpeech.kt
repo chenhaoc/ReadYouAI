@@ -84,9 +84,9 @@ class TextToSpeechManager @Inject constructor(
     }
 
     private fun readText(text: String, startSegmentIndex: Int = 0) {
-        stop()
-
-        if (state != State.Idle) return
+        if (state != State.Idle) {
+            stop()
+        }
 
         state = State.Preparing
 

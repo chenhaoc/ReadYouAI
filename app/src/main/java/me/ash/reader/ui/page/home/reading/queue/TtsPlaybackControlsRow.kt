@@ -12,6 +12,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,33 +40,33 @@ internal fun TtsPlaybackControlsRow(
         horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(
+        OutlinedIconButton(
             onClick = onPreviousSegment,
             enabled = controlEnabled && canSkipToPreviousSegment,
-            modifier = Modifier.size(36.dp),
+            modifier = Modifier.size(38.dp),
         ) {
             Icon(
                 imageVector = Icons.Rounded.FastRewind,
                 contentDescription = null,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         IconButton(
             onClick = onPreviousArticle,
             enabled = controlEnabled,
-            modifier = Modifier.size(46.dp),
+            modifier = Modifier.size(54.dp),
         ) {
             Icon(
                 imageVector = Icons.Rounded.SkipPrevious,
                 contentDescription = null,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(34.dp),
             )
         }
         FilledIconButton(
             onClick = onTogglePlay,
             enabled = controlEnabled,
-            modifier = Modifier.size(58.dp),
+            modifier = Modifier.size(64.dp),
         ) {
             Icon(
                 imageVector =
@@ -75,29 +76,29 @@ internal fun TtsPlaybackControlsRow(
                         Icons.Rounded.PlayArrow
                     },
                 contentDescription = null,
-                modifier = Modifier.size(30.dp),
+                modifier = Modifier.size(34.dp),
             )
         }
         IconButton(
             onClick = onNextArticle,
             enabled = controlEnabled,
-            modifier = Modifier.size(46.dp),
+            modifier = Modifier.size(54.dp),
         ) {
             Icon(
                 imageVector = Icons.Rounded.SkipNext,
                 contentDescription = null,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(30.dp),
             )
         }
-        IconButton(
+        OutlinedIconButton(
             onClick = onNextSegment,
             enabled = controlEnabled && canSkipToNextSegment,
-            modifier = Modifier.size(36.dp),
+            modifier = Modifier.size(38.dp),
         ) {
             Icon(
                 imageVector = Icons.Rounded.FastForward,
                 contentDescription = null,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
