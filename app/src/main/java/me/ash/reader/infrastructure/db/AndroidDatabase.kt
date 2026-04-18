@@ -5,12 +5,15 @@ import androidx.room.*
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import me.ash.reader.domain.model.account.*
+import me.ash.reader.domain.model.ai.AiChatMessage
+import me.ash.reader.domain.model.ai.AiChatSession
 import me.ash.reader.domain.model.account.security.DESUtils
 import me.ash.reader.domain.model.article.ArchivedArticle
 import me.ash.reader.domain.model.article.Article
 import me.ash.reader.domain.model.feed.Feed
 import me.ash.reader.domain.model.group.Group
 import me.ash.reader.domain.repository.AccountDao
+import me.ash.reader.domain.repository.AiChatDao
 import me.ash.reader.domain.repository.ArticleDao
 import me.ash.reader.domain.repository.FeedDao
 import me.ash.reader.domain.repository.GroupDao
@@ -19,8 +22,16 @@ import me.ash.reader.ui.ext.toInt
 import java.util.*
 
 @Database(
-    entities = [Account::class, Feed::class, Article::class, Group::class, ArchivedArticle::class],
-    version = 10,
+    entities = [
+        Account::class,
+        Feed::class,
+        Article::class,
+        Group::class,
+        ArchivedArticle::class,
+        AiChatSession::class,
+        AiChatMessage::class,
+    ],
+    version = 11,
     autoMigrations = [
         AutoMigration(from = 5, to = 6),
         AutoMigration(from = 5, to = 7),
@@ -43,6 +54,7 @@ abstract class AndroidDatabase : RoomDatabase() {
     abstract fun feedDao(): FeedDao
     abstract fun articleDao(): ArticleDao
     abstract fun groupDao(): GroupDao
+    abstract fun aiChatDao(): AiChatDao
 
     companion object {
 
@@ -83,6 +95,7 @@ val allMigrations = arrayOf(
     MIGRATION_7_8,
     MIGRATION_8_9,
     MIGRATION_9_10,
+    MIGRATION_10_11,
 )
 
 @Suppress("ClassName")
@@ -209,6 +222,42 @@ object MIGRATION_9_10 : Migration(9, 10) {
         database.execSQL(
             """
             ALTER TABLE feed ADD COLUMN isAutoSummary INTEGER NOT NULL DEFAULT 0
+            """.trimIndent()
+        )
+    }
+}
+
+@Suppress("ClassName")
+object MIGRATION_10_11 : Migration(10, 11) {
+
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `ai_chat_session` (
+                `articleId` TEXT NOT NULL,
+                `includeFullContent` INTEGER NOT NULL,
+                `updatedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`articleId`),
+                FOREIGN KEY(`articleId`) REFERENCES `article`(`id`) ON UPDATE CASCADE ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        database.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `ai_chat_message` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `articleId` TEXT NOT NULL,
+                `role` TEXT NOT NULL,
+                `content` TEXT NOT NULL,
+                `contextType` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                FOREIGN KEY(`articleId`) REFERENCES `ai_chat_session`(`articleId`) ON UPDATE CASCADE ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        database.execSQL(
+            """
+            CREATE INDEX IF NOT EXISTS `index_ai_chat_message_articleId` ON `ai_chat_message` (`articleId`)
             """.trimIndent()
         )
     }

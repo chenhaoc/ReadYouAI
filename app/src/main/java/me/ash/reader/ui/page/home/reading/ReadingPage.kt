@@ -1,5 +1,7 @@
 package me.ash.reader.ui.page.home.reading
 
+import android.content.ClipboardManager
+import android.webkit.WebView
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -18,9 +20,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -40,6 +45,8 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
+import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.launch
 import me.ash.reader.R
 import me.ash.reader.infrastructure.android.TextToSpeechManager
@@ -73,7 +80,26 @@ private class SummaryNavigationController {
     var restoreReturnTarget: ((SummaryReturnTarget) -> Unit)? = null
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterialApi::class)
+private suspend fun WebView.captureSelectedText(): String? =
+    suspendCancellableCoroutine { continuation ->
+        post {
+            evaluateJavascript(
+                "(function(){return window.getSelection ? window.getSelection().toString() : '';})()",
+            ) { rawValue ->
+                val value =
+                    rawValue
+                        ?.removePrefix("\"")
+                        ?.removeSuffix("\"")
+                        ?.replace("\\n", "\n")
+                        ?.replace("\\\"", "\"")
+                        ?.replace("\\\\", "\\")
+                        ?.trim()
+                continuation.resume(value?.takeIf { it.isNotEmpty() })
+            }
+        }
+    }
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterialApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ReadingPage(
     //    navController: NavHostController,
@@ -112,6 +138,8 @@ fun ReadingPage(
     var showFullScreenImageViewer by remember { mutableStateOf(false) }
 
     var currentImageData by remember { mutableStateOf(ImageData()) }
+    var currentWebView by remember { mutableStateOf<WebView?>(null) }
+    val clipboardManager = context.getSystemService(ClipboardManager::class.java)
 
     val isShowToolBar =
         if (LocalReadingAutoHideToolbar.current.value) {
@@ -131,6 +159,20 @@ fun ReadingPage(
     var bringToTop by remember { mutableStateOf(false) }
     var summaryReturnTarget by remember(readerState.articleId) { mutableStateOf<SummaryReturnTarget?>(null) }
     var latestReadingPosition by remember(readerState.articleId) { mutableStateOf<SummaryReturnTarget?>(null) }
+
+    suspend fun captureSelectedSnippet(): String? =
+        when (readingRenderer) {
+            ReadingRendererPreference.WebView -> currentWebView?.captureSelectedText()
+            ReadingRendererPreference.NativeComponent ->
+                clipboardManager
+                    ?.primaryClip
+                    ?.takeIf { it.itemCount > 0 }
+                    ?.getItemAt(0)
+                    ?.coerceToText(context)
+                    ?.toString()
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+        }
 
     LaunchedEffect(
         readerState.articleId,
@@ -197,6 +239,11 @@ fun ReadingPage(
                         onAiSummaryClick = { coroutineScope.launch { viewModel.summarizeCurrentArticle() } },
                         isAiSummaryReady = readingUiState.shouldShowAiSummaryReadyPrompt,
                         isAiSummaryReturnAvailable = summaryReturnTarget != null,
+                        onAiChatClick = {
+                            coroutineScope.launch {
+                                viewModel.openAiChatSheet(captureSelectedSnippet())
+                            }
+                        },
                         onAiSummaryReadyClick = {
                             summaryReturnTarget = latestReadingPosition
                             viewModel.showAiSummaryFromPrompt()
@@ -466,6 +513,7 @@ fun ReadingPage(
                                             onAiSummaryVisibilityChanged = {
                                                 viewModel.updateAiSummaryCardVisible(it)
                                             },
+                                            onWebViewReady = { currentWebView = it },
                                         )
                                         PullToLoadIndicator(
                                             state = state,
@@ -545,6 +593,25 @@ fun ReadingPage(
             }
         },
     )
+    if (readingUiState.isAiChatSheetOpen) {
+        ModalBottomSheet(
+            onDismissRequest = { viewModel.closeAiChatSheet() },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            AiChatSheet(
+                messages = readingUiState.aiChatMessages,
+                includeFullContent = readingUiState.includeFullContentInAiChat,
+                selectedSnippet = readingUiState.aiChatSelectedSnippet,
+                isSending = readingUiState.isAiChatSending,
+                error = readingUiState.aiChatError,
+                onIncludeFullContentChange = viewModel::updateAiChatIncludeFullContent,
+                onQuickAction = viewModel::sendAiChatQuickAction,
+                onSendMessage = viewModel::sendAiChatMessage,
+                onClearSelectedSnippet = viewModel::clearAiChatSelectedSnippet,
+                onClose = viewModel::closeAiChatSheet,
+            )
+        }
+    }
     if (showFullScreenImageViewer) {
 
         ReaderImageViewer(

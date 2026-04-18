@@ -1,5 +1,6 @@
 package me.ash.reader.ui.page.home.reading
 
+import android.webkit.WebView
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -59,6 +60,7 @@ fun Content(
     onImageClick: ((imgUrl: String, altText: String) -> Unit)? = null,
     onAiSummaryToggleExpand: () -> Unit = {},
     onAiSummaryVisibilityChanged: (Boolean) -> Unit = {},
+    onWebViewReady: (WebView) -> Unit = {},
 ) {
     val context = LocalContext.current
     val subheadUpperCase = LocalReadingSubheadUpperCase.current
@@ -139,9 +141,10 @@ fun Content(
                                         content = content,
                                         baseUrl = link ?: "",
                                         translationBlocks = translatedContentBlocks,
-                                    ),
+                                ),
                                 refererDomain = link.extractDomain(),
                                 onImageClick = onImageClick,
+                                onWebViewReady = onWebViewReady,
                             )
                             Spacer(modifier = Modifier.height(128.dp))
                             Spacer(

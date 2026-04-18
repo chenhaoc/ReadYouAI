@@ -210,6 +210,7 @@ sealed interface PreferencesKey {
         const val aiModel = "aiModel"
         const val aiSummarizationPrompt = "aiSummarizationPrompt"
         const val aiTranslationPrompt = "aiTranslationPrompt"
+        const val aiChatPrompt = "aiChatPrompt"
         const val aiAutoSummary = "aiAutoSummary"
 
         private val keyList =
@@ -391,6 +392,7 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
         const val aiModel = "aiModel"
         const val aiSummarizationPrompt = "aiSummarizationPrompt"
         const val aiTranslationPrompt = "aiTranslationPrompt"
+        const val aiChatPrompt = "aiChatPrompt"
         const val aiAutoSummary = "aiAutoSummary"
 
         val keys: MutableMap<String, DataStoreKey<*>> =
@@ -553,6 +555,7 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
                 aiModel to DataStoreKey(stringPreferencesKey(aiModel), String::class.java),
                 aiSummarizationPrompt to DataStoreKey(stringPreferencesKey(aiSummarizationPrompt), String::class.java),
                 aiTranslationPrompt to DataStoreKey(stringPreferencesKey(aiTranslationPrompt), String::class.java),
+                aiChatPrompt to DataStoreKey(stringPreferencesKey(aiChatPrompt), String::class.java),
                 aiAutoSummary to
                     DataStoreKey(booleanPreferencesKey(aiAutoSummary), Boolean::class.java),
             )

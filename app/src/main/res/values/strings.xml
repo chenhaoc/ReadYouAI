@@ -408,6 +408,9 @@
     <string name="ai_translation_prompt">Translation Prompt</string>
     <string name="ai_translation_prompt_hint">Customize how article blocks are translated</string>
     <string name="ai_translation_prompt_default">Translate the input JSON array into Simplified Chinese. Return JSON only. Preserve every id, keep the original order, do not summarize, do not omit content, and set translatedText for each item.\n\n</string>
+    <string name="ai_chat_prompt">Chat Prompt</string>
+    <string name="ai_chat_prompt_hint">Customize how article Q&amp;A responds</string>
+    <string name="ai_chat_prompt_default" translatable="false">你是一个中文新闻阅读助手。\n\n回答规则：\n- 如果提供了“用户当前选中的内容”，优先回答该内容本身。\n- 如果同时提供了文章全文，可将全文作为背景参考以提高准确性，但不要主动偏离用户当前问题。\n- 如果没有提供选中内容，则围绕整篇文章回答。\n- 不确定时明确说明，不要编造事实。\n- 回答尽量直接、清楚、便于理解。</string>
     <string name="ai_auto_summary">Auto AI Summary</string>
     <string name="ai_auto_summary_desc">Automatically summarize articles without an existing summary when opened. This setting is used as the default for new subscriptions.</string>
     <string name="api_configuration">API Configuration</string>
@@ -433,8 +436,21 @@
     <string name="ai_summary_error">Failed to generate summary: %1$s</string>
     <string name="ai_summary_ready">Summary</string>
     <string name="view">View</string>
+    <string name="send">Send</string>
     <string name="go_to_summary">Go to summary</string>
     <string name="return_to_reading_position">Return to reading position</string>
+    <string name="ai_chat">AI Chat</string>
+    <string name="ai_chat_error">Failed to answer: %1$s</string>
+    <string name="ai_chat_full_context_on">Full on</string>
+    <string name="ai_chat_full_context_off">Full off</string>
+    <string name="ai_chat_no_selection">No selection</string>
+    <string name="ai_chat_selected_chars">%1$d chars selected</string>
+    <string name="ai_chat_quick_explain_article">Explain article</string>
+    <string name="ai_chat_quick_explain_selection">Explain selection</string>
+    <string name="ai_chat_quick_background">Give background</string>
+    <string name="ai_chat_quick_introduce">Introduce</string>
+    <string name="ai_chat_input_hint">Continue asking…</string>
+    <string name="ai_chat_empty">No conversation yet</string>
     <string name="translate">Translate</string>
     <string name="translation">Translation</string>
     <string name="translation_loading">Translating…</string>

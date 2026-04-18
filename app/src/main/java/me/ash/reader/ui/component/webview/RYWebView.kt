@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import android.webkit.WebView
 import me.ash.reader.infrastructure.preference.LocalOpenLink
 import me.ash.reader.infrastructure.preference.LocalOpenLinkSpecificBrowser
 import me.ash.reader.infrastructure.preference.LocalReadingBoldCharacters
@@ -41,6 +42,7 @@ fun RYWebView(
     content: String,
     refererDomain: String? = null,
     onImageClick: ((imgUrl: String, altText: String) -> Unit)? = null,
+    onWebViewReady: (WebView) -> Unit = {},
 ) {
     val context = LocalContext.current
     val maxWidth = LocalConfiguration.current.screenWidthDp.dp.value
@@ -99,8 +101,12 @@ fun RYWebView(
 
     AndroidView(
         modifier = modifier,
-        factory = { webView },
+        factory = {
+            onWebViewReady(webView)
+            webView
+        },
         update = {
+            onWebViewReady(it)
             it.apply {
                 Log.i("RLog", "maxWidth: ${maxWidth}")
                 Log.i("RLog", "readingFont: ${context.filesDir.absolutePath}")

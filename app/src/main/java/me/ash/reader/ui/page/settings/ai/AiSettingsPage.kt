@@ -34,6 +34,7 @@ import me.ash.reader.infrastructure.preference.LocalAiBaseUrl
 import me.ash.reader.infrastructure.preference.LocalAiApiKey
 import me.ash.reader.infrastructure.preference.LocalAiAutoSummary
 import me.ash.reader.infrastructure.preference.LocalAiModel
+import me.ash.reader.infrastructure.preference.LocalAiChatPrompt
 import me.ash.reader.infrastructure.preference.LocalAiSummarizationPrompt
 import me.ash.reader.infrastructure.preference.LocalAiTranslationPrompt
 import me.ash.reader.ui.component.base.DisplayText
@@ -44,6 +45,7 @@ import me.ash.reader.ui.component.base.RadioDialog
 import me.ash.reader.ui.component.base.RadioDialogOption
 import me.ash.reader.ui.component.base.Subtitle
 import me.ash.reader.ui.component.base.TextFieldDialog
+import me.ash.reader.ui.page.home.reading.resolveAiChatPrompt
 import me.ash.reader.ui.page.home.reading.resolveAiSummarizationPrompt
 import me.ash.reader.ui.page.settings.SettingItem
 import me.ash.reader.ui.theme.palette.onLight
@@ -59,6 +61,7 @@ fun AiSettingsPage(
     val aiModel = LocalAiModel.current
     val aiSummarizationPrompt = LocalAiSummarizationPrompt.current
     val aiTranslationPrompt = LocalAiTranslationPrompt.current
+    val aiChatPrompt = LocalAiChatPrompt.current
     val aiAutoSummary = LocalAiAutoSummary.current
     
     val scope = rememberCoroutineScope()
@@ -68,6 +71,7 @@ fun AiSettingsPage(
     var modelDialogVisible by remember { mutableStateOf(false) }
     var promptDialogVisible by remember { mutableStateOf(false) }
     var translationPromptDialogVisible by remember { mutableStateOf(false) }
+    var chatPromptDialogVisible by remember { mutableStateOf(false) }
     
     val availableModels = remember { mutableStateListOf<String>() }
     var isLoadingModels by remember { mutableStateOf(false) }
@@ -210,6 +214,13 @@ fun AiSettingsPage(
                             translationPromptDialogVisible = true
                         }
                     ) {}
+                    SettingItem(
+                        title = stringResource(R.string.ai_chat_prompt),
+                        desc = aiChatPrompt.toDesc(context),
+                        onClick = {
+                            chatPromptDialogVisible = true
+                        }
+                    ) {}
                     Spacer(modifier = Modifier.height(24.dp))
                 }
                 
@@ -288,6 +299,19 @@ fun AiSettingsPage(
         onConfirm = { value: String ->
             aiTranslationPrompt.copy(value = value).put(context, scope)
             translationPromptDialogVisible = false
+        }
+    )
+
+    TextFieldDialog(
+        textFieldState = rememberTextFieldState(resolveAiChatPrompt(aiChatPrompt.value)),
+        visible = chatPromptDialogVisible,
+        title = stringResource(R.string.ai_chat_prompt),
+        placeholder = stringResource(R.string.ai_chat_prompt_hint),
+        singleLine = false,
+        onDismissRequest = { chatPromptDialogVisible = false },
+        onConfirm = { value: String ->
+            aiChatPrompt.copy(value = value).put(context, scope)
+            chatPromptDialogVisible = false
         }
     )
 }

@@ -7,6 +7,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import me.ash.reader.domain.repository.AccountDao
+import me.ash.reader.domain.repository.AiChatDao
 import me.ash.reader.domain.repository.ArticleDao
 import me.ash.reader.domain.repository.FeedDao
 import me.ash.reader.domain.repository.GroupDao
@@ -44,6 +45,11 @@ object DatabaseModule {
     @Singleton
     fun provideAccountDao(androidDatabase: AndroidDatabase): AccountDao =
         androidDatabase.accountDao()
+
+    @Provides
+    @Singleton
+    fun provideAiChatDao(androidDatabase: AndroidDatabase): AiChatDao =
+        androidDatabase.aiChatDao()
 
     @Provides
     @Singleton

@@ -32,11 +32,14 @@ import me.ash.reader.domain.data.FilterState
 import me.ash.reader.domain.data.FilterStateUseCase
 import me.ash.reader.domain.data.GroupWithFeedsListUseCase
 import me.ash.reader.domain.data.PagerData
+import me.ash.reader.domain.model.ai.AiChatMessage
 import me.ash.reader.domain.model.article.Article
 import me.ash.reader.domain.model.article.ArticleFlowItem
 import me.ash.reader.domain.model.article.ArticleWithFeed
 import me.ash.reader.domain.model.feed.Feed
 import me.ash.reader.domain.model.general.MarkAsReadConditions
+import me.ash.reader.domain.repository.AiChatRepository
+import me.ash.reader.domain.repository.AiChatSessionRepository
 import me.ash.reader.domain.repository.ArticleDao
 import me.ash.reader.domain.repository.AiSummaryRepository
 import me.ash.reader.domain.repository.AiTranslationRepository
@@ -57,8 +60,15 @@ import me.ash.reader.infrastructure.preference.SettingsProvider
 import me.ash.reader.infrastructure.rss.ReaderCacheHelper
 import me.ash.reader.ui.page.home.flow.buildListTranslationSourceBlocks
 import me.ash.reader.ui.page.home.reading.ArticleContentBlockParser
+import me.ash.reader.ui.page.home.reading.AI_CHAT_CONTEXT_MANUAL
+import me.ash.reader.ui.page.home.reading.AI_CHAT_ROLE_ASSISTANT
+import me.ash.reader.ui.page.home.reading.AI_CHAT_ROLE_USER
+import me.ash.reader.ui.page.home.reading.AiChatQuickAction
 import me.ash.reader.ui.page.home.reading.buildPrioritizedTranslationBatch
+import me.ash.reader.ui.page.home.reading.buildAiChatQuickQuestion
+import me.ash.reader.ui.page.home.reading.contextTypeForQuickAction
 import me.ash.reader.ui.page.home.reading.decodeStoredTranslationBlocks
+import me.ash.reader.ui.page.home.reading.resolveAiChatPrompt
 import me.ash.reader.ui.page.home.reading.resolveAiSummarizationPrompt
 import me.ash.reader.ui.page.home.reading.selectExtraTranslations
 import me.ash.reader.ui.page.home.reading.selectTranslationsForCurrentBlocks
@@ -107,6 +117,8 @@ constructor(
     private val articleDao: ArticleDao,
     private val aiSummaryRepository: AiSummaryRepository,
     private val aiTranslationRepository: AiTranslationRepository,
+    private val aiChatRepository: AiChatRepository,
+    private val aiChatSessionRepository: AiChatSessionRepository,
     workManager: WorkManager,
 ) : ViewModel() {
 
@@ -369,6 +381,12 @@ constructor(
                         hasAutoTranslationAttempted = false,
                         translatedBlockCount = 0,
                         translatableBlockCount = 0,
+                        isAiChatSheetOpen = false,
+                        aiChatMessages = emptyList(),
+                        isAiChatSending = false,
+                        aiChatError = null,
+                        aiChatSelectedSnippet = null,
+                        includeFullContentInAiChat = false,
                     )
                 }
                 _readerState.update {
@@ -383,6 +401,7 @@ constructor(
                         .prefetchArticleId()
                         .renderContent(this)
                 }
+                syncAiChatSession(article.id)
                 syncTranslationStateForContent(_readerState.value.content.text ?: article.rawDescription)
             }
         }
@@ -887,6 +906,184 @@ constructor(
         )
     }
 
+    private suspend fun syncAiChatSession(articleId: String) {
+        val session = aiChatSessionRepository.querySession(articleId)
+        _readingUiState.update {
+            it.copy(
+                aiChatMessages = session?.messages.orEmpty(),
+                includeFullContentInAiChat = session?.session?.includeFullContent ?: false,
+                aiChatSelectedSnippet = null,
+                isAiChatSending = false,
+                aiChatError = null,
+            )
+        }
+    }
+
+    private fun currentArticleContent(): String =
+        when (val contentState = readerStateStateFlow.value.content) {
+            is ReaderState.Description -> contentState.content
+            is ReaderState.FullContent -> contentState.content
+            is ReaderState.Error,
+            ReaderState.Loading -> currentArticle?.rawDescription ?: ""
+        }
+
+    fun openAiChatSheet(selectedSnippet: String?) {
+        _readingUiState.update {
+            it.copy(
+                isAiChatSheetOpen = true,
+                aiChatSelectedSnippet = selectedSnippet?.trim()?.takeIf(String::isNotEmpty),
+                aiChatError = null,
+            )
+        }
+    }
+
+    fun clearAiChatSelectedSnippet() {
+        _readingUiState.update { it.copy(aiChatSelectedSnippet = null) }
+    }
+
+    fun closeAiChatSheet() {
+        _readingUiState.update { it.copy(isAiChatSheetOpen = false, aiChatError = null) }
+    }
+
+    fun updateAiChatIncludeFullContent(enabled: Boolean) {
+        val articleId = currentArticle?.id ?: return
+        _readingUiState.update { it.copy(includeFullContentInAiChat = enabled) }
+        viewModelScope.launch(ioDispatcher) {
+            aiChatSessionRepository.upsertSession(
+                articleId = articleId,
+                includeFullContent = enabled,
+            )
+        }
+    }
+
+    fun sendAiChatMessage(question: String) {
+        enqueueAiChatMessage(
+            question = question,
+            contextType = AI_CHAT_CONTEXT_MANUAL,
+        )
+    }
+
+    fun sendAiChatQuickAction(action: AiChatQuickAction) {
+        val hasSelection = !readingUiState.value.aiChatSelectedSnippet.isNullOrBlank()
+        if (action == AiChatQuickAction.ExplainSelection && !hasSelection) return
+        enqueueAiChatMessage(
+            question = buildAiChatQuickQuestion(action = action, hasSelection = hasSelection),
+            contextType = contextTypeForQuickAction(action),
+        )
+    }
+
+    private fun enqueueAiChatMessage(
+        question: String,
+        contextType: String,
+    ) {
+        if (readingUiState.value.isAiChatSending) return
+        val trimmedQuestion = question.trim()
+        if (trimmedQuestion.isEmpty()) return
+        val articleWithFeed = readingUiState.value.articleWithFeed ?: return
+        val articleId = articleWithFeed.article.id
+        val settings = settingsProvider.settings
+        val includeFullContent = readingUiState.value.includeFullContentInAiChat
+        val selectedSnippet = readingUiState.value.aiChatSelectedSnippet
+        val existingMessages = readingUiState.value.aiChatMessages
+
+        viewModelScope.launch {
+            aiChatSessionRepository.upsertSession(
+                articleId = articleId,
+                includeFullContent = includeFullContent,
+            )
+            val userMessage =
+                aiChatSessionRepository.appendMessage(
+                    articleId = articleId,
+                    role = AI_CHAT_ROLE_USER,
+                    content = trimmedQuestion,
+                    contextType = contextType,
+                )
+            _readingUiState.update {
+                it.copy(
+                    aiChatMessages = it.aiChatMessages + userMessage,
+                    isAiChatSending = true,
+                    aiChatError = null,
+                )
+            }
+
+            if (settings.aiApiKey.value.isEmpty() || settings.aiBaseUrl.value.isEmpty()) {
+                _readingUiState.update {
+                    it.copy(
+                        isAiChatSending = false,
+                        aiChatError = "Please configure API URL and key first",
+                    )
+                }
+                return@launch
+            }
+
+            when (
+                val result =
+                    aiChatRepository.requestReply(
+                        baseUrl = settings.aiBaseUrl.value,
+                        apiKey = settings.aiApiKey.value,
+                        model = settings.aiModel.value.ifEmpty { "gpt-3.5-turbo" },
+                        prompt = resolveAiChatPrompt(settings.aiChatPrompt.value),
+                        articleTitle = articleWithFeed.article.title,
+                        feedName = articleWithFeed.feed.name,
+                        articleLink = articleWithFeed.article.link,
+                        articleContent = currentArticleContent(),
+                        includeFullContent = includeFullContent,
+                        selectedSnippet = selectedSnippet,
+                        history = existingMessages + userMessage,
+                        userQuestion = trimmedQuestion,
+                    )
+            ) {
+                is me.ash.reader.infrastructure.net.ApiResult.Success -> {
+                    val assistantMessage =
+                        aiChatSessionRepository.appendMessage(
+                            articleId = articleId,
+                            role = AI_CHAT_ROLE_ASSISTANT,
+                            content = result.data,
+                            contextType = contextType,
+                        )
+                    aiChatSessionRepository.upsertSession(
+                        articleId = articleId,
+                        includeFullContent = includeFullContent,
+                    )
+                    _readingUiState.update {
+                        it.copy(
+                            aiChatMessages = it.aiChatMessages + assistantMessage,
+                            isAiChatSending = false,
+                            aiChatError = null,
+                        )
+                    }
+                }
+
+                is me.ash.reader.infrastructure.net.ApiResult.BizError -> {
+                    _readingUiState.update {
+                        it.copy(
+                            isAiChatSending = false,
+                            aiChatError = result.exception.message ?: "Business error",
+                        )
+                    }
+                }
+
+                is me.ash.reader.infrastructure.net.ApiResult.NetworkError -> {
+                    _readingUiState.update {
+                        it.copy(
+                            isAiChatSending = false,
+                            aiChatError = result.exception.message ?: "Network error",
+                        )
+                    }
+                }
+
+                is me.ash.reader.infrastructure.net.ApiResult.UnknownError -> {
+                    _readingUiState.update {
+                        it.copy(
+                            isAiChatSending = false,
+                            aiChatError = result.throwable.message ?: "Unknown error",
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     fun toggleAiSummaryExpanded() {
         if (readingUiState.value.aiSummary == null && readingUiState.value.isAiSummaryLoading) {
             return
@@ -1171,6 +1368,12 @@ data class ReadingUiState(
     val hasAutoTranslationAttempted: Boolean = false,
     val translatedBlockCount: Int = 0,
     val translatableBlockCount: Int = 0,
+    val isAiChatSheetOpen: Boolean = false,
+    val aiChatMessages: List<AiChatMessage> = emptyList(),
+    val isAiChatSending: Boolean = false,
+    val aiChatError: String? = null,
+    val aiChatSelectedSnippet: String? = null,
+    val includeFullContentInAiChat: Boolean = true,
 ) {
     val isAiSummaryVisible: Boolean
         get() =

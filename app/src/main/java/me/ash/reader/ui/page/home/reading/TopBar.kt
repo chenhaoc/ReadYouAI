@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuOpen
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Psychology
+import androidx.compose.material.icons.outlined.QuestionAnswer
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.VerticalAlignBottom
@@ -74,6 +75,7 @@ fun TopBar(
     onAiSummaryReadyClick: () -> Unit = {},
     isAiSummaryReturnAvailable: Boolean = false,
     onAiSummaryReturnClick: () -> Unit = {},
+    onAiChatClick: () -> Unit = {},
     isTranslationEnabled: Boolean = false,
     onTranslateClick: () -> Unit = {},
     isTranslationLoading: Boolean = false,
@@ -174,6 +176,14 @@ fun TopBar(
                             ) {
                                 onAiSummaryClick()
                             }
+                        }
+                        FeedbackIconButton(
+                            modifier = Modifier.size(22.dp),
+                            imageVector = Icons.Outlined.QuestionAnswer,
+                            contentDescription = stringResource(R.string.ai_chat),
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        ) {
+                            onAiChatClick()
                         }
                         if (isTranslationEnabled) {
                             if (isTranslationLoading) {
