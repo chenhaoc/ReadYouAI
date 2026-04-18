@@ -50,4 +50,8 @@ class AiChatSessionRepository @Inject constructor(
         val id = aiChatDao.insertMessage(message)
         return message.copy(id = id)
     }
+
+    suspend fun clearMessages(articleId: String) {
+        aiChatDao.deleteMessages(articleId)
+    }
 }

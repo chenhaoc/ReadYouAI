@@ -449,6 +449,7 @@
     <string name="ai_chat_quick_explain_selection">Explain selection</string>
     <string name="ai_chat_quick_background">Give background</string>
     <string name="ai_chat_quick_introduce">Introduce</string>
+    <string name="ai_chat_new_conversation">New chat</string>
     <string name="ai_chat_input_hint">Continue asking…</string>
     <string name="ai_chat_empty">No conversation yet</string>
     <string name="translate">Translate</string>

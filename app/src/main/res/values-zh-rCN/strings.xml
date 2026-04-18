@@ -404,6 +404,7 @@
     <string name="ai_chat_quick_explain_selection">解释这段话</string>
     <string name="ai_chat_quick_background">给出相关背景</string>
     <string name="ai_chat_quick_introduce">介绍一下</string>
+    <string name="ai_chat_new_conversation">新对话</string>
     <string name="ai_chat_input_hint">继续追问…</string>
     <string name="ai_chat_empty">还没有问答记录</string>
     <string name="translate">翻译</string>

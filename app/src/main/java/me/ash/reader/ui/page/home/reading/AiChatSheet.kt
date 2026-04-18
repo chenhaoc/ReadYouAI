@@ -1,5 +1,6 @@
 package me.ash.reader.ui.page.home.reading
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,10 +9,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -19,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Clear
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -28,16 +33,15 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -56,10 +60,11 @@ fun AiChatSheet(
     onIncludeFullContentChange: (Boolean) -> Unit,
     onQuickAction: (AiChatQuickAction) -> Unit,
     onSendMessage: (String) -> Unit,
+    onClearHistory: () -> Unit,
     onClearSelectedSnippet: () -> Unit,
     onClose: () -> Unit,
 ) {
-    var draft by rememberSaveable { mutableStateOf("") }
+    val draftState = rememberTextFieldState()
     val listState = rememberLazyListState()
     val hasSelection = !selectedSnippet.isNullOrBlank()
 
@@ -72,7 +77,7 @@ fun AiChatSheet(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxSize(0.75f)
+            .fillMaxSize(0.7f)
             .navigationBarsPadding()
             .padding(horizontal = 16.dp),
     ) {
@@ -86,79 +91,93 @@ fun AiChatSheet(
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            IconButton(onClick = onClose) {
-                Icon(
-                    imageVector = Icons.Outlined.Close,
-                    contentDescription = stringResource(R.string.close),
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    enabled = messages.isNotEmpty() && !isSending,
+                    onClick = onClearHistory,
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Refresh,
+                        contentDescription = stringResource(R.string.ai_chat_new_conversation),
+                    )
+                }
+                IconButton(onClick = onClose) {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = stringResource(R.string.close),
+                    )
+                }
             }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            FilterChip(
-                selected = includeFullContent,
-                onClick = { onIncludeFullContentChange(!includeFullContent) },
-                label = {
-                    Text(
-                        text = stringResource(
-                            if (includeFullContent) {
-                                R.string.ai_chat_full_context_on
-                            } else {
-                                R.string.ai_chat_full_context_off
-                            }
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                FilterChip(
+                    modifier = Modifier.height(28.dp),
+                    selected = includeFullContent,
+                    onClick = { onIncludeFullContentChange(!includeFullContent) },
+                    label = {
+                        Text(
+                            text = stringResource(
+                                if (includeFullContent) {
+                                    R.string.ai_chat_full_context_on
+                                } else {
+                                    R.string.ai_chat_full_context_off
+                                }
+                            )
                         )
-                    )
-                },
-            )
-            Text(
-                text =
-                    if (hasSelection) {
-                        stringResource(R.string.ai_chat_selected_chars, selectedSnippet!!.length)
-                    } else {
-                        stringResource(R.string.ai_chat_no_selection)
                     },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+                )
+                Text(
+                    text =
+                        if (hasSelection) {
+                            stringResource(R.string.ai_chat_selected_chars, selectedSnippet!!.length)
+                        } else {
+                            stringResource(R.string.ai_chat_no_selection)
+                        },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
-        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(7.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            QuickActionChip(
-                modifier = Modifier.weight(1f),
-                label = stringResource(R.string.ai_chat_quick_explain_article),
-                onClick = { onQuickAction(AiChatQuickAction.ExplainArticle) },
-            )
-            QuickActionChip(
-                modifier = Modifier.weight(1f),
-                label = stringResource(R.string.ai_chat_quick_explain_selection),
-                enabled = hasSelection,
-                onClick = { onQuickAction(AiChatQuickAction.ExplainSelection) },
-            )
-        }
-        Spacer(modifier = Modifier.height(6.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            QuickActionChip(
-                modifier = Modifier.weight(1f),
-                label = stringResource(R.string.ai_chat_quick_background),
-                onClick = { onQuickAction(AiChatQuickAction.GiveBackground) },
-            )
-            QuickActionChip(
-                modifier = Modifier.weight(1f),
-                label = stringResource(R.string.ai_chat_quick_introduce),
-                onClick = { onQuickAction(AiChatQuickAction.Introduce) },
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+            ) {
+                QuickActionChip(
+                    modifier = Modifier.weight(1f),
+                    label = stringResource(R.string.ai_chat_quick_explain_article),
+                    onClick = { onQuickAction(AiChatQuickAction.ExplainArticle) },
+                )
+                QuickActionChip(
+                    modifier = Modifier.weight(1f),
+                    label = stringResource(R.string.ai_chat_quick_explain_selection),
+                    enabled = hasSelection,
+                    onClick = { onQuickAction(AiChatQuickAction.ExplainSelection) },
+                )
+            }
+            Spacer(modifier = Modifier.height(7.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+            ) {
+                QuickActionChip(
+                    modifier = Modifier.weight(1f),
+                    label = stringResource(R.string.ai_chat_quick_background),
+                    onClick = { onQuickAction(AiChatQuickAction.GiveBackground) },
+                )
+                QuickActionChip(
+                    modifier = Modifier.weight(1f),
+                    label = stringResource(R.string.ai_chat_quick_introduce),
+                    onClick = { onQuickAction(AiChatQuickAction.Introduce) },
+                )
+            }
         }
 
         if (hasSelection) {
@@ -168,6 +187,7 @@ fun AiChatSheet(
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                 ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(start = 12.dp, top = 8.dp, end = 6.dp, bottom = 8.dp),
@@ -263,27 +283,30 @@ fun AiChatSheet(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(2.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.Bottom,
         ) {
             OutlinedTextField(
-                modifier = Modifier.weight(1f),
-                value = draft,
-                onValueChange = { draft = it },
+                state = draftState,
+                modifier = Modifier.weight(1f).heightIn(min = 44.dp),
                 placeholder = {
                     Text(text = stringResource(R.string.ai_chat_input_hint))
                 },
-                maxLines = 4,
+                contentPadding = TextFieldDefaults.contentPaddingWithoutLabel(
+                    top = 8.dp,
+                    bottom = 8.dp,
+                ),
+                lineLimits = androidx.compose.foundation.text.input.TextFieldLineLimits.MultiLine(maxHeightInLines = 4),
             )
             Spacer(modifier = Modifier.width(6.dp))
             IconButton(
-                enabled = draft.isNotBlank() && !isSending,
+                enabled = draftState.text.isNotBlank() && !isSending,
                 onClick = {
-                    val question = draft.trim()
-                    draft = ""
+                    val question = draftState.text.toString().trim()
+                    draftState.clearText()
                     onSendMessage(question)
                 },
             ) {
@@ -295,7 +318,7 @@ fun AiChatSheet(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
     }
 }
 
@@ -307,7 +330,7 @@ private fun QuickActionChip(
     onClick: () -> Unit,
 ) {
     AssistChip(
-        modifier = modifier,
+        modifier = modifier.height(28.dp),
         enabled = enabled,
         onClick = onClick,
         label = {

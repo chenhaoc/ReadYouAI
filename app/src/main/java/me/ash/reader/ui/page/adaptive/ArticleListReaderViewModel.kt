@@ -945,6 +945,20 @@ constructor(
         _readingUiState.update { it.copy(isAiChatSheetOpen = false, aiChatError = null) }
     }
 
+    fun clearAiChatHistory() {
+        if (readingUiState.value.isAiChatSending) return
+        val articleId = currentArticle?.id ?: return
+        viewModelScope.launch(ioDispatcher) {
+            aiChatSessionRepository.clearMessages(articleId)
+            _readingUiState.update {
+                it.copy(
+                    aiChatMessages = emptyList(),
+                    aiChatError = null,
+                )
+            }
+        }
+    }
+
     fun updateAiChatIncludeFullContent(enabled: Boolean) {
         val articleId = currentArticle?.id ?: return
         _readingUiState.update { it.copy(includeFullContentInAiChat = enabled) }

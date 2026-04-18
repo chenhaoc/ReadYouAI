@@ -607,6 +607,7 @@ fun ReadingPage(
                 onIncludeFullContentChange = viewModel::updateAiChatIncludeFullContent,
                 onQuickAction = viewModel::sendAiChatQuickAction,
                 onSendMessage = viewModel::sendAiChatMessage,
+                onClearHistory = viewModel::clearAiChatHistory,
                 onClearSelectedSnippet = viewModel::clearAiChatSelectedSnippet,
                 onClose = viewModel::closeAiChatSheet,
             )
