@@ -94,11 +94,10 @@ private fun TtsNowPlayingCard(
                     }
                 }
 
-                TtsPlaybackProgressBar(
+                TtsPlaybackTimelineRow(
                     currentSegmentIndex = state.currentSegmentIndex,
                     segmentCharCounts = state.currentSegmentCharCounts,
                     onSeekToSegment = onSeekCurrent,
-                    modifier = Modifier.fillMaxWidth(),
                 )
 
                 Row(

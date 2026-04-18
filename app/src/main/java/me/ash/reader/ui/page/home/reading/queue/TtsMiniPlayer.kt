@@ -97,11 +97,10 @@ fun TtsMiniPlayer(
                 }
             }
 
-            TtsPlaybackProgressBar(
+            TtsPlaybackTimelineRow(
                 currentSegmentIndex = state.currentSegmentIndex,
                 segmentCharCounts = state.currentSegmentCharCounts,
                 onSeekToSegment = onSeekToSegment,
-                modifier = Modifier.fillMaxWidth(),
             )
         }
     }
