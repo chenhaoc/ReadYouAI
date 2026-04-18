@@ -437,6 +437,10 @@ fun ReadingPage(
                                                 ),
                                             contentPadding = paddings,
                                             content = content.text ?: "",
+                                            rawDescription =
+                                                readingUiState.articleWithFeed?.article?.rawDescription.orEmpty(),
+                                            shortDescription =
+                                                readingUiState.articleWithFeed?.article?.shortDescription.orEmpty(),
                                             aiSummary = readingUiState.aiSummary,
                                             isAiSummaryLoading = readingUiState.isAiSummaryLoading,
                                             aiSummaryError = readingUiState.aiSummaryError,

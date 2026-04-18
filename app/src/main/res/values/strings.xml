@@ -447,4 +447,5 @@
     <string name="playlist">Playlist</string>
     <string name="playlist_count">%1$d items</string>
     <string name="playlist_empty">Playlist is empty</string>
- </resources>
+    <string name="reading_stats_summary">This article %1$d chars, about %2$d min read, about %3$d min audio</string>
+</resources>

@@ -40,6 +40,8 @@ import me.ash.reader.ui.ext.roundClick
 fun Content(
     modifier: Modifier = Modifier,
     content: String,
+    rawDescription: String,
+    shortDescription: String,
     aiSummary: String?,
     isAiSummaryLoading: Boolean,
     aiSummaryError: String?,
@@ -81,6 +83,8 @@ fun Content(
                     Metadata(
                         feedName = feedName,
                         title = title,
+                        rawDescription = rawDescription,
+                        shortDescription = shortDescription,
                         translatedTitle = translatedTitle,
                         author = author,
                         publishedDate = publishedDate,

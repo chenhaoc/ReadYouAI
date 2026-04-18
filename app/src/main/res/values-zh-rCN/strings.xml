@@ -402,4 +402,5 @@
     <string name="playlist">播放列表</string>
     <string name="playlist_count">%1$d 项</string>
     <string name="playlist_empty">播放列表为空</string>
+    <string name="reading_stats_summary">本文 %1$d 字，阅读约 %2$d 分钟，音频约 %3$d 分钟</string>
 </resources>

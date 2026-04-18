@@ -14,8 +14,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import java.util.Date
+import me.ash.reader.R
+import me.ash.reader.infrastructure.android.ttsqueue.estimateReadingStats
 import me.ash.reader.infrastructure.preference.LocalReadingFonts
 import me.ash.reader.infrastructure.preference.LocalReadingTitleAlign
 import me.ash.reader.infrastructure.preference.LocalReadingTitleBold
@@ -23,7 +27,6 @@ import me.ash.reader.infrastructure.preference.LocalReadingTitleUpperCase
 import me.ash.reader.ui.ext.formatAsString
 import me.ash.reader.ui.ext.requiresBidi
 import me.ash.reader.ui.theme.applyTextDirection
-import java.util.Date
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -31,6 +34,8 @@ fun Metadata(
     feedName: String,
     title: String,
     publishedDate: Date,
+    rawDescription: String,
+    shortDescription: String,
     modifier: Modifier = Modifier,
     author: String? = null,
     translatedTitle: String? = null,
@@ -47,6 +52,13 @@ fun Metadata(
     val translatedTitleText = translatedTitle?.trim().takeIf { !it.isNullOrBlank() }
 
     val labelColor = MaterialTheme.colorScheme.outline.copy(alpha = .7f)
+    val readingStats = remember(rawDescription, shortDescription, title) {
+        estimateReadingStats(
+            rawDescription = rawDescription,
+            shortDescription = shortDescription,
+            title = title,
+        )
+    }
 
     Column(
         modifier =
@@ -107,5 +119,21 @@ fun Metadata(
             style = MaterialTheme.typography.labelMedium.merge(fontFamily = fontFamily),
             textAlign = titleAlign,
         )
+        readingStats?.let { stats ->
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                modifier = Modifier.fillMaxWidth(),
+                text =
+                    stringResource(
+                        R.string.reading_stats_summary,
+                        stats.charCount,
+                        stats.readingMinutes,
+                        stats.audioMinutes,
+                    ),
+                color = labelColor,
+                style = MaterialTheme.typography.labelSmall.merge(fontFamily = fontFamily),
+                textAlign = titleAlign,
+            )
+        }
     }
 }
