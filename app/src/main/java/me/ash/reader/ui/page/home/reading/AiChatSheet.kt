@@ -3,6 +3,7 @@ package me.ash.reader.ui.page.home.reading
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.lazy.LazyColumn
@@ -44,11 +46,13 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import me.ash.reader.R
 import me.ash.reader.domain.model.ai.AiChatMessage
+import me.ash.reader.infrastructure.preference.LocalReadingFonts
 
 @Composable
 fun AiChatSheet(
@@ -347,30 +351,45 @@ private fun QuickActionChip(
 @Composable
 private fun AiChatBubble(message: AiChatMessage) {
     val isUser = message.role == AI_CHAT_ROLE_USER
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
-    ) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color =
-                if (isUser) {
-                    MaterialTheme.colorScheme.primaryContainer
-                } else {
-                    MaterialTheme.colorScheme.surfaceContainerHigh
-                },
+    val context = LocalContext.current
+    val readingFontFamily = LocalReadingFonts.current.asFontFamily(context)
+    val contentColor =
+        if (isUser) {
+            MaterialTheme.colorScheme.onPrimaryContainer
+        } else {
+            MaterialTheme.colorScheme.onSurface
+        }
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val bubbleMaxWidth = maxWidth * 0.88f
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
         ) {
-            Text(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                text = message.content,
-                style = MaterialTheme.typography.bodyMedium,
+            Surface(
+                modifier = Modifier.widthIn(max = bubbleMaxWidth),
+                shape = RoundedCornerShape(20.dp),
                 color =
                     if (isUser) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
+                        MaterialTheme.colorScheme.primaryContainer
                     } else {
-                        MaterialTheme.colorScheme.onSurface
+                        MaterialTheme.colorScheme.surfaceContainerHigh
                     },
-            )
+            ) {
+                if (isUser) {
+                    Text(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        text = message.content,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontFamily = readingFontFamily),
+                        color = contentColor,
+                    )
+                } else {
+                    AiChatMarkdownContent(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                        markdown = message.content,
+                        textColor = contentColor,
+                    )
+                }
+            }
         }
     }
 }
