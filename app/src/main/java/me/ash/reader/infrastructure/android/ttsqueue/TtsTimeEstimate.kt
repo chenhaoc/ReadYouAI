@@ -16,7 +16,7 @@ import me.ash.reader.infrastructure.android.htmlSegmentCharCounts
  * the actual speed depends on the TTS engine, language, and speaking rate setting.
  */
 private const val MS_PER_CHAR = 180L
-private const val CHARS_PER_MINUTE_READING = 200.0
+private const val CHARS_PER_MINUTE_READING = 500.0
 private const val MS_PER_MINUTE = 60_000.0
 
 data class TtsPlaybackDurationEstimate(

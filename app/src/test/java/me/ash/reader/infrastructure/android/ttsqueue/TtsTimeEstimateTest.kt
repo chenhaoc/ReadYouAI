@@ -12,7 +12,7 @@ class TtsTimeEstimateTest {
 
         requireNotNull(stats)
         assertEquals(4_800, stats.charCount)
-        assertEquals(24, stats.readingMinutes)
+        assertEquals(10, stats.readingMinutes)
         assertEquals(14, stats.audioMinutes)
     }
 
