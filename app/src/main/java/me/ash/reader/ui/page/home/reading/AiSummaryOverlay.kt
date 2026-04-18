@@ -1,5 +1,6 @@
 package me.ash.reader.ui.page.home.reading
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -15,7 +16,6 @@ import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -77,7 +77,10 @@ fun AiSummaryCard(
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onToggleExpanded),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -103,17 +106,14 @@ fun AiSummaryCard(
                         )
                     }
                 }
-                IconButton(onClick = onToggleExpanded, enabled = !isLoading) {
-                    Icon(
-                        imageVector =
-                            if (isExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                        contentDescription =
-                            stringResource(
-                                id =
-                                    if (isExpanded) R.string.expand_less else R.string.expand_more,
-                            ),
-                    )
-                }
+                Icon(
+                    imageVector =
+                        if (isExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    contentDescription =
+                        stringResource(
+                            id = if (isExpanded) R.string.expand_less else R.string.expand_more,
+                        ),
+                )
             }
 
             if (isExpanded) {
