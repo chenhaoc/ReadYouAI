@@ -16,8 +16,21 @@ interface AiChatDao {
     @Query("SELECT * FROM ai_chat_session WHERE articleId = :articleId")
     suspend fun querySession(articleId: String): AiChatSessionWithMessages?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertSession(session: AiChatSession)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertSession(session: AiChatSession): Long
+
+    @Query(
+        """
+        UPDATE ai_chat_session
+        SET includeFullContent = :includeFullContent, updatedAt = :updatedAt
+        WHERE articleId = :articleId
+        """
+    )
+    suspend fun updateSession(
+        articleId: String,
+        includeFullContent: Boolean,
+        updatedAt: java.util.Date,
+    ): Int
 
     @Insert
     suspend fun insertMessage(message: AiChatMessage): Long

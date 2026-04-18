@@ -26,26 +26,18 @@ class AiChatRepository @Inject constructor() {
     ): ApiResult<String> {
         return try {
             val service = OpenAiApiService.getInstance(baseUrl, apiKey)
-            val messages = buildList {
-                add(ChatMessage(role = "system", content = prompt))
-                add(
-                    ChatMessage(
-                        role = "user",
-                        content = buildContextMessage(
-                            articleTitle = articleTitle,
-                            feedName = feedName,
-                            articleLink = articleLink,
-                            articleContent = articleContent,
-                            includeFullContent = includeFullContent,
-                            selectedSnippet = selectedSnippet,
-                        ),
-                    )
+            val messages =
+                buildRequestMessages(
+                    prompt = prompt,
+                    articleTitle = articleTitle,
+                    feedName = feedName,
+                    articleLink = articleLink,
+                    articleContent = articleContent,
+                    includeFullContent = includeFullContent,
+                    selectedSnippet = selectedSnippet,
+                    history = history,
+                    userQuestion = userQuestion,
                 )
-                history.takeLast(8).forEach { message ->
-                    add(ChatMessage(role = message.role, content = message.content))
-                }
-                add(ChatMessage(role = "user", content = userQuestion))
-            }
             val request = ChatCompletionRequest(
                 model = model,
                 messages = messages,
@@ -68,6 +60,38 @@ class AiChatRepository @Inject constructor() {
             ApiResult.NetworkError(error)
         }
     }
+
+    internal fun buildRequestMessages(
+        prompt: String,
+        articleTitle: String,
+        feedName: String,
+        articleLink: String?,
+        articleContent: String,
+        includeFullContent: Boolean,
+        selectedSnippet: String?,
+        history: List<me.ash.reader.domain.model.ai.AiChatMessage>,
+        userQuestion: String,
+    ): List<ChatMessage> =
+        buildList {
+            add(ChatMessage(role = "system", content = prompt))
+            add(
+                ChatMessage(
+                    role = "user",
+                    content = buildContextMessage(
+                        articleTitle = articleTitle,
+                        feedName = feedName,
+                        articleLink = articleLink,
+                        articleContent = articleContent,
+                        includeFullContent = includeFullContent,
+                        selectedSnippet = selectedSnippet,
+                    ),
+                )
+            )
+            history.takeLast(8).forEach { message ->
+                add(ChatMessage(role = message.role, content = message.content))
+            }
+            add(ChatMessage(role = "user", content = userQuestion))
+        }
 
     private fun buildContextMessage(
         articleTitle: String,

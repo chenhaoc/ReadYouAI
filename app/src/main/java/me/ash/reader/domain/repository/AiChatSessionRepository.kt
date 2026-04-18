@@ -24,13 +24,20 @@ class AiChatSessionRepository @Inject constructor(
         includeFullContent: Boolean,
         updatedAt: Date = Date(),
     ) {
-        aiChatDao.upsertSession(
+        val session =
             AiChatSession(
                 articleId = articleId,
                 includeFullContent = includeFullContent,
                 updatedAt = updatedAt,
             )
-        )
+        val insertedId = aiChatDao.insertSession(session)
+        if (insertedId == -1L) {
+            aiChatDao.updateSession(
+                articleId = articleId,
+                includeFullContent = includeFullContent,
+                updatedAt = updatedAt,
+            )
+        }
     }
 
     suspend fun appendMessage(

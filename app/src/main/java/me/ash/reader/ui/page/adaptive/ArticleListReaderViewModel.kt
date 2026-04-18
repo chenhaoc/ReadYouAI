@@ -322,6 +322,7 @@ constructor(
     private val isAiSummaryCardVisible = MutableStateFlow(true)
     private val translationFocusIndex = MutableStateFlow(0)
     private var translationJob: Job? = null
+    private var initDataJob: Job? = null
     private val pendingListTranslationArticleIds = linkedSetOf<String>()
     private val listTranslationJobs = mutableMapOf<String, Job>()
     private val activeListTranslationArticleIds = mutableSetOf<String>()
@@ -334,7 +335,9 @@ constructor(
 
     fun initData(articleId: String, listIndex: Int? = null) {
         cancelTranslationJob()
-        viewModelScope.launch {
+        initDataJob?.cancel()
+        initDataJob =
+            viewModelScope.launch {
             val snapshotList = articleListUseCase.itemSnapshotList
 
             val itemByIndex =
@@ -409,6 +412,8 @@ constructor(
 
     fun clearReadingData() {
         cancelTranslationJob()
+        initDataJob?.cancel()
+        initDataJob = null
         _readingUiState.update { ReadingUiState() }
         _readerState.update { ReaderState() }
     }
@@ -908,6 +913,7 @@ constructor(
 
     private suspend fun syncAiChatSession(articleId: String) {
         val session = aiChatSessionRepository.querySession(articleId)
+        if (currentArticle?.id != articleId) return
         _readingUiState.update {
             it.copy(
                 aiChatMessages = session?.messages.orEmpty(),
@@ -1013,19 +1019,27 @@ constructor(
                     contextType = contextType,
                 )
             _readingUiState.update {
-                it.copy(
-                    aiChatMessages = it.aiChatMessages + userMessage,
-                    isAiChatSending = true,
-                    aiChatError = null,
-                )
+                if (it.articleWithFeed?.article?.id != articleId) {
+                    it
+                } else {
+                    it.copy(
+                        aiChatMessages = it.aiChatMessages + userMessage,
+                        isAiChatSending = true,
+                        aiChatError = null,
+                    )
+                }
             }
 
             if (settings.aiApiKey.value.isEmpty() || settings.aiBaseUrl.value.isEmpty()) {
                 _readingUiState.update {
-                    it.copy(
-                        isAiChatSending = false,
-                        aiChatError = "Please configure API URL and key first",
-                    )
+                    if (it.articleWithFeed?.article?.id != articleId) {
+                        it
+                    } else {
+                        it.copy(
+                            isAiChatSending = false,
+                            aiChatError = "Please configure API URL and key first",
+                        )
+                    }
                 }
                 return@launch
             }
@@ -1043,7 +1057,7 @@ constructor(
                         articleContent = currentArticleContent(),
                         includeFullContent = includeFullContent,
                         selectedSnippet = selectedSnippet,
-                        history = existingMessages + userMessage,
+                        history = existingMessages,
                         userQuestion = trimmedQuestion,
                     )
             ) {
@@ -1060,38 +1074,54 @@ constructor(
                         includeFullContent = includeFullContent,
                     )
                     _readingUiState.update {
-                        it.copy(
-                            aiChatMessages = it.aiChatMessages + assistantMessage,
-                            isAiChatSending = false,
-                            aiChatError = null,
-                        )
+                        if (it.articleWithFeed?.article?.id != articleId) {
+                            it
+                        } else {
+                            it.copy(
+                                aiChatMessages = it.aiChatMessages + assistantMessage,
+                                isAiChatSending = false,
+                                aiChatError = null,
+                            )
+                        }
                     }
                 }
 
                 is me.ash.reader.infrastructure.net.ApiResult.BizError -> {
                     _readingUiState.update {
-                        it.copy(
-                            isAiChatSending = false,
-                            aiChatError = result.exception.message ?: "Business error",
-                        )
+                        if (it.articleWithFeed?.article?.id != articleId) {
+                            it
+                        } else {
+                            it.copy(
+                                isAiChatSending = false,
+                                aiChatError = result.exception.message ?: "Business error",
+                            )
+                        }
                     }
                 }
 
                 is me.ash.reader.infrastructure.net.ApiResult.NetworkError -> {
                     _readingUiState.update {
-                        it.copy(
-                            isAiChatSending = false,
-                            aiChatError = result.exception.message ?: "Network error",
-                        )
+                        if (it.articleWithFeed?.article?.id != articleId) {
+                            it
+                        } else {
+                            it.copy(
+                                isAiChatSending = false,
+                                aiChatError = result.exception.message ?: "Network error",
+                            )
+                        }
                     }
                 }
 
                 is me.ash.reader.infrastructure.net.ApiResult.UnknownError -> {
                     _readingUiState.update {
-                        it.copy(
-                            isAiChatSending = false,
-                            aiChatError = result.throwable.message ?: "Unknown error",
-                        )
+                        if (it.articleWithFeed?.article?.id != articleId) {
+                            it
+                        } else {
+                            it.copy(
+                                isAiChatSending = false,
+                                aiChatError = result.throwable.message ?: "Unknown error",
+                            )
+                        }
                     }
                 }
             }
