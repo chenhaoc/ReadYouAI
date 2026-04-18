@@ -23,6 +23,21 @@ class TtsPlaybackProgressBarStateTest {
         assertEquals(0.5f, weightedProgressFraction(currentSegmentIndex = 2, segmentCharCounts = segmentCharCounts))
     }
 
+
+    @Test
+    fun progress_fraction_includes_current_segment_progress() {
+        val segmentCharCounts = listOf(20, 30, 50)
+
+        assertEquals(
+            0.35f,
+            weightedProgressFraction(
+                currentSegmentIndex = 1,
+                segmentCharCounts = segmentCharCounts,
+                currentSegmentProgressFraction = 0.5f,
+            ),
+        )
+    }
+
     @Test
     fun target_segment_uses_weighted_char_positions() {
         val segmentCharCounts = listOf(20, 30, 50)

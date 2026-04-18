@@ -33,6 +33,7 @@ enum class TtsSleepTimerOption(val durationMs: Long? = null) {
 
 data class TtsSleepTimerState(
     val option: TtsSleepTimerOption = TtsSleepTimerOption.Off,
+    val endTimeMillis: Long? = null,
     val targetArticleId: String? = null,
 ) {
     val enabled: Boolean
@@ -55,6 +56,8 @@ data class TtsQueueState(
     val playbackState: TtsQueuePlaybackState = TtsQueuePlaybackState.Idle,
     val bookmarks: Map<String, TtsPlaybackBookmark> = emptyMap(),
     val sleepTimer: TtsSleepTimerState = TtsSleepTimerState(),
+    val currentSegmentStartedAtMillis: Long? = null,
+    val currentSegmentDurationMs: Long = 0,
 ) {
     val currentIndex: Int?
         get() = items.indexOfFirst { it.articleId == currentArticleId }.takeIf { it >= 0 }
@@ -107,6 +110,8 @@ object TtsQueueReducer {
         return state.copy(
             currentArticleId = nextItem?.articleId,
             playbackState = if (nextItem == null) TtsQueuePlaybackState.Idle else state.playbackState,
+            currentSegmentStartedAtMillis = null,
+            currentSegmentDurationMs = 0,
         )
     }
 
@@ -131,6 +136,8 @@ object TtsQueueReducer {
             bookmarks = state.bookmarks - articleId,
             playbackState =
                 if (updatedCurrentArticleId == null) TtsQueuePlaybackState.Idle else state.playbackState,
+            currentSegmentStartedAtMillis = if (updatedCurrentArticleId == state.currentArticleId) state.currentSegmentStartedAtMillis else null,
+            currentSegmentDurationMs = if (updatedCurrentArticleId == state.currentArticleId) state.currentSegmentDurationMs else 0,
         )
     }
 
@@ -141,6 +148,8 @@ object TtsQueueReducer {
             playbackState = TtsQueuePlaybackState.Idle,
             bookmarks = emptyMap(),
             sleepTimer = TtsSleepTimerState(),
+            currentSegmentStartedAtMillis = null,
+            currentSegmentDurationMs = 0,
         )
 
     fun moveUp(state: TtsQueueState, articleId: String): TtsQueueState {

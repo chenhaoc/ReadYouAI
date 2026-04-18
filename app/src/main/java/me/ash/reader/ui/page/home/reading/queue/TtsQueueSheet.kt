@@ -106,7 +106,10 @@ private fun TtsNowPlayingCard(
                 )
 
                 TtsPlaybackTimelineRow(
+                    playbackState = state.playbackState,
                     currentSegmentIndex = state.currentSegmentIndex,
+                    currentSegmentStartedAtMillis = state.currentSegmentStartedAtMillis,
+                    currentSegmentDurationMs = state.currentSegmentDurationMs,
                     segmentCharCounts = state.currentSegmentCharCounts,
                     onSeekToSegment = onSeekCurrent,
                 )
@@ -152,7 +155,7 @@ fun TtsQueueSheet(
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TtsSleepTimerDropdown(
-                    selectedOption = state.sleepTimer.option,
+                    sleepTimer = state.sleepTimer,
                     enabled = state.currentItem != null,
                     onSelect = onSetSleepTimer,
                 )

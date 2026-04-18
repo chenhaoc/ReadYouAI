@@ -91,7 +91,10 @@ fun TtsMiniPlayer(
             )
 
             TtsPlaybackTimelineRow(
+                playbackState = state.playbackState,
                 currentSegmentIndex = state.currentSegmentIndex,
+                currentSegmentStartedAtMillis = state.currentSegmentStartedAtMillis,
+                currentSegmentDurationMs = state.currentSegmentDurationMs,
                 segmentCharCounts = state.currentSegmentCharCounts,
                 onSeekToSegment = onSeekToSegment,
             )

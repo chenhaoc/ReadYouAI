@@ -91,6 +91,8 @@ class TtsQueueController(
         _state.value =
             TtsQueueReducer.playNow(_state.value, item).copy(
                 playbackState = TtsQueuePlaybackState.Preparing,
+                currentSegmentStartedAtMillis = null,
+                currentSegmentDurationMs = 0,
             ).syncSleepTimerTarget()
         persistAsync()
         serviceLauncher.startService()
@@ -99,7 +101,11 @@ class TtsQueueController(
 
     fun resumeCurrent() {
         if (_state.value.currentArticleId == null) return
-        _state.value = _state.value.copy(playbackState = TtsQueuePlaybackState.Preparing)
+        _state.value = _state.value.copy(
+            playbackState = TtsQueuePlaybackState.Preparing,
+            currentSegmentStartedAtMillis = null,
+            currentSegmentDurationMs = 0,
+        )
         persistAsync()
         serviceLauncher.startService()
         coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) { playCurrentArticle() }
@@ -139,6 +145,8 @@ class TtsQueueController(
         _state.value =
             _state.value.copy(
                 playbackState = TtsQueuePlaybackState.Preparing,
+                currentSegmentStartedAtMillis = null,
+                currentSegmentDurationMs = 0,
             )
         persistAsync()
         coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) { playCurrentArticle() }
@@ -199,7 +207,11 @@ class TtsQueueController(
                                 option = option,
                                 targetArticleId = _state.value.currentArticleId,
                             )
-                        else -> TtsSleepTimerState(option = option)
+                        else ->
+                            TtsSleepTimerState(
+                                option = option,
+                                endTimeMillis = System.currentTimeMillis() + (option.durationMs ?: 0L),
+                            )
                     },
             )
         persistAsync()
@@ -271,15 +283,23 @@ class TtsQueueController(
             TtsPlaybackEvent.Completed -> onPlaybackCompleted()
             is TtsPlaybackEvent.Progress ->
                 currentArticleId()?.let { articleId ->
+                    val segmentIndex = (event.current - 1).coerceAtLeast(0)
                     updateBookmark(articleId) { bookmark ->
-                        bookmark.copy(
-                            segmentIndex = (event.current - 1).coerceAtLeast(0),
-                        )
+                        bookmark.copy(segmentIndex = segmentIndex)
                     }
+                    val segmentDurationMs = charsToMs(_state.value.currentSegmentCharCounts.getOrElse(segmentIndex) { 0 })
+                    _state.value = _state.value.copy(
+                        currentSegmentStartedAtMillis = System.currentTimeMillis(),
+                        currentSegmentDurationMs = segmentDurationMs,
+                    )
                 }
             TtsPlaybackEvent.Failed ->
                 _state.value =
-                    _state.value.copy(playbackState = TtsQueuePlaybackState.Error)
+                    _state.value.copy(
+                        playbackState = TtsQueuePlaybackState.Error,
+                        currentSegmentStartedAtMillis = null,
+                        currentSegmentDurationMs = 0,
+                    )
         }
         persistAsync()
     }
@@ -316,6 +336,8 @@ class TtsQueueController(
             _state.value =
                 TtsQueueReducer.remove(_state.value, currentArticleId).copy(
                     playbackState = TtsQueuePlaybackState.Error,
+                    currentSegmentStartedAtMillis = null,
+                    currentSegmentDurationMs = 0,
                 ).syncSleepTimerTarget()
             persistAsync()
             return
@@ -350,6 +372,8 @@ class TtsQueueController(
             _state.value.copy(
                 currentArticleId = playableArticle.item.articleId,
                 playbackState = TtsQueuePlaybackState.Reading,
+                currentSegmentStartedAtMillis = null,
+                currentSegmentDurationMs = 0,
             )
         persistAsync()
     }
@@ -360,6 +384,8 @@ class TtsQueueController(
             _state.value.copy(
                 currentArticleId = targetItem.articleId,
                 playbackState = TtsQueuePlaybackState.Preparing,
+                currentSegmentStartedAtMillis = null,
+                currentSegmentDurationMs = 0,
             ).syncSleepTimerTarget()
         persistAsync()
         serviceLauncher.startService()

@@ -43,12 +43,12 @@ internal fun TtsPlaybackControlsRow(
         OutlinedIconButton(
             onClick = onPreviousSegment,
             enabled = controlEnabled && canSkipToPreviousSegment,
-            modifier = Modifier.size(38.dp),
+            modifier = Modifier.size(34.dp),
         ) {
             Icon(
                 imageVector = Icons.Rounded.FastRewind,
                 contentDescription = null,
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(14.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -93,12 +93,12 @@ internal fun TtsPlaybackControlsRow(
         OutlinedIconButton(
             onClick = onNextSegment,
             enabled = controlEnabled && canSkipToNextSegment,
-            modifier = Modifier.size(38.dp),
+            modifier = Modifier.size(34.dp),
         ) {
             Icon(
                 imageVector = Icons.Rounded.FastForward,
                 contentDescription = null,
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(14.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

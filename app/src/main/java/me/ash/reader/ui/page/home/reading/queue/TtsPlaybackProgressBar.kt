@@ -2,6 +2,7 @@ package me.ash.reader.ui.page.home.reading.queue
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
@@ -9,6 +10,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -25,10 +29,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import kotlin.math.roundToInt
 
 internal fun canSeekSegments(segmentCharCounts: List<Int>): Boolean = segmentCharCounts.size > 1
@@ -36,11 +36,14 @@ internal fun canSeekSegments(segmentCharCounts: List<Int>): Boolean = segmentCha
 internal fun weightedProgressFraction(
     currentSegmentIndex: Int,
     segmentCharCounts: List<Int>,
+    currentSegmentProgressFraction: Float = 0f,
 ): Float {
     if (!canSeekSegments(segmentCharCounts)) return 0f
     val totalChars = segmentCharCounts.sum().coerceAtLeast(1)
     val consumedChars = segmentCharCounts.take(currentSegmentIndex.coerceAtLeast(0)).sum()
-    return consumedChars.toFloat() / totalChars.toFloat()
+    val currentSegmentChars = segmentCharCounts.getOrElse(currentSegmentIndex.coerceAtLeast(0)) { 0 }
+    val currentChars = currentSegmentChars * currentSegmentProgressFraction.coerceIn(0f, 1f)
+    return (consumedChars.toFloat() + currentChars) / totalChars.toFloat()
 }
 
 internal fun weightedSegmentIndexFromFraction(
@@ -64,11 +67,17 @@ internal fun TtsPlaybackProgressBar(
     segmentCharCounts: List<Int>,
     onSeekToSegment: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    currentSegmentProgressFraction: Float = 0f,
 ) {
     var isDragging by remember { mutableStateOf(false) }
     var draftFraction by remember(segmentCharCounts) { mutableFloatStateOf(0f) }
     var trackWidthPx by remember { mutableFloatStateOf(0f) }
-    val actualFraction = weightedProgressFraction(currentSegmentIndex, segmentCharCounts)
+    val actualFraction =
+        weightedProgressFraction(
+            currentSegmentIndex = currentSegmentIndex,
+            segmentCharCounts = segmentCharCounts,
+            currentSegmentProgressFraction = currentSegmentProgressFraction,
+        )
     val thumbSize = 12.dp
     val thumbRadiusPx = with(LocalDensity.current) { (thumbSize / 2).roundToPx() }
 
@@ -96,7 +105,7 @@ internal fun TtsPlaybackProgressBar(
                             weightedSegmentIndexFromFraction(
                                 fraction = offset.x / trackWidthPx,
                                 segmentCharCounts = segmentCharCounts,
-                            )
+                            ),
                         )
                     }
                 }
@@ -115,7 +124,7 @@ internal fun TtsPlaybackProgressBar(
                             weightedSegmentIndexFromFraction(
                                 fraction = draftFraction,
                                 segmentCharCounts = segmentCharCounts,
-                            )
+                            ),
                         )
                     },
                 ),
