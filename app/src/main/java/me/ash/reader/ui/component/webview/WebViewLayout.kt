@@ -15,6 +15,7 @@ object WebViewLayout {
         readingFontsPreference: ReadingFontsPreference,
         webViewClient: WebViewClient,
         onImageClick: ((imgUrl: String, altText: String) -> Unit)? = null,
+        onContentHeightChanged: ((height: Int) -> Unit)? = null,
     ) =
         WebView(context).apply {
             this.webViewClient = webViewClient
@@ -51,6 +52,11 @@ object WebViewLayout {
                             if (onImageClick != null && imgUrl != null) {
                                 onImageClick.invoke(imgUrl, alt ?: "")
                             }
+                        }
+
+                        @JavascriptInterface
+                        override fun onContentHeightChanged(height: Int) {
+                            onContentHeightChanged?.invoke(height)
                         }
                     },
                     JavaScriptInterface.NAME,
