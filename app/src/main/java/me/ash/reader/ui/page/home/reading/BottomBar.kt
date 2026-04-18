@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.rounded.Article
@@ -24,11 +26,13 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarOutline
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntSize
@@ -57,6 +61,7 @@ fun BottomBar(
     onStarred: (isStarred: Boolean) -> Unit = {},
     onNextArticle: () -> Unit = {},
     onFullContent: (isFullContent: Boolean) -> Unit = {},
+    onFullContentLongClick: () -> Unit = {},
     onBoldCharacters: () -> Unit = {},
     onReadAloud: () -> Unit = {},
 ) {
@@ -142,23 +147,36 @@ fun BottomBar(
                             onNextArticle()
                         }
                         ttsButton()
-                        CanBeDisabledIconButton(
-                            disabled = false,
-                            modifier = Modifier.size(40.dp),
-                            imageVector = if (isFullContent) {
-                                Icons.AutoMirrored.Rounded.Article
-                            } else {
-                                Icons.AutoMirrored.Outlined.Article
-                            },
-                            contentDescription = stringResource(R.string.parse_full_content),
-                            tint = if (isFullContent) {
-                                MaterialTheme.colorScheme.onSecondaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.outline
-                            },
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .combinedClickable(
+                                    onClick = {
+                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                        onFullContent(!isFullContent)
+                                    },
+                                    onLongClick = {
+                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                        onFullContentLongClick()
+                                    },
+                                ),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                            onFullContent(!isFullContent)
+                            Icon(
+                                modifier = Modifier.size(24.dp),
+                                imageVector = if (isFullContent) {
+                                    Icons.AutoMirrored.Rounded.Article
+                                } else {
+                                    Icons.AutoMirrored.Outlined.Article
+                                },
+                                contentDescription = stringResource(R.string.parse_full_content),
+                                tint = if (isFullContent) {
+                                    MaterialTheme.colorScheme.onSecondaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.outline
+                                },
+                            )
                         }
                     }
                 }

@@ -44,6 +44,8 @@ import kotlinx.coroutines.launch
 import me.ash.reader.R
 import me.ash.reader.infrastructure.android.TextToSpeechManager
 import me.ash.reader.infrastructure.preference.LocalAiAutoSummary
+import me.ash.reader.infrastructure.preference.LocalOpenLink
+import me.ash.reader.infrastructure.preference.LocalOpenLinkSpecificBrowser
 import me.ash.reader.infrastructure.preference.LocalPullToSwitchArticle
 import me.ash.reader.infrastructure.preference.LocalReadingAutoHideToolbar
 import me.ash.reader.infrastructure.preference.LocalReadingBoldCharacters
@@ -52,6 +54,7 @@ import me.ash.reader.infrastructure.preference.LocalReadingTextLineHeight
 import me.ash.reader.infrastructure.preference.ReadingRendererPreference
 import me.ash.reader.infrastructure.preference.not
 import me.ash.reader.ui.ext.collectAsStateValue
+import me.ash.reader.ui.ext.openURL
 import me.ash.reader.ui.ext.showToast
 import me.ash.reader.ui.page.adaptive.ArticleListReaderViewModel
 import me.ash.reader.ui.page.adaptive.NavigationAction
@@ -90,6 +93,8 @@ fun ReadingPage(
     val readerState = viewModel.readerStateStateFlow.collectAsStateValue()
     val boldCharacters = LocalReadingBoldCharacters.current
     val readingRenderer = LocalReadingRenderer.current
+    val openLink = LocalOpenLink.current
+    val openLinkSpecificBrowser = LocalOpenLinkSpecificBrowser.current
     val coroutineScope = rememberCoroutineScope()
     val summaryNavigationController = remember { SummaryNavigationController() }
     val articleContent = readerState.content.text.orEmpty()
@@ -490,6 +495,13 @@ fun ReadingPage(
                         onFullContent = {
                             if (it) viewModel.renderFullContent()
                             else viewModel.renderDescriptionContent()
+                        },
+                        onFullContentLongClick = {
+                            context.openURL(
+                                readerState.link,
+                                openLink,
+                                openLinkSpecificBrowser,
+                            )
                         },
                         onBoldCharacters = { (!boldCharacters).put(context, coroutineScope) },
                         onReadAloud = {
