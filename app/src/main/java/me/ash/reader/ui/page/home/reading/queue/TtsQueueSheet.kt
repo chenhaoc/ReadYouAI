@@ -142,17 +142,10 @@ fun TtsQueueSheet(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column {
-                Text(
-                    text = stringResource(id = R.string.playlist),
-                    style = MaterialTheme.typography.headlineSmall,
-                )
-                Text(
-                    text = stringResource(id = R.string.playlist_count, state.items.size),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Text(
+                text = stringResource(id = R.string.playlist),
+                style = MaterialTheme.typography.headlineSmall,
+            )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TtsSleepTimerDropdown(
                     sleepTimer = state.sleepTimer,

@@ -1,15 +1,22 @@
 package me.ash.reader.ui.page.nav3
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.ModalBottomSheetValue
-import androidx.compose.material.rememberModalBottomSheetState
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
@@ -35,7 +42,6 @@ import androidx.navigation3.ui.NavDisplay
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import me.ash.reader.infrastructure.preference.LocalReadingTtsMiniPlayer
-import me.ash.reader.ui.component.base.BottomDrawer
 import me.ash.reader.ui.ext.collectAsStateValue
 import me.ash.reader.ui.motion.materialSharedAxisXIn
 import me.ash.reader.ui.motion.materialSharedAxisXOut
@@ -78,7 +84,7 @@ private const val INITIAL_OFFSET_FACTOR = 0.10f
 @OptIn(
     ExperimentalSharedTransitionApi::class,
     ExperimentalMaterial3AdaptiveApi::class,
-    ExperimentalMaterialApi::class,
+    ExperimentalMaterial3Api::class,
 )
 @Composable
 fun AppEntry(backStack: NavBackStack<NavKey>) {
@@ -87,11 +93,15 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
     val queueState = overlayViewModel.queueState.collectAsStateValue()
     val showFloatingButton = LocalReadingTtsMiniPlayer.current
     val scope = rememberCoroutineScope()
-    val queueDrawerState =
+    val queueSheetState =
         rememberModalBottomSheetState(
-            initialValue = ModalBottomSheetValue.Hidden,
-            skipHalfExpanded = true,
+            skipPartiallyExpanded = true,
         )
+    var isQueueSheetMounted by rememberSaveable { mutableStateOf(false) }
+    val isQueueDrawerVisible =
+        isQueueSheetMounted ||
+            queueSheetState.currentValue != SheetValue.Hidden ||
+            queueSheetState.targetValue != SheetValue.Hidden
     var dockSideName by rememberSaveable { mutableStateOf(TtsFloatingButtonDockSide.Right.name) }
     val dockSide = TtsFloatingButtonDockSide.valueOf(dockSideName)
     val currentRoute = backStack.lastOrNull()
@@ -102,18 +112,18 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
             else -> 24.dp
         }
 
-    BackHandler(queueDrawerState.isVisible) {
-        scope.launch { queueDrawerState.hide() }
-    }
-
     val onBack: () -> Unit = {
         if (backStack.size == 1) backStack[0] = Route.Feeds else backStack.removeLastOrNull()
     }
-    val onBackWithQueuePriority: () -> Unit = {
-        if (queueDrawerState.isVisible) {
-            scope.launch { queueDrawerState.hide() }
-        } else {
-            onBack()
+    val openQueue: () -> Unit = {
+        isQueueSheetMounted = true
+        scope.launch { queueSheetState.show() }
+    }
+    fun closeQueue(afterClose: (() -> Unit)? = null) {
+        scope.launch {
+            queueSheetState.hide()
+            isQueueSheetMounted = false
+            afterClose?.invoke()
         }
     }
 
@@ -126,70 +136,37 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
         )
 
     SharedTransitionLayout {
-        BottomDrawer(
-            drawerState = queueDrawerState,
-            sheetContent = {
-                TtsQueueSheet(
-                    state = queueState,
-                    onPlayItem = overlayViewModel::playPlaylistItem,
-                    onPauseCurrent = overlayViewModel::stopQueuePlayback,
-                    onSeekCurrent = overlayViewModel::seekCurrentPlayback,
-                    onPreviousSegment = overlayViewModel::previousQueueSegment,
-                    onNextSegment = overlayViewModel::nextQueueSegment,
-                    onSetSleepTimer = overlayViewModel::setSleepTimer,
-                    onOpenCurrentArticle = { articleId ->
-                        scope.launch {
-                            queueDrawerState.hide()
-                            if (backStack.lastOrNull() is Route.Reading) {
-                                navigator.navigateTo(
-                                    pane = ListDetailPaneScaffoldRole.Detail,
-                                    contentKey = ArticleData(articleId = articleId),
-                                )
-                            } else {
-                                backStack.add(Route.Reading(articleId))
-                            }
-                        }
-                    },
-                    onPrevious = overlayViewModel::previousQueuePlayback,
-                    onNext = overlayViewModel::skipQueuePlayback,
-                    onRemove = overlayViewModel::removeFromPlaylist,
-                    onMoveUp = overlayViewModel::movePlaylistItemUp,
-                    onMoveDown = overlayViewModel::movePlaylistItemDown,
-                    onClear = overlayViewModel::clearPlaylist,
-                )
+        NavDisplay(
+            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
+            backStack = backStack,
+            entryDecorators =
+                listOf(
+                    rememberSaveableStateHolderNavEntryDecorator(),
+                    rememberViewModelStoreNavEntryDecorator(),
+                ),
+            transitionSpec = {
+                materialSharedAxisXIn(
+                    initialOffsetX = { (it * INITIAL_OFFSET_FACTOR).toInt() }
+                ) togetherWith
+                    materialSharedAxisXOut(
+                        targetOffsetX = { -(it * INITIAL_OFFSET_FACTOR).toInt() }
+                    )
             },
-        ) {
-            NavDisplay(
-                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
-                backStack = backStack,
-                entryDecorators =
-                    listOf(
-                        rememberSaveableStateHolderNavEntryDecorator(),
-                        rememberViewModelStoreNavEntryDecorator(),
-                    ),
-                transitionSpec = {
-                    materialSharedAxisXIn(
-                        initialOffsetX = { (it * INITIAL_OFFSET_FACTOR).toInt() }
-                    ) togetherWith
-                        materialSharedAxisXOut(
-                            targetOffsetX = { -(it * INITIAL_OFFSET_FACTOR).toInt() }
-                        )
-                },
-                popTransitionSpec = {
-                    materialSharedAxisXIn(
-                        initialOffsetX = { -(it * INITIAL_OFFSET_FACTOR).toInt() }
-                    ) togetherWith
-                        materialSharedAxisXOut(targetOffsetX = { (it * INITIAL_OFFSET_FACTOR).toInt() })
-                },
-                predictivePopTransitionSpec = {
-                    materialSharedAxisXIn(
-                        initialOffsetX = { -(it * INITIAL_OFFSET_FACTOR).toInt() }
-                    ) togetherWith
-                        materialSharedAxisXOut(targetOffsetX = { (it * INITIAL_OFFSET_FACTOR).toInt() })
-                },
-                onBack = onBackWithQueuePriority,
-                entryProvider = { key ->
-                    when (key) {
+            popTransitionSpec = {
+                materialSharedAxisXIn(
+                    initialOffsetX = { -(it * INITIAL_OFFSET_FACTOR).toInt() }
+                ) togetherWith
+                    materialSharedAxisXOut(targetOffsetX = { (it * INITIAL_OFFSET_FACTOR).toInt() })
+            },
+            predictivePopTransitionSpec = {
+                materialSharedAxisXIn(
+                    initialOffsetX = { -(it * INITIAL_OFFSET_FACTOR).toInt() }
+                ) togetherWith
+                    materialSharedAxisXOut(targetOffsetX = { (it * INITIAL_OFFSET_FACTOR).toInt() })
+            },
+            onBack = onBack,
+            entryProvider = { key ->
+                when (key) {
                         Route.Feeds -> {
                             NavEntry(key) {
                                 FeedsPage(
@@ -200,8 +177,8 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
                                     navigationToFlow = { articleId ->
                                         backStack.add(Route.Reading(articleId))
                                     },
-                                    onOpenQueue = { scope.launch { queueDrawerState.show() } },
-                                    isQueueOpen = queueDrawerState.isVisible,
+                                    onOpenQueue = openQueue,
+                                    isQueueOpen = isQueueDrawerVisible,
                                     navigateToAccountList = { backStack.add(Route.Accounts) },
                                     navigateToAccountDetail = {
                                         backStack.add(Route.AccountDetails(it))
@@ -232,8 +209,8 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
                                     sharedTransitionScope = this@SharedTransitionLayout,
                                     animatedVisibilityScope = LocalNavAnimatedContentScope.current,
                                     viewModel = viewModel,
-                                    onOpenQueue = { scope.launch { queueDrawerState.show() } },
-                                    isQueueOpen = queueDrawerState.isVisible,
+                                    onOpenQueue = openQueue,
+                                    isQueueOpen = isQueueDrawerVisible,
                                     onBack = onBack,
                                     onNavigateToStylePage = {
                                         backStack.add(Route.ReadingPageStyle)
@@ -376,21 +353,67 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
                         Route.LicenseList ->
                             NavEntry(key) { LicenseListPage(onBack = onBack) }
                         else -> NavEntry(key) { throw Exception("Unknown destination") }
-                    }
-                },
-            )
+                }
+            },
+        )
 
-            TtsFloatingPlayerButton(
-                visible =
-                    showFloatingButton.value &&
-                        currentRoute != Route.Startup &&
-                        queueState.items.isNotEmpty(),
-                dockSide = dockSide,
-                bottomPadding = floatingButtonBottomPadding,
-                onDockSideChange = { dockSideName = it.name },
-                onClick = { scope.launch { queueDrawerState.show() } },
-                onLongClick = overlayViewModel::toggleQueuePlayback,
-            )
+        TtsFloatingPlayerButton(
+            visible =
+                showFloatingButton.value &&
+                    currentRoute != Route.Startup &&
+                    queueState.items.isNotEmpty(),
+            dockSide = dockSide,
+            bottomPadding = floatingButtonBottomPadding,
+            onDockSideChange = { dockSideName = it.name },
+            onClick = openQueue,
+            onLongClick = overlayViewModel::toggleQueuePlayback,
+        )
+
+        if (isQueueSheetMounted) {
+            ModalBottomSheet(
+                onDismissRequest = { closeQueue() },
+                sheetState = queueSheetState,
+                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            ) {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .safeDrawingPadding()
+                            .padding(horizontal = 14.dp),
+                ) {
+                    TtsQueueSheet(
+                        state = queueState,
+                        onPlayItem = overlayViewModel::playPlaylistItem,
+                        onPauseCurrent = overlayViewModel::stopQueuePlayback,
+                        onSeekCurrent = overlayViewModel::seekCurrentPlayback,
+                        onPreviousSegment = overlayViewModel::previousQueueSegment,
+                        onNextSegment = overlayViewModel::nextQueueSegment,
+                        onSetSleepTimer = overlayViewModel::setSleepTimer,
+                        onOpenCurrentArticle = { articleId ->
+                            closeQueue {
+                                scope.launch {
+                                    if (backStack.lastOrNull() is Route.Reading) {
+                                        navigator.navigateTo(
+                                            pane = ListDetailPaneScaffoldRole.Detail,
+                                            contentKey = ArticleData(articleId = articleId),
+                                        )
+                                    } else {
+                                        backStack.add(Route.Reading(articleId))
+                                    }
+                                }
+                            }
+                        },
+                        onPrevious = overlayViewModel::previousQueuePlayback,
+                        onNext = overlayViewModel::skipQueuePlayback,
+                        onRemove = overlayViewModel::removeFromPlaylist,
+                        onMoveUp = overlayViewModel::movePlaylistItemUp,
+                        onMoveDown = overlayViewModel::movePlaylistItemDown,
+                        onClear = overlayViewModel::clearPlaylist,
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                }
+            }
         }
     }
 }

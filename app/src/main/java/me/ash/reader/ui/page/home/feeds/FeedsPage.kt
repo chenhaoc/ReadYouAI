@@ -178,7 +178,7 @@ fun FeedsPage(
     val groupDrawerState =
         rememberModalBottomSheetState(initialValue = ModalBottomSheetValue.Hidden, skipHalfExpanded = true)
     val feedDrawerState = rememberModalBottomSheetState(initialValue = ModalBottomSheetValue.Hidden, skipHalfExpanded = true)
-    BackHandler(!isQueueOpen) { context.findActivity()?.moveTaskToBack(false) }
+    BackHandler { context.findActivity()?.moveTaskToBack(false) }
 
     RYScaffold(
             topBarTonalElevation = topBarTonalElevation.value.dp,

@@ -130,7 +130,7 @@ fun ArticleListReaderPage(
             paneExpansionState = paneExpansionState,
             listPane = {
                 if (navigationAction == NavigationAction.ExpandList) {
-                    BackHandler(!isQueueOpen) {
+                    BackHandler {
                         listAlpha = 1f
                         scope.launch { paneExpansionState.animateTo(expandedAnchor) }
                     }
