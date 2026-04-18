@@ -1,161 +1,125 @@
-# Build Script Guide
+# ReadYouAI 本地构建说明
 
-This repository includes a one-command build script at:
+本仓库保留一个统一的本地构建脚本：
 
 ```bash
 ./scripts/build-github-debug.sh
 ```
 
-Despite the file name, the script now defaults to a fast local `githubAiDebug` build and supports an explicit resource profile switch.
+它现在的职责很收敛：
 
-## What It Does
+1. 优先服务 `githubAiDebug` 的本地增量编译
+2. 在同一仓库的所有 worktree 之间串行化构建
+3. 统一处理 `JAVA_HOME`、`ANDROID_SDK_ROOT`、`local.properties`
+4. 成功后输出最终 APK 路径
 
-The script supports two local build modes plus a resource profile:
+## 为什么保留这个脚本
 
-1. `fast-debug` for the fastest repeatable local testing APK
-2. `release` for the real signed release APK
-3. `--profile full|1core` to choose full-machine or single-core execution
+在 Apple Silicon Mac 上，单次全量 Android 构建本来就不快；如果多个 worktree 同时编译，会显著拖慢整体速度。相比“再起一个新构建”，更高效的做法通常是：
 
-It does the following:
+- 优先走已有增量状态
+- 同一时刻只跑一个构建
+- 已经有构建在执行时直接等待，而不是 kill 掉重跑
 
-1. Detects `JAVA_HOME`, defaulting to Homebrew OpenJDK 21 on Apple Silicon macOS.
-2. Detects `ANDROID_SDK_ROOT`, defaulting to `~/Library/Android/sdk`.
-3. Creates `local.properties` automatically if it does not exist.
-4. Disables inherited proxy variables to avoid broken local proxy settings affecting Gradle dependency downloads.
-5. Parses `./scripts/build-github-debug.sh [fast-debug|release|<gradle-task>] [--profile full|1core]`.
-6. Defaults both `fast-debug` and `release` to `--profile full`.
-7. Detects logical CPU count for `--profile full`.
-8. Prints the final APK path after a successful build.
+因此脚本的核心价值不再是资源档位切换，而是提供一个统一的、带仓库级构建锁的入口。
 
-## Default Usage: Fast Debug
+## 默认用法
 
-Build the fastest parallel-install debug APK for local testing:
+最常用的是直接构建本地调试 APK：
 
 ```bash
-cd /Users/hao.chen/工作文档/Work/readyou/ReadYou
 ./scripts/build-github-debug.sh
 ```
 
-This defaults to `assembleGithubAiDebug`.
-
-## Command Syntax
+这会默认执行：
 
 ```bash
-./scripts/build-github-debug.sh [fast-debug|release|<gradle-task>] [--profile full|1core]
+assembleGithubAiDebug
 ```
 
-Defaults:
-
-- no arguments: `fast-debug --profile full`
-- `fast-debug`: `assembleGithubAiDebug --profile full`
-- `release`: `assembleGithubAiRelease --profile full`
-
-## Explicit Modes
-
-Build the real signed parallel-install release APK with full-machine resources:
+## 支持的调用方式
 
 ```bash
+./scripts/build-github-debug.sh
+./scripts/build-github-debug.sh debug
 ./scripts/build-github-debug.sh release
+./scripts/build-github-debug.sh <gradle-task>
 ```
 
-Force fast debug explicitly:
+约定如下：
+
+- 无参数：执行 `assembleGithubAiDebug`
+- `debug`：映射到 `assembleGithubAiDebug`
+- `release`：映射到 `assembleGithubAiRelease`
+- 其他单个参数：按显式 Gradle task 处理
+
+常见示例：
 
 ```bash
-./scripts/build-github-debug.sh fast-debug
+./scripts/build-github-debug.sh
+./scripts/build-github-debug.sh release
+./scripts/build-github-debug.sh :app:compileGithubAiDebugKotlin
+./scripts/build-github-debug.sh testGithubAiDebugUnitTest
 ```
 
-Run release in low-load single-core mode:
+## 不再支持的旧参数
+
+以下旧参数已经移除：
 
 ```bash
-./scripts/build-github-debug.sh release --profile 1core
+--profile full
+--profile 1core
 ```
 
-## Build Another Variant Or Task
+原因是它们更像“资源调参入口”，并没有解决当前这台机器最关键的问题：同一仓库多构建并发导致的整体变慢。
 
-You can pass a Gradle task explicitly:
+## 串行构建锁
 
-```bash
-./scripts/build-github-debug.sh assembleGithubDebug --profile full
-./scripts/build-github-debug.sh assembleGithubAiDebug --profile full
-./scripts/build-github-debug.sh assembleGithubAiRelease --profile full
-./scripts/build-github-debug.sh installGithubAiDebug --profile full
-./scripts/build-github-debug.sh assembleGithubRelease --profile 1core
-./scripts/build-github-debug.sh assembleGooglePlayRelease --profile full
-```
+脚本会在仓库公共 `.git` 目录下创建一把锁，因此：
 
-## Requirements
+- 多个 worktree 会共享同一把锁
+- 如果另一个构建已经在运行，当前命令会等待
+- 等待期间会打印当前持锁任务、worktree 和开始时间
+- 若发现同机死锁进程残留，会自动清理陈旧锁
 
-The script expects:
+这条规则的目的很明确：
 
-- A usable JDK 21 environment
-- Android SDK installed under `~/Library/Android/sdk`, or `ANDROID_SDK_ROOT` set manually
-- Signing material for release builds
+- 不要同时编译两个 worktree
+- 不要因为等了一会儿就 kill 掉正在跑的构建
+- 优先复用 daemon、cache 和增量编译结果
 
-This repository already uses:
+## 环境要求
 
-- `signature/keystore.properties`
-- `signature/reader.keystore`
+脚本会自动补足以下环境：
 
-Without valid signing configuration, release builds such as `assembleGithubAiRelease` may fail.
+- `JAVA_HOME`
+  - 优先使用 Homebrew OpenJDK 21
+- `ANDROID_SDK_ROOT`
+  - 默认使用 `~/Library/Android/sdk`
+- `local.properties`
+  - 若缺失则自动生成
 
-## Full Profile
+同时会清理继承下来的代理变量，避免无效代理影响 Gradle 解析依赖。
 
-`--profile full` is the default for both `fast-debug` and `release`.
+## 输出位置
 
-It is tuned to use the whole machine:
-
-- detected logical CPU count from `sysctl`, `nproc`, `getconf`, or `NUMBER_OF_PROCESSORS`
-- `--daemon`
-- `--parallel`
-- `--build-cache`
-- `--max-workers=<detected logical CPUs>`
-- Kotlin compiler daemon mode
-
-Typical defaults on Apple Silicon M1:
-
-- `fast-debug` => `assembleGithubAiDebug`
-- `release` => `assembleGithubAiRelease`
-- `--daemon`
-- `--parallel`
-- `--build-cache`
-- `--max-workers=8`
-
-You can override worker count if needed:
-
-```bash
-FAST_DEBUG_MAX_WORKERS=6 ./scripts/build-github-debug.sh
-```
-
-## Single-Core Profile
-
-`--profile 1core` is the explicit low-load mode. It applies:
-
-- `--no-daemon`
-- `--max-workers=1`
-- `-Dorg.gradle.workers.max=1`
-- `-Dkotlin.compiler.execution.strategy=in-process`
-- `-Djava.util.concurrent.ForkJoinPool.common.parallelism=1`
-- `-XX:ActiveProcessorCount=1`
-
-## Output Location
-
-Release APK output:
-
-```text
-app/build/outputs/apk/githubAi/release/
-```
-
-Debug APK output:
+Debug APK：
 
 ```text
 app/build/outputs/apk/githubAi/debug/
 ```
 
-The script prints the exact APK path at the end of the build.
+Release APK：
 
-## Notes
+```text
+app/build/outputs/apk/githubAi/release/
+```
 
-- The script name is historical; its default behavior is now the parallel-install debug flavor.
-- Release builds are slower than debug builds because they run shrinking, optimization, and signing steps.
-- If you only need a local test APK, prefer the default `fast-debug` mode.
-- If you want the real release APK but do not want to saturate the machine, use `release --profile 1core`.
+脚本完成后会打印实际 APK 路径。
+
+## 建议工作流
+
+- 日常开发优先使用默认命令或 `compileGithubAiDebugKotlin`
+- 以 `githubAiDebug` 的增量构建为主，不要动不动切到 release
+- 只有在确实需要签名包时才跑 `release`
+- 如果已经有一个构建在跑，等它结束，通常比重新起一个新构建更快

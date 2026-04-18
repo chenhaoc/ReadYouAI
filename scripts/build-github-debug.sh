@@ -5,67 +5,72 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEFAULT_JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
 DEFAULT_ANDROID_SDK_ROOT="${HOME}/Library/Android/sdk"
-FAST_DEBUG_TASK="assembleGithubAiDebug"
+DEBUG_TASK="assembleGithubAiDebug"
 RELEASE_TASK="assembleGithubAiRelease"
-FAST_DEBUG_GRADLE_JVMARGS="-Xmx4096M -Xms512m -XX:MaxMetaspaceSize=768m -Dkotlin.daemon.jvm.options=-Xmx2048M -XX:+HeapDumpOnOutOfMemoryError -XX:+UseParallelGC -Dfile.encoding=UTF-8"
+DEBUG_GRADLE_JVMARGS="-Xmx4096M -Xms512m -XX:MaxMetaspaceSize=768m -Dkotlin.daemon.jvm.options=-Xmx2048M -XX:+HeapDumpOnOutOfMemoryError -XX:+UseParallelGC -Dfile.encoding=UTF-8"
 RELEASE_GRADLE_JVMARGS="-Xmx8192M -Xms512m -XX:MaxMetaspaceSize=1g -Dkotlin.daemon.jvm.options=-Xmx8192M -XX:+HeapDumpOnOutOfMemoryError -XX:+UseParallelGC -Dfile.encoding=UTF-8"
-DEFAULT_MODE="fast-debug"
-DEFAULT_PROFILE="full"
+LOCK_WAIT_SECONDS=5
+LOCK_LOG_INTERVAL_SECONDS=30
+DEFAULT_MODE="debug"
 
-MODE_OR_TASK="${DEFAULT_MODE}"
-RESOURCE_PROFILE="${DEFAULT_PROFILE}"
-MODE_OR_TASK_SET="false"
+usage() {
+  cat <<'EOF'
+Usage:
+  ./scripts/build-github-debug.sh
+  ./scripts/build-github-debug.sh debug
+  ./scripts/build-github-debug.sh release
+  ./scripts/build-github-debug.sh <gradle-task>
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --profile)
-      if [[ $# -lt 2 ]]; then
-        echo "Missing value for --profile (full or 1core)." >&2
-        exit 1
-      fi
-      RESOURCE_PROFILE="$2"
-      shift 2
+Notes:
+  - The default task is assembleGithubAiDebug.
+  - The script now serializes builds across all worktrees of the same repository.
+  - Resource profiles such as --profile full|1core are no longer supported.
+EOF
+}
+
+for arg in "$@"; do
+  case "${arg}" in
+    fast-debug)
+      echo "The fast-debug alias is removed. Use debug or run the script without arguments." >&2
+      exit 1
       ;;
-    *)
-      if [[ "${MODE_OR_TASK_SET}" == "false" ]]; then
-        MODE_OR_TASK="$1"
-        MODE_OR_TASK_SET="true"
-        shift
-      else
-        echo "Unexpected argument: $1" >&2
-        exit 1
-      fi
+    --profile|--profile=*)
+      echo "Resource profiles are removed. Run one repository build at a time and let it finish." >&2
+      exit 1
       ;;
   esac
 done
 
-case "${RESOURCE_PROFILE}" in
-  full|1core)
-    ;;
-  *)
-    echo "Unknown profile: ${RESOURCE_PROFILE}. Expected full or 1core." >&2
-    exit 1
-    ;;
-esac
+if [[ $# -gt 1 ]]; then
+  usage >&2
+  exit 1
+fi
 
-case "${MODE_OR_TASK}" in
-  fast-debug)
-    BUILD_MODE="fast-debug"
-    GRADLE_TASK="${FAST_DEBUG_TASK}"
-    ;;
-  release)
-    BUILD_MODE="release"
-    GRADLE_TASK="${RELEASE_TASK}"
-    ;;
-  *)
-    GRADLE_TASK="${MODE_OR_TASK}"
-    if [[ "${GRADLE_TASK}" == *Release* ]]; then
-      BUILD_MODE="release"
-    else
-      BUILD_MODE="fast-debug"
-    fi
-    ;;
-esac
+if [[ $# -eq 1 ]]; then
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    debug)
+      REQUESTED_TASK="${DEBUG_TASK}"
+      ;;
+    release)
+      REQUESTED_TASK="${RELEASE_TASK}"
+      ;;
+    *)
+      REQUESTED_TASK="$1"
+      ;;
+  esac
+else
+  REQUESTED_TASK="${DEBUG_TASK}"
+fi
+
+if [[ "${REQUESTED_TASK}" == *Release* ]]; then
+  BUILD_MODE="release"
+else
+  BUILD_MODE="${DEFAULT_MODE}"
+fi
 
 detect_logical_cpus() {
   local count=""
@@ -126,14 +131,132 @@ find_latest_apk() {
   printf '%s\n' "${latest_apk}"
 }
 
-if [[ "${RESOURCE_PROFILE}" == "1core" ]]; then
-  WORKER_COUNT=1
-else
-  if [[ -n "${FAST_DEBUG_MAX_WORKERS:-}" ]]; then
-    WORKER_COUNT="${FAST_DEBUG_MAX_WORKERS}"
+resolve_git_common_dir() {
+  local git_common_dir=""
+  if git_common_dir="$(git -C "${ROOT_DIR}" rev-parse --git-common-dir 2>/dev/null)"; then
+    if [[ "${git_common_dir}" != /* ]]; then
+      printf '%s/%s\n' "${ROOT_DIR}" "${git_common_dir}"
+    else
+      printf '%s\n' "${git_common_dir}"
+    fi
   else
-    WORKER_COUNT="$(detect_logical_cpus)"
+    printf '%s/.git\n' "${ROOT_DIR}"
   fi
+}
+
+read_lock_value() {
+  local file_path="$1"
+  if [[ -f "${file_path}" ]]; then
+    tr -d '\n' < "${file_path}"
+  fi
+}
+
+remove_stale_lock_if_safe() {
+  local lock_dir="$1"
+  local lock_host
+  local lock_pid
+
+  lock_host="$(read_lock_value "${lock_dir}/host")"
+  lock_pid="$(read_lock_value "${lock_dir}/pid")"
+
+  if [[ -z "${lock_pid}" ]] || [[ -z "${lock_host}" ]]; then
+    return 1
+  fi
+
+  if [[ "${lock_host}" != "${CURRENT_HOST}" ]]; then
+    return 1
+  fi
+
+  if kill -0 "${lock_pid}" 2>/dev/null; then
+    return 1
+  fi
+
+  echo "Removing stale repository build lock from pid ${lock_pid}."
+  rm -rf "${lock_dir}"
+  return 0
+}
+
+log_lock_status() {
+  local lock_dir="$1"
+  local lock_host
+  local lock_pid
+  local lock_task
+  local lock_cwd
+  local lock_started_at
+
+  lock_host="$(read_lock_value "${lock_dir}/host")"
+  lock_pid="$(read_lock_value "${lock_dir}/pid")"
+  lock_task="$(read_lock_value "${lock_dir}/task")"
+  lock_cwd="$(read_lock_value "${lock_dir}/cwd")"
+  lock_started_at="$(read_lock_value "${lock_dir}/started_at")"
+
+  if [[ -n "${lock_task}" ]]; then
+    echo "Active task: ${lock_task}"
+  fi
+  if [[ -n "${lock_pid}" ]] || [[ -n "${lock_host}" ]]; then
+    echo "Lock owner: pid=${lock_pid:-unknown} host=${lock_host:-unknown}"
+  fi
+  if [[ -n "${lock_cwd}" ]]; then
+    echo "Lock worktree: ${lock_cwd}"
+  fi
+  if [[ -n "${lock_started_at}" ]]; then
+    echo "Lock started at: ${lock_started_at}"
+  fi
+}
+
+acquire_build_lock() {
+  local waited_seconds=0
+
+  while ! mkdir "${BUILD_LOCK_DIR}" 2>/dev/null; do
+    if remove_stale_lock_if_safe "${BUILD_LOCK_DIR}"; then
+      continue
+    fi
+
+    if [[ "${waited_seconds}" -eq 0 ]]; then
+      echo "Another repository build is already running. Waiting for it to finish..."
+      log_lock_status "${BUILD_LOCK_DIR}"
+      echo "This repository serializes builds across all worktrees to protect incremental performance."
+    elif (( waited_seconds % LOCK_LOG_INTERVAL_SECONDS == 0 )); then
+      echo "Still waiting for the active repository build lock (${waited_seconds}s elapsed)..."
+      log_lock_status "${BUILD_LOCK_DIR}"
+    fi
+
+    sleep "${LOCK_WAIT_SECONDS}"
+    waited_seconds=$((waited_seconds + LOCK_WAIT_SECONDS))
+  done
+
+  printf '%s\n' "$$" > "${BUILD_LOCK_DIR}/pid"
+  printf '%s\n' "${CURRENT_HOST}" > "${BUILD_LOCK_DIR}/host"
+  printf '%s\n' "${REQUESTED_TASK}" > "${BUILD_LOCK_DIR}/task"
+  printf '%s\n' "${ROOT_DIR}" > "${BUILD_LOCK_DIR}/cwd"
+  printf '%s\n' "$(date '+%Y-%m-%d %H:%M:%S %z')" > "${BUILD_LOCK_DIR}/started_at"
+}
+
+release_build_lock() {
+  local lock_pid
+  local lock_host
+
+  if [[ -z "${BUILD_LOCK_DIR:-}" ]] || [[ ! -d "${BUILD_LOCK_DIR}" ]]; then
+    return
+  fi
+
+  lock_pid="$(read_lock_value "${BUILD_LOCK_DIR}/pid")"
+  lock_host="$(read_lock_value "${BUILD_LOCK_DIR}/host")"
+
+  if [[ "${lock_pid}" == "$$" ]] && [[ "${lock_host}" == "${CURRENT_HOST}" ]]; then
+    rm -rf "${BUILD_LOCK_DIR}"
+  fi
+}
+
+if [[ -n "${READYOU_BUILD_MAX_WORKERS:-}" ]]; then
+  WORKER_COUNT="${READYOU_BUILD_MAX_WORKERS}"
+else
+  WORKER_COUNT="$(detect_logical_cpus)"
+fi
+
+if [[ ! "${WORKER_COUNT}" =~ ^[0-9]+$ ]] || [[ "${WORKER_COUNT}" -lt 1 ]]; then
+  echo "Invalid worker count: ${WORKER_COUNT}" >&2
+  exit 1
 fi
 
 if [[ -z "${JAVA_HOME:-}" ]]; then
@@ -175,44 +298,39 @@ fi
 # entries breaking dependency resolution when no local proxy is actually running.
 unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy NO_PROXY no_proxy
 
+if command -v scutil >/dev/null 2>&1; then
+  CURRENT_HOST="$(scutil --get ComputerName 2>/dev/null || true)"
+fi
+CURRENT_HOST="${CURRENT_HOST:-$(hostname -s 2>/dev/null || hostname)}"
+GIT_COMMON_DIR="$(resolve_git_common_dir)"
+BUILD_LOCK_DIR="${GIT_COMMON_DIR}/readyou-android-build.lock"
+trap release_build_lock EXIT INT TERM
+acquire_build_lock
+
 if [[ "${BUILD_MODE}" == "release" ]]; then
   GRADLE_DAEMON_JVMARGS="${RELEASE_GRADLE_JVMARGS}"
 else
-  GRADLE_DAEMON_JVMARGS="${FAST_DEBUG_GRADLE_JVMARGS}"
+  GRADLE_DAEMON_JVMARGS="${DEBUG_GRADLE_JVMARGS}"
 fi
 
-if [[ "${RESOURCE_PROFILE}" == "1core" ]]; then
-  export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -XX:ActiveProcessorCount=1"
-  GRADLE_DAEMON_JVMARGS="${GRADLE_DAEMON_JVMARGS} -XX:ActiveProcessorCount=1"
-  GRADLE_FLAGS=(
-    "--no-daemon"
-    "--max-workers=1"
-    "-Dorg.gradle.jvmargs=${GRADLE_DAEMON_JVMARGS}"
-    "${GRADLE_TASK}"
-  )
-  export GRADLE_OPTS="${GRADLE_OPTS:-} -Dorg.gradle.workers.max=1 -Dkotlin.compiler.execution.strategy=in-process -Djava.util.concurrent.ForkJoinPool.common.parallelism=1 -Djava.net.useSystemProxies=false"
-else
-  GRADLE_FLAGS=(
-    "--daemon"
-    "--parallel"
-    "--build-cache"
-    "--max-workers=${WORKER_COUNT}"
-    "-Dorg.gradle.jvmargs=${GRADLE_DAEMON_JVMARGS}"
-    "${GRADLE_TASK}"
-  )
-  export GRADLE_OPTS="${GRADLE_OPTS:-} -Dorg.gradle.workers.max=${WORKER_COUNT} -Dkotlin.compiler.execution.strategy=daemon -Djava.util.concurrent.ForkJoinPool.common.parallelism=${WORKER_COUNT} -Djava.net.useSystemProxies=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true"
-fi
+GRADLE_FLAGS=(
+  "--daemon"
+  "--build-cache"
+  "--max-workers=${WORKER_COUNT}"
+  "-Dorg.gradle.jvmargs=${GRADLE_DAEMON_JVMARGS}"
+  "${REQUESTED_TASK}"
+)
+export GRADLE_OPTS="${GRADLE_OPTS:-} -Dorg.gradle.workers.max=${WORKER_COUNT} -Dkotlin.compiler.execution.strategy=daemon -Djava.net.useSystemProxies=false -Dorg.gradle.caching=true"
 
 cd "${ROOT_DIR}"
 
 echo "Build mode=${BUILD_MODE}"
-echo "Resource profile=${RESOURCE_PROFILE}"
 echo "Worker count=${WORKER_COUNT}"
 echo "JAVA_HOME=${JAVA_HOME}"
 echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}"
-echo "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:-}"
+echo "Build lock=${BUILD_LOCK_DIR}"
 echo "GRADLE_DAEMON_JVMARGS=${GRADLE_DAEMON_JVMARGS}"
-echo "Gradle task=${GRADLE_TASK}"
+echo "Gradle task=${REQUESTED_TASK}"
 
 ./gradlew "${GRADLE_FLAGS[@]}"
 
