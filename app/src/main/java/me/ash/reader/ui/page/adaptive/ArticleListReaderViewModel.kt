@@ -70,6 +70,7 @@ import me.ash.reader.ui.page.home.reading.contextTypeForQuickAction
 import me.ash.reader.ui.page.home.reading.decodeStoredTranslationBlocks
 import me.ash.reader.ui.page.home.reading.resolveAiChatPrompt
 import me.ash.reader.ui.page.home.reading.resolveAiSummarizationPrompt
+import me.ash.reader.ui.page.home.reading.resolveAiTranslationPrompt
 import me.ash.reader.ui.page.home.reading.selectExtraTranslations
 import me.ash.reader.ui.page.home.reading.selectTranslationsForCurrentBlocks
 import me.ash.reader.ui.page.home.reading.translatableBlockCount
@@ -77,8 +78,6 @@ import me.ash.reader.ui.page.home.reading.translatedBlockCount
 import timber.log.Timber
 
 private const val TAG = "FlowViewModel"
-private const val DEFAULT_TRANSLATION_PROMPT =
-    "Translate the input JSON array into Simplified Chinese. Return JSON only. Preserve every id, keep the original order, do not summarize, do not omit content, and set translatedText for each item.\n\n"
 private const val MAX_LIST_TRANSLATION_CONCURRENCY = 5
 
 private enum class SummaryTrigger {
@@ -752,10 +751,7 @@ constructor(
                             baseUrl = settings.aiBaseUrl.value,
                             apiKey = settings.aiApiKey.value,
                             model = settings.aiModel.value.ifEmpty { "gpt-3.5-turbo" },
-                            prompt =
-                                settings.aiTranslationPrompt.value.ifEmpty {
-                                    DEFAULT_TRANSLATION_PROMPT
-                                },
+                            prompt = resolveAiTranslationPrompt(settings.aiTranslationPrompt.value),
                             sourceBlocks = nextBatch,
                         )
                 ) {
@@ -1280,10 +1276,7 @@ constructor(
                     baseUrl = settings.aiBaseUrl.value,
                     apiKey = settings.aiApiKey.value,
                     model = settings.aiModel.value.ifEmpty { "gpt-3.5-turbo" },
-                    prompt =
-                        settings.aiTranslationPrompt.value.ifEmpty {
-                            DEFAULT_TRANSLATION_PROMPT
-                        },
+                    prompt = resolveAiTranslationPrompt(settings.aiTranslationPrompt.value),
                     sourceBlocks = nextBatch,
                 )
         ) {

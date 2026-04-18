@@ -1,16 +1,7 @@
 package me.ash.reader.ui.page.home.reading
 
 private val DEFAULT_AI_CHAT_PROMPT =
-    """
-    你是一个中文新闻阅读助手。
-
-    回答规则：
-    - 如果提供了“用户当前选中的内容”，优先回答该内容本身。
-    - 如果同时提供了文章全文，可将全文作为背景参考以提高准确性，但不要主动偏离用户当前问题。
-    - 如果没有提供选中内容，则围绕整篇文章回答。
-    - 不确定时明确说明，不要编造事实。
-    - 回答尽量直接、清楚、便于理解。
-    """.trimIndent()
+    "请基于提供的内容，用简体中文直接、清楚地回答问题；优先回答当前问题本身，不确定时请明确说明。"
 
 const val AI_CHAT_ROLE_USER = "user"
 const val AI_CHAT_ROLE_ASSISTANT = "assistant"

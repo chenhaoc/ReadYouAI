@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -47,6 +48,7 @@ import me.ash.reader.ui.component.base.Subtitle
 import me.ash.reader.ui.component.base.TextFieldDialog
 import me.ash.reader.ui.page.home.reading.resolveAiChatPrompt
 import me.ash.reader.ui.page.home.reading.resolveAiSummarizationPrompt
+import me.ash.reader.ui.page.home.reading.resolveAiTranslationPrompt
 import me.ash.reader.ui.page.settings.SettingItem
 import me.ash.reader.ui.theme.palette.onLight
 
@@ -72,6 +74,10 @@ fun AiSettingsPage(
     var promptDialogVisible by remember { mutableStateOf(false) }
     var translationPromptDialogVisible by remember { mutableStateOf(false) }
     var chatPromptDialogVisible by remember { mutableStateOf(false) }
+
+    val summarizationPromptState = rememberTextFieldState()
+    val translationPromptState = rememberTextFieldState()
+    val chatPromptState = rememberTextFieldState()
     
     val availableModels = remember { mutableStateListOf<String>() }
     var isLoadingModels by remember { mutableStateOf(false) }
@@ -94,6 +100,30 @@ fun AiSettingsPage(
                     fetchError = error
                     isLoadingModels = false
                 }
+            )
+        }
+    }
+
+    LaunchedEffect(promptDialogVisible, aiSummarizationPrompt.value) {
+        if (promptDialogVisible) {
+            summarizationPromptState.setTextAndPlaceCursorAtEnd(
+                resolveAiSummarizationPrompt(aiSummarizationPrompt.value)
+            )
+        }
+    }
+
+    LaunchedEffect(translationPromptDialogVisible, aiTranslationPrompt.value) {
+        if (translationPromptDialogVisible) {
+            translationPromptState.setTextAndPlaceCursorAtEnd(
+                resolveAiTranslationPrompt(aiTranslationPrompt.value)
+            )
+        }
+    }
+
+    LaunchedEffect(chatPromptDialogVisible, aiChatPrompt.value) {
+        if (chatPromptDialogVisible) {
+            chatPromptState.setTextAndPlaceCursorAtEnd(
+                resolveAiChatPrompt(aiChatPrompt.value)
             )
         }
     }
@@ -276,8 +306,7 @@ fun AiSettingsPage(
     }
 
     TextFieldDialog(
-        textFieldState =
-            rememberTextFieldState(resolveAiSummarizationPrompt(aiSummarizationPrompt.value)),
+        textFieldState = summarizationPromptState,
         visible = promptDialogVisible,
         title = stringResource(R.string.ai_summarization_prompt),
         placeholder = stringResource(R.string.ai_summarization_prompt_hint),
@@ -290,7 +319,7 @@ fun AiSettingsPage(
     )
 
     TextFieldDialog(
-        textFieldState = rememberTextFieldState(aiTranslationPrompt.value),
+        textFieldState = translationPromptState,
         visible = translationPromptDialogVisible,
         title = stringResource(R.string.ai_translation_prompt),
         placeholder = stringResource(R.string.ai_translation_prompt_hint),
@@ -303,7 +332,7 @@ fun AiSettingsPage(
     )
 
     TextFieldDialog(
-        textFieldState = rememberTextFieldState(resolveAiChatPrompt(aiChatPrompt.value)),
+        textFieldState = chatPromptState,
         visible = chatPromptDialogVisible,
         title = stringResource(R.string.ai_chat_prompt),
         placeholder = stringResource(R.string.ai_chat_prompt_hint),

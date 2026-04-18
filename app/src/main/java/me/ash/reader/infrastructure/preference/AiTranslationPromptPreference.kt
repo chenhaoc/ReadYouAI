@@ -10,6 +10,7 @@ import me.ash.reader.ui.ext.DataStoreKey
 import me.ash.reader.ui.ext.DataStoreKey.Companion.aiTranslationPrompt
 import me.ash.reader.ui.ext.dataStore
 import me.ash.reader.ui.ext.put
+import me.ash.reader.ui.page.home.reading.resolveAiTranslationPrompt
 
 val LocalAiTranslationPrompt = compositionLocalOf { AiTranslationPromptPreference.default }
 
@@ -22,7 +23,9 @@ data class AiTranslationPromptPreference(val value: String) : Preference() {
     }
 
     fun toDesc(context: Context): String =
-        value.ifEmpty { context.getString(R.string.ai_translation_prompt_default).lines().first() }
+        resolveAiTranslationPrompt(
+            value.ifEmpty { context.getString(R.string.ai_translation_prompt_default) }
+        ).lineSequence().first().trim()
 
     companion object {
         val default = AiTranslationPromptPreference("")

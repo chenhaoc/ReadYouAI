@@ -73,7 +73,17 @@ class AiChatRepository @Inject constructor() {
         userQuestion: String,
     ): List<ChatMessage> =
         buildList {
-            add(ChatMessage(role = "system", content = prompt))
+            add(
+                ChatMessage(
+                    role = "system",
+                    content =
+                        buildSystemPrompt(
+                            prompt = prompt,
+                            hasSelectedSnippet = !selectedSnippet.isNullOrBlank(),
+                            includeFullContent = includeFullContent,
+                        ),
+                )
+            )
             add(
                 ChatMessage(
                     role = "user",
@@ -92,6 +102,26 @@ class AiChatRepository @Inject constructor() {
             }
             add(ChatMessage(role = "user", content = userQuestion))
         }
+
+    internal fun buildSystemPrompt(
+        prompt: String,
+        hasSelectedSnippet: Boolean,
+        includeFullContent: Boolean,
+    ): String =
+        buildString {
+            appendLine(prompt)
+            appendLine()
+            appendLine("补充要求：")
+            appendLine("- 用简体中文回答")
+            appendLine("- 优先直接回答用户当前问题")
+            if (hasSelectedSnippet) {
+                appendLine("- 如果提供了用户当前选中的内容，优先围绕选中内容回答")
+            }
+            if (includeFullContent) {
+                appendLine("- 如果提供了文章全文，可将全文作为背景参考，但不要偏离当前问题")
+            }
+            appendLine("- 不确定时明确说明，不要编造")
+        }.trim()
 
     private fun buildContextMessage(
         articleTitle: String,

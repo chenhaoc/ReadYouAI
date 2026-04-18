@@ -79,4 +79,18 @@ class AiChatRepositoryTest {
         assertEquals((3..10).map { "message-$it" }, historyContents)
         assertTrue(messages[1].content.contains("[Article]"))
     }
+
+    @Test
+    fun buildSystemPrompt_keepsSelectionAndFullTextRulesInternal() {
+        val prompt =
+            repository.buildSystemPrompt(
+                prompt = "请基于提供的内容，用简体中文直接、清楚地回答问题；优先回答当前问题本身，不确定时请明确说明。",
+                hasSelectedSnippet = true,
+                includeFullContent = true,
+            )
+
+        assertTrue(prompt.contains("优先围绕选中内容回答"))
+        assertTrue(prompt.contains("可将全文作为背景参考"))
+        assertTrue(prompt.contains("不要编造"))
+    }
 }

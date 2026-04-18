@@ -392,7 +392,7 @@
 
     <!-- AI Settings -->
     <string name="ai_settings">AI</string>
-    <string name="ai_settings_desc">Configure AI summarization</string>
+    <string name="ai_settings_desc">Configure AI summary, translation, and Q&amp;A</string>
     <string name="ai_base_url">Base URL</string>
     <string name="ai_base_url_hint">OpenAI-compatible API base URL</string>
     <string name="ai_base_url_default" translatable="false">https://api.openai.com/v1</string>
@@ -404,17 +404,17 @@
     <string name="ai_fetch_models_error">Failed to fetch models. Check your URL and API key.</string>
     <string name="ai_summarization_prompt">Summarization Prompt</string>
     <string name="ai_summarization_prompt_hint">Customize how articles are summarized</string>
-    <string name="ai_summarization_prompt_default" translatable="false">You are a summarizer. Generate a concise summary of the given text. Output ONLY the summary in Chinese, nothing else.</string>
+    <string name="ai_summarization_prompt_default" translatable="false">请用简体中文写一份适合快速阅读的结构化摘要，按 3 到 4 个短段落输出，每段聚焦一个重点，每段 1 到 2 句。\n\n先说明发生了什么，再补充关键事实，然后说明为什么值得关注；如果还有必要，再补充后续变化、争议或不确定性。\n\n要求表达清楚、信息密度高、避免重复，不要写成流水账。</string>
     <string name="ai_translation_prompt">Translation Prompt</string>
     <string name="ai_translation_prompt_hint">Customize how article blocks are translated</string>
-    <string name="ai_translation_prompt_default">Translate the input JSON array into Simplified Chinese. Return JSON only. Preserve every id, keep the original order, do not summarize, do not omit content, and set translatedText for each item.\n\n</string>
+    <string name="ai_translation_prompt_default" translatable="false">请将内容翻译为简体中文，保持准确、自然、完整，尽量保留原意、语气和专有名词。</string>
     <string name="ai_chat_prompt">Chat Prompt</string>
     <string name="ai_chat_prompt_hint">Customize how article Q&amp;A responds</string>
-    <string name="ai_chat_prompt_default" translatable="false">你是一个中文新闻阅读助手。\n\n回答规则：\n- 如果提供了“用户当前选中的内容”，优先回答该内容本身。\n- 如果同时提供了文章全文，可将全文作为背景参考以提高准确性，但不要主动偏离用户当前问题。\n- 如果没有提供选中内容，则围绕整篇文章回答。\n- 不确定时明确说明，不要编造事实。\n- 回答尽量直接、清楚、便于理解。</string>
+    <string name="ai_chat_prompt_default" translatable="false">请基于提供的内容，用简体中文直接、清楚地回答问题；优先回答当前问题本身，不确定时请明确说明。</string>
     <string name="ai_auto_summary">Auto AI Summary</string>
     <string name="ai_auto_summary_desc">Automatically summarize articles without an existing summary when opened. This setting is used as the default for new subscriptions.</string>
     <string name="api_configuration">API Configuration</string>
-    <string name="summarization_settings">Summarization Settings</string>
+    <string name="summarization_settings">Summary &amp; Prompts</string>
     <string name="backup_restore">Backup &amp; Restore</string>
     <string name="backup_restore_desc">Export or import preferences, accounts, and subscriptions</string>
     <string name="configuration_backup">Backup</string>

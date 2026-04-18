@@ -354,7 +354,7 @@
     <string name="enable">启用</string>
     <string name="disable">停用</string>
     <string name="ai_settings">AI</string>
-    <string name="ai_settings_desc">配置 AI 摘要</string>
+    <string name="ai_settings_desc">配置 AI 摘要、翻译和问答</string>
     <string name="ai_base_url">API 地址</string>
     <string name="ai_base_url_hint">输入 API 地址</string>
     <string name="ai_api_key">API 密钥</string>
@@ -364,15 +364,17 @@
     <string name="ai_fetch_models_error">获取模型失败，请检查地址和 API 密钥。</string>
     <string name="ai_summarization_prompt">摘要提示词</string>
     <string name="ai_summarization_prompt_hint">自定义文章摘要生成方式</string>
+    <string name="ai_summarization_prompt_default" translatable="false">请用简体中文写一份适合快速阅读的结构化摘要，按 3 到 4 个短段落输出，每段聚焦一个重点，每段 1 到 2 句。\n\n先说明发生了什么，再补充关键事实，然后说明为什么值得关注；如果还有必要，再补充后续变化、争议或不确定性。\n\n要求表达清楚、信息密度高、避免重复，不要写成流水账。</string>
     <string name="ai_translation_prompt">翻译提示词</string>
     <string name="ai_translation_prompt_hint">自定义文章分段翻译方式</string>
+    <string name="ai_translation_prompt_default" translatable="false">请将内容翻译为简体中文，保持准确、自然、完整，尽量保留原意、语气和专有名词。</string>
     <string name="ai_chat_prompt">问答提示词</string>
     <string name="ai_chat_prompt_hint">自定义文章问答回复方式</string>
-    <string name="ai_chat_prompt_default" translatable="false">你是一个中文新闻阅读助手。\n\n回答规则：\n- 如果提供了“用户当前选中的内容”，优先回答该内容本身。\n- 如果同时提供了文章全文，可将全文作为背景参考以提高准确性，但不要主动偏离用户当前问题。\n- 如果没有提供选中内容，则围绕整篇文章回答。\n- 不确定时明确说明，不要编造事实。\n- 回答尽量直接、清楚、便于理解。</string>
+    <string name="ai_chat_prompt_default" translatable="false">请基于提供的内容，用简体中文直接、清楚地回答问题；优先回答当前问题本身，不确定时请明确说明。</string>
     <string name="ai_auto_summary">自动 AI 摘要</string>
     <string name="ai_auto_summary_desc">打开尚无摘要的文章时自动生成摘要。该设置会作为新订阅源的默认值。</string>
     <string name="api_configuration">API 配置</string>
-    <string name="summarization_settings">摘要设置</string>
+    <string name="summarization_settings">摘要与提示词</string>
     <string name="backup_restore">备份与恢复</string>
     <string name="backup_restore_desc">导出或导入偏好设置、账户和订阅源</string>
     <string name="configuration_backup">配置备份</string>

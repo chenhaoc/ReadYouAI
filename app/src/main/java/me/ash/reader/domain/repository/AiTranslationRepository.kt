@@ -27,12 +27,7 @@ class AiTranslationRepository @Inject constructor() {
                 val payloadJson = ArticleTranslationPayloadCodec.encodeSourceBlocks(chunk)
                 val request = ChatCompletionRequest(
                     model = model,
-                    messages = listOf(
-                        ChatMessage(
-                            role = "user",
-                            content = "$prompt\n\nInput JSON:\n$payloadJson",
-                        )
-                    ),
+                    messages = buildTranslationMessages(prompt = prompt, payloadJson = payloadJson),
                     temperature = 0.2,
                     maxTokens = 1200,
                 )
@@ -64,4 +59,39 @@ class AiTranslationRepository @Inject constructor() {
             ApiResult.NetworkError(error)
         }
     }
+
+    internal fun buildTranslationMessages(
+        prompt: String,
+        payloadJson: String,
+    ): List<ChatMessage> =
+        listOf(
+            ChatMessage(
+                role = "system",
+                content =
+                    """
+                    你是一个翻译结果生成器。
+
+                    输出要求：
+                    - 只返回 JSON，不要返回代码块、说明、前言或额外文字
+                    - 输入是一个 JSON 数组
+                    - 保留每一项的 id
+                    - 保持原有顺序
+                    - 不要遗漏任何一项
+                    - 不要总结，不要改写为提纲
+                    - 为每一项填写 translatedText 字段
+                    - translatedText 必须是简体中文
+                    """.trimIndent(),
+            ),
+            ChatMessage(
+                role = "user",
+                content =
+                    """
+                    翻译要求：
+                    $prompt
+
+                    待翻译内容（JSON）：
+                    $payloadJson
+                    """.trimIndent(),
+            ),
+        )
 }

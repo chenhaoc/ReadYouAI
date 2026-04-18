@@ -39,10 +39,7 @@ class AiSummaryRepository @Inject constructor() {
     ): ApiResult<String> {
         return try {
             val service = OpenAiApiService.getInstance(baseUrl, apiKey)
-            
-            val messages = listOf(
-                ChatMessage(role = "user", content = "$prompt\n\n$articleContent")
-            )
+            val messages = buildSummaryMessages(prompt = prompt, articleContent = articleContent)
 
             val request = ChatCompletionRequest(
                 model = model,
@@ -69,4 +66,27 @@ class AiSummaryRepository @Inject constructor() {
             ApiResult.NetworkError(e)
         }
     }
+
+    internal fun buildSummaryMessages(
+        prompt: String,
+        articleContent: String,
+    ): List<ChatMessage> =
+        listOf(
+            ChatMessage(
+                role = "system",
+                content =
+                    buildString {
+                        appendLine(prompt)
+                        appendLine()
+                        appendLine("补充要求：")
+                        appendLine("- 只输出摘要正文")
+                        appendLine("- 不要添加标题、前言、结尾或额外说明")
+                        appendLine("- 按结构化短段落输出，最多 4 段")
+                        appendLine("- 每段只写 1 到 2 句，没有对应信息就省略")
+                        appendLine("- 优先覆盖：发生了什么、关键事实、为什么值得关注")
+                        appendLine("- 如果原文信息不足，只基于已有内容总结，不要编造")
+                    }.trim(),
+            ),
+            ChatMessage(role = "user", content = articleContent),
+        )
 }
