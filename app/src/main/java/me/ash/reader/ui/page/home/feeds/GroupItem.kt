@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -34,6 +35,7 @@ import me.ash.reader.ui.theme.ShapeTop32
 @Composable
 fun GroupItem(
     group: Group,
+    articleCount: Int,
     isExpanded: () -> Boolean,
     groupOptionViewModel: GroupOptionViewModel = hiltViewModel(),
     onExpanded: () -> Unit = {},
@@ -64,7 +66,7 @@ fun GroupItem(
             Text(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 28.dp),
+                    .padding(start = 28.dp, end = 12.dp),
                 text = group.name,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -72,20 +74,34 @@ fun GroupItem(
                 overflow = TextOverflow.Ellipsis,
             )
             Row(
-                modifier = Modifier
-                    .padding(end = 20.dp)
-                    .size(24.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .clickable { onExpanded() },
-                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(end = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Icon(
-                    imageVector = if (isExpanded()) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                    contentDescription = stringResource(if (isExpanded()) R.string.expand_less else R.string.expand_more),
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                )
+                Badge(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.outline,
+                ) {
+                    Text(
+                        text = articleCount.toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .clickable { onExpanded() },
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = if (isExpanded()) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                        contentDescription = stringResource(if (isExpanded()) R.string.expand_less else R.string.expand_more),
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                }
             }
         }
         Spacer(modifier = Modifier.height(22.dp))

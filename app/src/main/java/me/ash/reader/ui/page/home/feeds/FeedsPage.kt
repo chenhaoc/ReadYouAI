@@ -285,6 +285,7 @@ fun FeedsPage(
                     itemsIndexed(groupWithFeedList) { _, (group, feeds) ->
                         GroupWithFeedsContainer {
                             GroupItem(
+                                articleCount = feeds.sumOf { it.important },
                                 isExpanded = {
                                     groupsVisible.getOrPut(group.id, groupListExpand::value)
                                 },

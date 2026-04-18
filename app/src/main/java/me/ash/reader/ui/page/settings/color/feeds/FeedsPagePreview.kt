@@ -87,6 +87,7 @@ fun FeedsPagePreview(
         Spacer(modifier = Modifier.height(12.dp))
         GroupWithFeedsContainer {
             GroupItem(
+                articleCount = 12,
                 isExpanded = { groupListExpand.value },
                 group = generateGroupPreview(),
             )
