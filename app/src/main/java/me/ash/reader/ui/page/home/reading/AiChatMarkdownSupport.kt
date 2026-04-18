@@ -267,7 +267,7 @@ private fun AiChatMarkdownBlock.toHtml(): String =
 
         is AiChatMarkdownBlock.Table ->
             buildString {
-                append("<table><thead><tr>")
+                append("""<div class="ry-ai-chat-table-wrap"><table><thead><tr>""")
                 headers.forEach { header ->
                     append(buildHtmlTag("th", buildAiChatInlineHtml(header)))
                 }
@@ -279,7 +279,7 @@ private fun AiChatMarkdownBlock.toHtml(): String =
                     }
                     append("</tr>")
                 }
-                append("</tbody></table>")
+                append("</tbody></table></div>")
             }
     }
 

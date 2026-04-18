@@ -15,9 +15,12 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlin.math.ceil
+import kotlin.math.roundToInt
+import me.ash.reader.infrastructure.preference.LocalDarkTheme
 import me.ash.reader.infrastructure.preference.LocalReadingFonts
 import me.ash.reader.infrastructure.preference.LocalReadingTextFontSize
 import me.ash.reader.infrastructure.preference.LocalReadingTextLetterSpacing
@@ -46,14 +49,33 @@ internal fun AiChatMarkdownWebView(
     val readingFontSize = LocalReadingTextFontSize.current
     val letterSpacing = LocalReadingTextLetterSpacing.current
     val readingLineHeight = LocalReadingTextLineHeight.current
-    val fontSize = readingFontSize
-    val lineHeight = readingLineHeight
+    val chatBodyStyle = MaterialTheme.typography.bodyMedium
+    val fontSize =
+        if (chatBodyStyle.fontSize.type == TextUnitType.Sp) {
+            chatBodyStyle.fontSize.value.roundToInt()
+        } else {
+            readingFontSize
+        }
+    val lineHeight =
+        if (
+            chatBodyStyle.fontSize.type == TextUnitType.Sp &&
+            chatBodyStyle.lineHeight.type == TextUnitType.Sp &&
+            chatBodyStyle.fontSize.value > 0f
+        ) {
+            (chatBodyStyle.lineHeight.value / chatBodyStyle.fontSize.value / 1.5f).coerceAtLeast(0.8f)
+        } else {
+            readingLineHeight
+        }
+    val useDarkTheme = LocalDarkTheme.current.isDarkTheme()
     val selectionTextColor = Color.Black.toArgb()
     val selectionBgColor = (MaterialTheme.colorScheme.tertiaryContainer alwaysLight true).toArgb()
     val linkTextColor = MaterialTheme.colorScheme.primary.toArgb()
     val highlightColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f).toArgb()
     val codeTextColor = MaterialTheme.colorScheme.tertiary.toArgb()
     val codeBackgroundColor = MaterialTheme.colorScheme.surfaceContainerHighest.toArgb()
+    val tableBorderColor = MaterialTheme.colorScheme.outlineVariant.toArgb()
+    val tableHeaderBackgroundColor = MaterialTheme.colorScheme.surfaceContainerHighest.toArgb()
+    val tableAltRowBackgroundColor = MaterialTheme.colorScheme.surfaceContainerLow.toArgb()
 
     val fontPath =
         if (readingFonts is ReadingFontsPreference.External) {
@@ -77,6 +99,10 @@ internal fun AiChatMarkdownWebView(
             codeTextColor,
             codeBackgroundColor,
             highlightColor,
+            tableBorderColor,
+            tableHeaderBackgroundColor,
+            tableAltRowBackgroundColor,
+            useDarkTheme,
         ) {
             buildAiChatWebViewStyle(
                 fontSize = fontSize,
@@ -91,6 +117,10 @@ internal fun AiChatMarkdownWebView(
                 codeTextColor = codeTextColor,
                 codeBgColor = codeBackgroundColor,
                 highlightColor = highlightColor,
+                tableBorderColor = tableBorderColor,
+                tableHeaderBackgroundColor = tableHeaderBackgroundColor,
+                tableAltRowBackgroundColor = tableAltRowBackgroundColor,
+                useDarkTheme = useDarkTheme,
             )
         }
     val script = remember { aiChatHeightScript() }
@@ -127,6 +157,9 @@ internal fun AiChatMarkdownWebView(
                 ).apply {
                     isVerticalScrollBarEnabled = false
                     overScrollMode = WebView.OVER_SCROLL_NEVER
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                        settings.isAlgorithmicDarkeningAllowed = false
+                    }
                 }
             )
         }
@@ -167,6 +200,10 @@ private fun buildAiChatWebViewStyle(
     codeTextColor: Int,
     codeBgColor: Int,
     highlightColor: Int,
+    tableBorderColor: Int,
+    tableHeaderBackgroundColor: Int,
+    tableAltRowBackgroundColor: Int,
+    useDarkTheme: Boolean,
 ): String =
     buildString {
         append(
@@ -201,6 +238,19 @@ private fun buildAiChatWebViewStyle(
 
 .ry-ai-chat-markdown > :last-child {
     margin-bottom: 0 !important;
+}
+
+html,
+body,
+main,
+article,
+.ry-ai-chat-markdown {
+    background: transparent !important;
+    color: ${textColor.toCssColor()} !important;
+}
+
+body {
+    color-scheme: ${if (useDarkTheme) "dark" else "light"};
 }
 
 .ry-ai-chat-markdown p,
@@ -240,6 +290,57 @@ private fun buildAiChatWebViewStyle(
     text-decoration: line-through !important;
 }
 
+.ry-ai-chat-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    margin: 0.45em 0 !important;
+    border: 1px solid ${tableBorderColor.toCssColor()};
+    border-radius: 10px;
+}
+
+.ry-ai-chat-table-wrap table {
+    display: table !important;
+    width: max-content !important;
+    min-width: 100% !important;
+    border-collapse: collapse !important;
+    table-layout: auto !important;
+    margin: 0 !important;
+}
+
+.ry-ai-chat-table-wrap thead {
+    display: table-header-group !important;
+}
+
+.ry-ai-chat-table-wrap tbody {
+    display: table-row-group !important;
+}
+
+.ry-ai-chat-table-wrap tr {
+    display: table-row !important;
+}
+
+.ry-ai-chat-table-wrap th,
+.ry-ai-chat-table-wrap td {
+    display: table-cell !important;
+    min-width: 88px;
+    padding: 8px 10px !important;
+    font-size: 0.92em !important;
+    border: 1px solid ${tableBorderColor.toCssColor()} !important;
+    vertical-align: top !important;
+    text-align: left !important;
+    white-space: pre-wrap !important;
+    word-break: break-word;
+}
+
+.ry-ai-chat-table-wrap th {
+    background-color: ${tableHeaderBackgroundColor.toCssColor()} !important;
+    font-weight: 600 !important;
+}
+
+.ry-ai-chat-table-wrap tbody tr:nth-child(even) td {
+    background-color: ${tableAltRowBackgroundColor.toCssColor()} !important;
+}
+
 .ry-ai-chat-code-language {
     margin: 0 0 6px !important;
     color: ${linkTextColor.toCssColor()} !important;
@@ -264,14 +365,17 @@ private fun aiChatHeightScript(): String =
         if (!window.${JavaScriptInterface.NAME} || !window.${JavaScriptInterface.NAME}.onContentHeightChanged) {
             return;
         }
-        const body = document.body;
-        const doc = document.documentElement;
+        const contentRoot =
+            document.querySelector('.ry-ai-chat-markdown') ||
+            document.querySelector('article') ||
+            document.body;
+        if (!contentRoot) {
+            return;
+        }
         const height = Math.max(
-            body ? body.scrollHeight : 0,
-            body ? body.offsetHeight : 0,
-            doc ? doc.clientHeight : 0,
-            doc ? doc.scrollHeight : 0,
-            doc ? doc.offsetHeight : 0
+            contentRoot.scrollHeight || 0,
+            contentRoot.offsetHeight || 0,
+            Math.ceil(contentRoot.getBoundingClientRect().height || 0)
         );
         window.${JavaScriptInterface.NAME}.onContentHeightChanged(Math.ceil(height));
     }
