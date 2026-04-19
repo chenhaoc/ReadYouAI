@@ -7,6 +7,7 @@ import me.ash.reader.domain.model.feed.Feed
 import me.ash.reader.domain.model.group.Group
 import me.ash.reader.infrastructure.preference.KeepArchivedPreference
 import me.ash.reader.infrastructure.preference.SyncBlockList
+import me.ash.reader.infrastructure.preference.SyncBlockListPreference
 import me.ash.reader.infrastructure.preference.SyncIntervalPreference
 import me.ash.reader.infrastructure.preference.SyncOnStartPreference
 import me.ash.reader.infrastructure.preference.SyncOnlyOnWiFiPreference
@@ -33,12 +34,12 @@ data class BackupRestoreAccountPayload(
     val typeId: Int,
     val updateAtMillis: Long? = null,
     val lastArticleId: String? = null,
-    val syncIntervalMinutes: Long = SyncIntervalPreference.default.value,
-    val syncOnStart: Boolean = SyncOnStartPreference.default.value,
-    val syncOnlyOnWiFi: Boolean = SyncOnlyOnWiFiPreference.default.value,
-    val syncOnlyWhenCharging: Boolean = SyncOnlyWhenChargingPreference.default.value,
-    val keepArchivedMillis: Long = KeepArchivedPreference.default.value,
-    val syncBlockList: SyncBlockList = emptyList(),
+    val syncIntervalMinutes: Long? = null,
+    val syncOnStart: Boolean? = null,
+    val syncOnlyOnWiFi: Boolean? = null,
+    val syncOnlyWhenCharging: Boolean? = null,
+    val keepArchivedMillis: Long? = null,
+    val syncBlockList: SyncBlockList? = null,
     val securityKey: String? = null,
 ) {
     fun toAccount(): Account =
@@ -48,23 +49,19 @@ data class BackupRestoreAccountPayload(
             type = AccountType(typeId),
             updateAt = updateAtMillis?.let(::Date),
             lastArticleId = lastArticleId,
-            syncInterval =
-                SyncIntervalPreference.values.firstOrNull { it.value == syncIntervalMinutes }
-                    ?: SyncIntervalPreference.default,
+            syncInterval = syncIntervalMinutes.toSyncIntervalPreference(),
             syncOnStart =
-                if (syncOnStart) SyncOnStartPreference.On else SyncOnStartPreference.Off,
+                if (syncOnStart == true) SyncOnStartPreference.On else SyncOnStartPreference.Off,
             syncOnlyOnWiFi =
-                if (syncOnlyOnWiFi) SyncOnlyOnWiFiPreference.On else SyncOnlyOnWiFiPreference.Off,
+                if (syncOnlyOnWiFi == true) SyncOnlyOnWiFiPreference.On else SyncOnlyOnWiFiPreference.Off,
             syncOnlyWhenCharging =
-                if (syncOnlyWhenCharging) {
+                if (syncOnlyWhenCharging == true) {
                     SyncOnlyWhenChargingPreference.On
                 } else {
                     SyncOnlyWhenChargingPreference.Off
                 },
-            keepArchived =
-                KeepArchivedPreference.values.firstOrNull { it.value == keepArchivedMillis }
-                    ?: KeepArchivedPreference.default,
-            syncBlockList = syncBlockList,
+            keepArchived = keepArchivedMillis.toKeepArchivedPreference(),
+            syncBlockList = syncBlockList ?: SyncBlockListPreference.default,
             securityKey = securityKey,
         )
 }
@@ -89,6 +86,7 @@ data class BackupRestoreFeedPayload(
     val isBrowser: Boolean = false,
     val isTranslationEnabled: Boolean = false,
     val isAutoTranslate: Boolean = false,
+    val isAutoSummary: Boolean = false,
 ) {
     fun toFeed(): Feed =
         Feed(
@@ -103,6 +101,7 @@ data class BackupRestoreFeedPayload(
             isBrowser = isBrowser,
             isTranslationEnabled = isTranslationEnabled,
             isAutoTranslate = isAutoTranslate,
+            isAutoSummary = isAutoSummary,
         )
 }
 
@@ -142,4 +141,31 @@ fun Feed.toBackupPayload(): BackupRestoreFeedPayload =
         isBrowser = isBrowser,
         isTranslationEnabled = isTranslationEnabled,
         isAutoTranslate = isAutoTranslate,
+        isAutoSummary = isAutoSummary,
     )
+
+private fun Long?.toSyncIntervalPreference(): SyncIntervalPreference =
+    when (this) {
+        SyncIntervalPreference.Manually.value -> SyncIntervalPreference.Manually
+        SyncIntervalPreference.Every15Minutes.value -> SyncIntervalPreference.Every15Minutes
+        SyncIntervalPreference.Every30Minutes.value -> SyncIntervalPreference.Every30Minutes
+        SyncIntervalPreference.Every1Hour.value -> SyncIntervalPreference.Every1Hour
+        SyncIntervalPreference.Every2Hours.value -> SyncIntervalPreference.Every2Hours
+        SyncIntervalPreference.Every3Hours.value -> SyncIntervalPreference.Every3Hours
+        SyncIntervalPreference.Every6Hours.value -> SyncIntervalPreference.Every6Hours
+        SyncIntervalPreference.Every12Hours.value -> SyncIntervalPreference.Every12Hours
+        SyncIntervalPreference.Every1Day.value -> SyncIntervalPreference.Every1Day
+        else -> SyncIntervalPreference.default
+    }
+
+private fun Long?.toKeepArchivedPreference(): KeepArchivedPreference =
+    when (this) {
+        KeepArchivedPreference.Always.value -> KeepArchivedPreference.Always
+        KeepArchivedPreference.For1Day.value -> KeepArchivedPreference.For1Day
+        KeepArchivedPreference.For2Days.value -> KeepArchivedPreference.For2Days
+        KeepArchivedPreference.For3Days.value -> KeepArchivedPreference.For3Days
+        KeepArchivedPreference.For1Week.value -> KeepArchivedPreference.For1Week
+        KeepArchivedPreference.For2Weeks.value -> KeepArchivedPreference.For2Weeks
+        KeepArchivedPreference.For1Month.value -> KeepArchivedPreference.For1Month
+        else -> KeepArchivedPreference.default
+    }

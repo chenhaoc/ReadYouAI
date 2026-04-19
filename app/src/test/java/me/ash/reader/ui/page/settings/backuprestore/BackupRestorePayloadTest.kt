@@ -50,20 +50,28 @@ class BackupRestorePayloadTest {
                             groupId = "g",
                             accountId = 7,
                             isNotification = true,
+                            isAutoSummary = true,
                         )
                     ),
             )
 
         val parsed = gson.fromJson(gson.toJson(payload), BackupRestorePayload::class.java)
         val account = parsed.accounts.single().toAccount()
+        val feed = parsed.feeds.single().toFeed()
 
         assertEquals(BackupRestorePayload.CURRENT_VERSION, parsed.version)
         assertEquals(7, parsed.selectedAccountId)
         assertEquals(AccountType.Feedly.id, parsed.selectedAccountType)
         assertEquals(AccountType.Feedly.id, account.type.id)
         assertEquals(SyncIntervalPreference.Every1Hour.value, account.syncInterval.value)
+        assertEquals(SyncOnStartPreference.On.value, account.syncOnStart.value)
         assertEquals(SyncOnlyOnWiFiPreference.On.value, account.syncOnlyOnWiFi.value)
+        assertEquals(SyncOnlyWhenChargingPreference.Off.value, account.syncOnlyWhenCharging.value)
         assertEquals(KeepArchivedPreference.For1Week.value, account.keepArchived.value)
+        assertEquals(listOf("ads"), account.syncBlockList)
+        assertEquals("k", account.securityKey)
+        assertEquals(true, feed.isAutoSummary)
         assertTrue(gson.toJson(parsed).contains("\"typeId\":5"))
+        assertTrue(gson.toJson(parsed).contains("\"isAutoSummary\":true"))
     }
 }
