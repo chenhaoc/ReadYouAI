@@ -72,7 +72,7 @@ fun AiSummaryCard(
                     }
                 },
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 1.dp,
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {

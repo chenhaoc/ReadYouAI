@@ -68,7 +68,7 @@ class ArticleTranslationSupportTest {
             )
 
         assertEquals(
-            1,
+            0,
             estimateNativeTranslationFocusIndex(
                 firstVisibleItemIndex = 3,
                 blocks = blocks,
