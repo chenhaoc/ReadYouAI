@@ -480,6 +480,32 @@ class TtsQueueControllerTest {
         )
     }
 
+    @Test
+    fun resolvePlayableHtmlContent_strips_video_control_block_after_media_anchor() {
+        val html =
+            """
+            <div>
+              <p><img src="https://example.com/cover.jpg" alt="video cover" /></p>
+              <p>已关注 关注 直播 分享 赞 关闭</p>
+              <p>倍速播放中 0.5倍 1.0倍 超清 流畅</p>
+              <p>视频详情</p>
+              <p>真正的正文从这里开始。</p>
+            </div>
+            """.trimIndent()
+
+        val resolved =
+            resolvePlayableHtmlContent(
+                rawDescription = html,
+                shortDescription = "",
+                title = "title",
+            )
+
+        assertTrue(resolved!!.contains("cover.jpg"))
+        assertTrue(resolved.contains("真正的正文从这里开始"))
+        assertTrue(!resolved.contains("倍速播放中"))
+        assertTrue(!resolved.contains("视频详情"))
+    }
+
     private fun playableArticle(
         id: String,
         html: String = "<p>$id</p>",

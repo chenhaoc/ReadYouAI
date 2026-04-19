@@ -65,6 +65,7 @@ internal fun ArticleImage(
     contentPadding: PaddingValues,
     shape: Shape,
     onImageClick: ((String, String) -> Unit)? = null,
+    onClick: (() -> Unit)? = null,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         val maxImageSize = maxImageSize()
@@ -73,11 +74,12 @@ internal fun ArticleImage(
                 pixelDensity = LocalDensity.current.density,
                 maxSize = maxImageSize,
             )
-        val onClick =
-            if (onImageClick == null) null
-            else {
-                { onImageClick(imgUrl, contentDescription ?: "") }
-            }
+        val resolvedOnClick =
+            onClick
+                ?: if (onImageClick == null) null
+                else {
+                    { onImageClick(imgUrl, contentDescription ?: "") }
+                }
         ArticleImage(
             modifier = modifier,
             data = imgUrl,
@@ -86,7 +88,7 @@ internal fun ArticleImage(
             contentPadding = contentPadding,
             size = maxImageSize,
             shape = shape,
-            onClick = onClick,
+            onClick = resolvedOnClick,
         )
     }
 }

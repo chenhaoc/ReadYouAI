@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import me.ash.reader.infrastructure.di.ApplicationScope
+import me.ash.reader.infrastructure.html.VideoNoiseCleaner
 import timber.log.Timber
 import java.util.Locale
 import javax.inject.Inject
@@ -140,7 +141,10 @@ class TextToSpeechManager @Inject constructor(
 }
 
 internal fun htmlToPlainText(htmlContent: String): String =
-    Html.fromHtml(htmlContent, Html.FROM_HTML_MODE_LEGACY).toString()
+    Html.fromHtml(
+        VideoNoiseCleaner.cleanHtml(htmlContent),
+        Html.FROM_HTML_MODE_LEGACY,
+    ).toString()
 
 internal fun splitSpeakableSegments(text: String): List<String> =
     text.split("\n")

@@ -52,6 +52,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import java.io.InputStream
 import me.ash.reader.R
+import me.ash.reader.infrastructure.html.VideoNoiseCleaner
 import me.ash.reader.infrastructure.preference.LocalReadingImageMaximize
 import me.ash.reader.ui.ext.requiresBidi
 import me.ash.reader.ui.theme.applyTextDirection
@@ -477,16 +478,76 @@ private fun TextComposer.appendTextChildren(
                     }
 
                     "a" -> {
-                        val url = element.attr("abs:href") ?: ""
-                        withLink(url = url) {
-                            appendTextChildren(
-                                element.childNodes(),
-                                lazyListScope = lazyListScope,
-                                imagePlaceholder = imagePlaceholder,
-                                onImageClick = onImageClick,
-                                onLinkClick = onLinkClick,
-                                baseUrl = baseUrl,
-                            )
+                        if (VideoNoiseCleaner.isVideoCoverLink(element)) {
+                            val imageElement = element.selectFirst("img")
+                            val imageCandidates = imageElement?.let { getImageSource(baseUrl, it) }
+                            if (imageCandidates?.hasImage == true) {
+                                appendImage(link = element.attr("abs:href"), onLinkClick = onLinkClick) { onClick ->
+                                    lazyListScope.item {
+                                        val contentWidth = LocalImageContentWidth.current
+                                        Column(
+                                            modifier =
+                                                Modifier.width(contentWidth)
+                                                    .padding(vertical = 32.dp)
+                                        ) {
+                                            DisableSelection {
+                                                Box {
+                                                    ArticleImage(
+                                                        imageCandidates = imageCandidates,
+                                                        shape = imageShape(),
+                                                        onClick = onClick,
+                                                        contentDescription =
+                                                            stringResource(
+                                                                R.string.touch_to_play_video
+                                                            ),
+                                                        fillMaxWidth = true,
+                                                        contentPadding =
+                                                            PaddingValues(
+                                                                horizontal = imageHorizontalPadding().dp
+                                                            ),
+                                                    )
+                                                    Box(
+                                                        modifier =
+                                                            Modifier.align(Alignment.Center)
+                                                                .defaultMinSize(
+                                                                    minWidth = 64.dp,
+                                                                    minHeight = 64.dp,
+                                                                )
+                                                                .background(
+                                                                    Color.Black.copy(alpha = .3f),
+                                                                    shape = CircleShape,
+                                                                ),
+                                                        contentAlignment = Alignment.Center,
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Rounded.PlayArrow,
+                                                            contentDescription = null,
+                                                            modifier =
+                                                                Modifier.defaultMinSize(
+                                                                    minWidth = 48.dp,
+                                                                    minHeight = 48.dp,
+                                                                ),
+                                                            tint = Color.White,
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            val url = element.attr("abs:href") ?: ""
+                            withLink(url = url) {
+                                appendTextChildren(
+                                    element.childNodes(),
+                                    lazyListScope = lazyListScope,
+                                    imagePlaceholder = imagePlaceholder,
+                                    onImageClick = onImageClick,
+                                    onLinkClick = onLinkClick,
+                                    baseUrl = baseUrl,
+                                )
+                            }
                         }
                     }
 

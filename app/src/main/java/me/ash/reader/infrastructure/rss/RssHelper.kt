@@ -21,6 +21,7 @@ import me.ash.reader.domain.model.feed.Feed
 import me.ash.reader.domain.repository.FeedDao
 import me.ash.reader.infrastructure.di.IODispatcher
 import me.ash.reader.infrastructure.html.Readability
+import me.ash.reader.infrastructure.html.VideoNoiseCleaner
 import me.ash.reader.ui.ext.currentAccountId
 import me.ash.reader.ui.ext.decodeHTML
 import me.ash.reader.ui.ext.extractDomain
@@ -161,6 +162,7 @@ constructor(
             syndEntry.contents
                 .takeIf { it.isNotEmpty() }
                 ?.let { it.joinToString("\n") { it.value } }
+        val rawDescription = VideoNoiseCleaner.cleanHtml(content ?: desc ?: "", syndEntry.link)
         //        Log.i(
         //            "RLog",
         //            "request rss:\n" +
@@ -180,8 +182,8 @@ constructor(
                     ?: preDate,
             title = syndEntry.title.decodeHTML() ?: feed.name,
             author = syndEntry.author,
-            rawDescription = content ?: desc ?: "",
-            shortDescription = Readability.parseToText(desc ?: content, syndEntry.link).take(280),
+            rawDescription = rawDescription,
+            shortDescription = Readability.parseToText(rawDescription, syndEntry.link).take(280),
             //            fullContent = content,
             img = findThumbnail(syndEntry) ?: findThumbnail(content ?: desc),
             link = syndEntry.link ?: "",

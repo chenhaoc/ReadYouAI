@@ -88,6 +88,9 @@ class WebViewClient(
             javascript:(function() {
                 var imgs = document.getElementsByTagName("img");
                 for(var i = 0; i < imgs.length; i++){
+                    if (imgs[i].closest && imgs[i].closest('a[data-ry-video-cover="1"]')) {
+                        continue;
+                    }
                     imgs[i].pos = i;
                     imgs[i].onclick = function(event) {
                         event.preventDefault();

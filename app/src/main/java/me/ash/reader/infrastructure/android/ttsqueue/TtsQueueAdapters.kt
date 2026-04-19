@@ -14,6 +14,7 @@ import me.ash.reader.domain.model.article.ArticleWithFeed
 import me.ash.reader.domain.repository.ArticleDao
 import me.ash.reader.infrastructure.android.TextToSpeechManager
 import me.ash.reader.infrastructure.android.htmlSegmentCharCounts
+import me.ash.reader.infrastructure.html.VideoNoiseCleaner
 import me.ash.reader.ui.ext.DataStoreKey
 import me.ash.reader.ui.ext.dataStore
 import me.ash.reader.ui.ext.put
@@ -116,5 +117,5 @@ internal fun resolvePlayableHtmlContent(
         rawDescription.takeIf { it.isNotBlank() }
             ?: shortDescription.takeIf { it.isNotBlank() }?.let { "<p>$it</p>" }
             ?: title.takeIf { it.isNotBlank() }?.let { "<p>$it</p>" }
-    return preferred?.takeIf { it.isNotBlank() }
+    return preferred?.takeIf { it.isNotBlank() }?.let(VideoNoiseCleaner::cleanHtml)
 }

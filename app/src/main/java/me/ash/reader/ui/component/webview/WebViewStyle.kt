@@ -160,6 +160,46 @@ div > a {
     text-align: var(--text-align) !important;
 }
 
+a.ry-video-cover,
+div > a.ry-video-cover,
+p > a.ry-video-cover,
+figure > a.ry-video-cover {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    line-height: 0 !important;
+    font-weight: normal !important;
+    color: inherit !important;
+    text-decoration: none !important;
+}
+
+a.ry-video-cover::before {
+    content: "" !important;
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    width: 64px !important;
+    height: 64px !important;
+    transform: translate(-50%, -50%) !important;
+    border-radius: 9999px !important;
+    background: rgba(0, 0, 0, 0.3) !important;
+    z-index: 1 !important;
+    pointer-events: none !important;
+}
+
+a.ry-video-cover::after {
+    content: "" !important;
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-38%, -50%) !important;
+    border-style: solid !important;
+    border-width: 14px 0 14px 22px !important;
+    border-color: transparent transparent transparent white !important;
+    z-index: 2 !important;
+    pointer-events: none !important;
+}
+
 /* Image  */
 iframe,
 video,
