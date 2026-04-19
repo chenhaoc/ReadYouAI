@@ -17,6 +17,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.ExperimentalMaterialApi
@@ -39,12 +40,16 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.launch
@@ -69,6 +74,7 @@ import me.ash.reader.ui.page.home.reading.tts.TtsButton
 
 private const val UPWARD = 1
 private const val DOWNWARD = -1
+internal const val AI_SUMMARY_NATIVE_ITEM_KEY = "reading_ai_summary"
 
 private sealed interface SummaryReturnTarget {
     data class Scroll(val value: Int) : SummaryReturnTarget
@@ -99,6 +105,18 @@ private suspend fun WebView.captureSelectedText(): String? =
         }
     }
 
+private fun isNativeSummaryItemVisible(
+    layoutInfo: LazyListLayoutInfo,
+    minVisibleHeightPx: Float,
+): Boolean {
+    val summaryItem =
+        layoutInfo.visibleItemsInfo.firstOrNull { it.key == AI_SUMMARY_NATIVE_ITEM_KEY } ?: return false
+    val visibleTop = max(summaryItem.offset, layoutInfo.viewportStartOffset)
+    val visibleBottom = min(summaryItem.offset + summaryItem.size, layoutInfo.viewportEndOffset)
+    val visibleHeight = (visibleBottom - visibleTop).toFloat().coerceAtLeast(0f)
+    return visibleHeight >= min(minVisibleHeightPx, summaryItem.size.toFloat())
+}
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterialApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ReadingPage(
@@ -121,6 +139,7 @@ fun ReadingPage(
     val openLinkSpecificBrowser = LocalOpenLinkSpecificBrowser.current
     val coroutineScope = rememberCoroutineScope()
     val summaryNavigationController = remember { SummaryNavigationController() }
+    val minVisibleSummaryHeightPx = with(LocalDensity.current) { 24.dp.toPx() }
     val articleContent = readerState.content.text.orEmpty()
     val contentBlocks =
         remember(articleContent, readerState.link) {
@@ -417,19 +436,26 @@ fun ReadingPage(
                                 LaunchedEffect(listState, readingRenderer, readerState.articleId) {
                                     if (readingRenderer == ReadingRendererPreference.NativeComponent) {
                                         snapshotFlow {
-                                            SummaryReturnTarget.List(
-                                                index = listState.firstVisibleItemIndex,
-                                                offset = listState.firstVisibleItemScrollOffset,
-                                            )
-                                        }.collect {
-                                            latestReadingPosition = it
-                                            val estimatedBlockIndex =
+                                            Triple(
+                                                SummaryReturnTarget.List(
+                                                    index = listState.firstVisibleItemIndex,
+                                                    offset = listState.firstVisibleItemScrollOffset,
+                                                ),
                                                 estimateNativeTranslationFocusIndex(
-                                                    firstVisibleItemIndex = listState.firstVisibleItemIndex,
+                                                    firstVisibleItemIndex =
+                                                        listState.firstVisibleItemIndex,
                                                     blocks = contentBlocks,
                                                     translatedBlockIds = translatedBlockIds,
-                                                )
+                                                ),
+                                                isNativeSummaryItemVisible(
+                                                    layoutInfo = listState.layoutInfo,
+                                                    minVisibleHeightPx = minVisibleSummaryHeightPx,
+                                                ),
+                                            )
+                                        }.collect { (position, estimatedBlockIndex, isSummaryVisible) ->
+                                            latestReadingPosition = position
                                             viewModel.updateTranslationFocusIndex(estimatedBlockIndex)
+                                            viewModel.updateAiSummaryCardVisible(isSummaryVisible)
                                         }
                                     }
                                 }

@@ -88,7 +88,7 @@ fun estimateNativeTranslationFocusIndex(
     blocks: List<ArticleContentBlock>,
     translatedBlockIds: Set<String>,
 ): Int {
-    var itemCursor = 1 // header item
+    var itemCursor = 2 // header item + summary item
     blocks.forEachIndexed { index, block ->
         if (itemCursor >= firstVisibleItemIndex) return index
         itemCursor += 1

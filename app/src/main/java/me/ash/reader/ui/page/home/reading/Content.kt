@@ -168,6 +168,9 @@ fun Content(
                             // padding
                             Spacer(modifier = Modifier.height(contentPadding.calculateTopPadding()))
                             headline()
+                        }
+
+                        item(key = AI_SUMMARY_NATIVE_ITEM_KEY) {
                             summarySection()
                         }
 
