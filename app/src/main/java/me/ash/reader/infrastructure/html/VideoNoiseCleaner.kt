@@ -12,6 +12,8 @@ object VideoNoiseCleaner {
 
     const val VIDEO_COVER_ATTR = "data-ry-video-cover"
     const val VIDEO_COVER_CLASS = "ry-video-cover"
+    private const val SANITIZED_CLASS_ATTR = "data-sanitized-class"
+    private const val SANITIZED_ID_ATTR = "data-sanitized-id"
     private const val VIDEO_COVER_VALUE = "1"
     private const val MAX_DIRECTIONAL_SCAN = 14
     private const val MAX_NEUTRAL_GAP_AFTER_SIGNAL = 2
@@ -87,7 +89,8 @@ object VideoNoiseCleaner {
     }
 
     private fun normalizeWechatVideoEmbeds(root: Element) {
-        root.select("span.video_iframe.rich_pages, mp-common-videosnap").toList().forEach { element ->
+        root.getAllElements().toList().forEach { element ->
+            if (!isWechatVideoEmbed(element)) return@forEach
             val posterUrl = extractWechatVideoPoster(element) ?: return@forEach
             val replacement = createLinkedCoverImage(posterUrl = posterUrl, articleLink = root.baseUri())
 
@@ -252,10 +255,10 @@ object VideoNoiseCleaner {
             .getOrDefault(value)
 
     private fun isWechatVideoPlaceholder(element: Element): Boolean {
-        return element.hasClass("wx_widget_placeholder") ||
+        return element.hasEffectiveClassName("wx_widget_placeholder") ||
             (element.tagName() == "span" &&
-                element.hasClass("js_img_placeholder") &&
-                (element.hasAttr("data-vid") || element.hasClass("wx_widget_placeholder")))
+                element.hasEffectiveClassName("js_img_placeholder") &&
+                (element.hasAttr("data-vid") || element.hasEffectiveClassName("wx_widget_placeholder")))
     }
 
     private fun isMediaAnchorElement(element: Element): Boolean {
@@ -275,8 +278,8 @@ object VideoNoiseCleaner {
         val hasStrongKeyword = strongKeywords.any(normalizedText::contains)
         val hasPlaybackSignal = playbackPattern.containsMatchIn(normalizedText)
         val hasControlClassHint =
-            element?.classNames()?.any(::isControlClassName) == true ||
-                element?.id()?.let(::isControlClassName) == true
+            element?.effectiveClassNames()?.any(::isControlClassName) == true ||
+                element?.effectiveIdNames()?.any(::isControlClassName) == true
         val hasControlDescendants =
             element?.select("button,input,select,textarea,[role=button]")?.isNotEmpty() == true
         val isLikelyControlNode =
@@ -310,6 +313,31 @@ object VideoNoiseCleaner {
             normalized.contains("sr-only") ||
             normalized.contains("visually-hidden")
     }
+
+    private fun isWechatVideoEmbed(element: Element): Boolean {
+        if (element.tagName() == "mp-common-videosnap") return true
+        return element.tagName() == "span" &&
+            element.hasEffectiveClassName("video_iframe") &&
+            element.hasEffectiveClassName("rich_pages")
+    }
+
+    private fun Element.hasEffectiveClassName(name: String): Boolean = effectiveClassNames().contains(name)
+
+    private fun Element.effectiveClassNames(): Set<String> =
+        buildSet {
+            addAll(classNames())
+            attr(SANITIZED_CLASS_ATTR)
+                .split("\\s+".toRegex())
+                .map(String::trim)
+                .filter(String::isNotBlank)
+                .forEach(::add)
+        }
+
+    private fun Element.effectiveIdNames(): Set<String> =
+        buildSet {
+            id().trim().takeIf(String::isNotBlank)?.let(::add)
+            attr(SANITIZED_ID_ATTR).trim().takeIf(String::isNotBlank)?.let(::add)
+        }
 
     private data class NodeSignal(
         val hasStrongKeyword: Boolean,

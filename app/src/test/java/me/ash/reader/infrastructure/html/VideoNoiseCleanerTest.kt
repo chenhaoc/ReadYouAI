@@ -151,4 +151,40 @@ class VideoNoiseCleanerTest {
         assertFalse(cleaned.contains("继续观看"))
         assertFalse(cleaned.contains("视频详情"))
     }
+
+    @Test
+    fun cleanHtml_replaces_freshrss_sanitized_wechat_video_widget_with_cover_image() {
+        val html =
+            """
+            <div>
+              <span data-cover="https%3A%2F%2Fexample.com%2Fcover.jpg" data-sanitized-class="video_iframe rich_pages" data-sanitized-id="js_mp_video_container_0">
+                <div data-sanitized-class="video_tail_module">
+                  <div data-sanitized-class="video_tail_module__hd">已关注</div>
+                </div>
+                <div data-sanitized-class="video_quick_play_context">倍速播放中</div>
+                <div data-sanitized-class="video_full-screen__sub-setting__speed">0.5倍 1.0倍 1.5倍</div>
+                <div data-sanitized-class="video_full-screen__sub-setting__ratio">超清 流畅</div>
+                <div data-sanitized-class="video_poster__info">
+                  <p data-sanitized-class="video_poster__info__title">继续观看</p>
+                  <p data-sanitized-class="video_poster__info__desc">新Vidu Q3参考生，这是冲着「剧」来的！</p>
+                </div>
+                <div data-sanitized-class="interact_video"><a data-sanitized-id="video_detail_btn">视频详情</a></div>
+              </span>
+              <span data-sanitized-class="js_img_placeholder wx_widget_placeholder" data-vid="wxv_1"></span>
+              <p>真正的正文保留。</p>
+            </div>
+            """.trimIndent()
+
+        val cleaned = VideoNoiseCleaner.cleanHtml(html, "https://example.com/article")
+
+        assertTrue(cleaned.contains("""href="https://example.com/article""""))
+        assertTrue(cleaned.contains("""class="ry-video-cover""""))
+        assertTrue(cleaned.contains("""data-ry-video-cover="1""""))
+        assertTrue(cleaned.contains("""<img src="https://example.com/cover.jpg""""))
+        assertTrue(cleaned.contains("真正的正文保留"))
+        assertFalse(cleaned.contains("video_iframe"))
+        assertFalse(cleaned.contains("倍速播放中"))
+        assertFalse(cleaned.contains("继续观看"))
+        assertFalse(cleaned.contains("视频详情"))
+    }
 }

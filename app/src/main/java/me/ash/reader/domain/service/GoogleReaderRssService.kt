@@ -42,6 +42,7 @@ import me.ash.reader.infrastructure.di.DefaultDispatcher
 import me.ash.reader.infrastructure.di.IODispatcher
 import me.ash.reader.infrastructure.di.MainDispatcher
 import me.ash.reader.infrastructure.html.Readability
+import me.ash.reader.infrastructure.html.VideoNoiseCleaner
 import me.ash.reader.infrastructure.net.onFailure
 import me.ash.reader.infrastructure.net.onSuccess
 import me.ash.reader.infrastructure.rss.RssHelper
@@ -709,6 +710,12 @@ constructor(
                         predicate = { it.id?.isValidItemId() == true },
                         transform = {
                             val articleId = it.id!!.shortId
+                            val articleUrl = findArticleURL(it)
+                            val articleContent =
+                                buildGoogleReaderArticleContent(
+                                    summaryContent = it.summary?.content,
+                                    articleUrl = articleUrl,
+                                )
                             Article(
                                 id = accountId.spacerDollar(articleId),
                                 date =
@@ -717,15 +724,13 @@ constructor(
                                         ?.takeIf { !it.isFuture(currentDate) } ?: currentDate,
                                 title = it.title.decodeHTML() ?: context.getString(R.string.empty),
                                 author = it.author,
-                                rawDescription = it.summary?.content ?: "",
-                                shortDescription =
-                                    Readability.parseToText(it.summary?.content, findArticleURL(it))
-                                        .take(280),
+                                rawDescription = articleContent.rawDescription,
+                                shortDescription = articleContent.shortDescription,
                                 //                        fullContent = it.summary?.content
                                 // ?:
                                 // "",
                                 img = rssHelper.findThumbnail(it.summary?.content),
-                                link = findArticleURL(it),
+                                link = articleUrl,
                                 feedId =
                                     accountId.spacerDollar(
                                         it.origin?.streamId?.ofFeedStreamIdToId()!!
@@ -870,4 +875,20 @@ constructor(
                 unmark = if (!isStarred) GoogleReaderAPI.Stream.Starred.tag else null,
             )
     }
+}
+
+internal data class GoogleReaderArticleContent(
+    val rawDescription: String,
+    val shortDescription: String,
+)
+
+internal fun buildGoogleReaderArticleContent(
+    summaryContent: String?,
+    articleUrl: String,
+): GoogleReaderArticleContent {
+    val rawDescription = VideoNoiseCleaner.cleanHtml(summaryContent, articleUrl)
+    return GoogleReaderArticleContent(
+        rawDescription = rawDescription,
+        shortDescription = Readability.parseToText(rawDescription, articleUrl).take(280),
+    )
 }

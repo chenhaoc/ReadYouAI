@@ -1,4 +1,4 @@
-# 本地 RSS 视频控件清洗设计
+# RSS / 兼容来源视频控件清洗设计
 
 ## 背景
 
@@ -14,13 +14,18 @@
 - `继续观看`
 - `视频详情`
 
-这些文本会直接污染本地 RSS 文章入库后的正文摘要，也会影响 TTS 朗读内容。
+这些文本会直接污染文章入库后的正文摘要，也会影响 TTS 朗读内容。
 
-在本轮收敛后，范围只保留本地 RSS 路径，不再同时处理第三方同步服务、阅读渲染增强或旧数据兼容。
+最终落地范围覆盖两条入库链路：
+
+- 本地 RSS：`RssHelper.buildArticleFromSyndEntry(...)`
+- Google Reader 兼容来源：`GoogleReaderRssService.fetchItemsContentsDeferred(...)`
+
+其中 `FreshRSS` 还会把部分微信视频节点的 `class/id` 改写成 `data-sanitized-class` / `data-sanitized-id`，这要求清洗器同时兼容原始属性与 FreshRSS 的净化属性。
 
 ## 目标
 
-- 仅解决本地 RSS 入库阶段的视频控件噪音清洗。
+- 解决本地 RSS 与 Google Reader 兼容来源入库阶段的视频控件噪音清洗。
 - 保留视频封面图。
 - 保留播放图标提示，让视频封面在阅读页里仍然明显可识别。
 - 尽量保留原始视频图片已有的跳转链接。
@@ -29,7 +34,7 @@
 
 ## 非目标
 
-- 不处理 FreshRSS、Google Reader、Fever 等第三方同步链路。
+- 不处理 `Fever` 同步链路。
 - 不兼容已经按旧逻辑入库的历史数据。
 - 不把这次改动扩展到 AI 摘要、AI 翻译、阅读统计或全文解析路径。
 
@@ -48,7 +53,14 @@
 
 ### 2. 微信视频 widget
 
-在 `content:encoded` 中直接嵌入 `span.video_iframe.rich_pages` 或 `mp-common-videosnap` 这类完整视频组件，组件内部既有封面信息，也有播放器控件 DOM。
+在 HTML 中直接嵌入 `span.video_iframe.rich_pages` 或 `mp-common-videosnap` 这类完整视频组件，组件内部既有封面信息，也有播放器控件 DOM。
+
+在 FreshRSS 路径中，这类结构可能被净化成：
+
+- `data-sanitized-class="video_iframe rich_pages"`
+- `data-sanitized-id="js_mp_video_container_*"`
+
+也就是说，节点语义仍在，但不再能仅靠原始 `class/id` 选择器命中。
 
 ## 最终方案
 
@@ -60,12 +72,13 @@
 
 ### 1. widget 归一化
 
-对于 `span.video_iframe.rich_pages` 和 `mp-common-videosnap`：
+对于 `span.video_iframe.rich_pages`、`mp-common-videosnap` 以及 FreshRSS 净化后的等价节点：
 
 - 提取 `video[poster]` 或 `data-cover`、`data-feedcoverurl`、`data-feedfullcoverurl`、`data-feedthumburl` 中的封面图；
 - 输出带视频语义标记的封面图；
 - 如果当前文章链接可用，则用文章原文链接包裹封面图；
-- 删除紧随其后的微信 placeholder。
+- 删除紧随其后的微信 placeholder；
+- 同时兼容 `class/id` 与 `data-sanitized-class/id` 两套属性来源。
 
 归一化后的目标是：
 
@@ -91,6 +104,7 @@
 - 控件关键词密集命中；
 - 倍速、时间、进度等播放模式文本；
 - `control`、`player`、`video-info`、`sr-only` 等 class/id 提示；
+- FreshRSS 净化后的 `data-sanitized-class` / `data-sanitized-id` 提示；
 - 表单、按钮等控件型后代节点。
 
 只有当信号足够集中，且发生在媒体邻域时，才执行删除。
@@ -115,6 +129,15 @@
 - 对 `content:encoded` 或 `description` 先执行 `VideoNoiseCleaner.cleanHtml(...)`；
 - 将结果写入 `rawDescription`；
 - 基于清洗后的 HTML 生成 `shortDescription`。
+
+### Google Reader 兼容来源入库
+
+在 [GoogleReaderRssService.kt](/Users/hao.chen/工作文档/Work/readyou/ReadYou/app/src/main/java/me/ash/reader/domain/service/GoogleReaderRssService.kt) 的 `fetchItemsContentsDeferred(...)` 中：
+
+- 对 `summary.content` 先执行 `VideoNoiseCleaner.cleanHtml(...)`；
+- 将结果写入 `rawDescription`；
+- 基于清洗后的 HTML 生成 `shortDescription`；
+- `img` 继续从原始 summary 提取，避免把缩略图策略和清洗逻辑耦合在一起。
 
 ### TTS
 
@@ -158,12 +181,16 @@ TTS 保持在本次最小闭环内：
   - 保留普通图注；
   - 不误删普通正文中的“播放/关注/分享”等词；
   - 保留链接包裹的媒体；
-  - 将微信视频 widget 替换为封面图，并保留文章链接回退。
+  - 将微信视频 widget 替换为封面图，并保留文章链接回退；
+  - 覆盖 FreshRSS `data-sanitized-class/id` 形式的微信视频 widget。
 
 ### 更新测试
 
 - `RssHelperTest`
   - 断言本地 RSS 入库后的 `rawDescription` 和 `shortDescription` 都基于清洗后的 HTML。
+
+- `GoogleReaderRssServiceTest`
+  - 断言 Google Reader 兼容来源入库后的 `rawDescription` 和 `shortDescription` 都基于清洗后的 HTML。
 
 - `TtsQueueControllerTest`
   - 断言 TTS 可播放 HTML 不再包含视频控件文本。
@@ -172,15 +199,15 @@ TTS 保持在本次最小闭环内：
 
 以下内容已经探索过，但不纳入这次最终实现：
 
-- FreshRSS 路径清洗。
-- Google Reader / Fever 路径清洗。
+- `Fever` 路径清洗。
 - Readability / 全文解析路径的统一清洗。
 - 阅读页旧数据自动升级。
 - 旧数据的播放标识自动回填。
 
 ## 预期结果
 
-- 本地 RSS 新入库文章中的微信视频控件文本会被清理。
+- 本地 RSS 与 Google Reader 兼容来源新入库文章中的微信视频控件文本会被清理。
+- FreshRSS 净化后的微信视频节点也会被识别并清理。
 - 视频封面图会保留。
 - 视频封面会保留播放图标提示。
 - 原有链接包裹的视频图片仍可跳转。
