@@ -1,5 +1,9 @@
 # ReadYouAI
 
+<p align="center">
+  <img src="docs/branding/readyouai-icon.png" alt="ReadYouAI icon" width="168">
+</p>
+
 [ReadYou](https://github.com/ReadYouApp/ReadYou) 是一个以 Material You 风格呈现的 Android RSS 阅读器，支持订阅管理、阅读、朗读和多种数据源接入。
 
 ReadYouAI 是基于 ReadYou 的个人增强版，当前重点增强 AI 阅读能力、TTS 播放体验，以及整体阅读交互体验。
