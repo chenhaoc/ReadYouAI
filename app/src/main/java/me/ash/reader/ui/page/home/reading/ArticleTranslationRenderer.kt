@@ -24,17 +24,14 @@ internal fun parseTranslatedBlockMap(translationBlocks: String?): Map<String, St
 
 internal fun buildWebViewBilingualContent(
     content: String,
-    baseUrl: String,
-    translationBlocks: String?,
+    blocks: List<ArticleContentBlock>,
+    translatedBlockMap: Map<String, String>,
 ): String {
-    if (translationBlocks.isNullOrBlank()) return content
-    val blocks = ArticleContentBlockParser.parse(content = content, baseUrl = baseUrl)
-    val translatedMap = parseTranslatedBlockMap(translationBlocks)
-    if (translatedMap.isEmpty()) return content
+    if (translatedBlockMap.isEmpty()) return content
     return buildString {
         blocks.forEach { block ->
             append(block.originalHtml)
-            val translated = translatedMap[block.id]
+            val translated = translatedBlockMap[block.id]
             if (!translated.isNullOrBlank()) {
                 append(buildTranslatedHtml(block.type, translated))
             }

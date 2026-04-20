@@ -19,7 +19,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -48,6 +47,8 @@ fun Content(
     aiSummaryError: String?,
     isAiSummaryExpanded: Boolean,
     translatedContentBlocks: String?,
+    contentBlocks: List<ArticleContentBlock>,
+    translatedBlockMap: Map<String, String>,
     feedName: String,
     title: String,
     author: String? = null,
@@ -69,13 +70,6 @@ fun Content(
     val textContentWidth = LocalTextContentWidth.current
     val maxWidthModifier = Modifier.widthIn(max = textContentWidth)
     val uriHandler = LocalUriHandler.current
-    val contentBlocks =
-        remember(content, link) {
-            ArticleContentBlockParser.parse(content = content, baseUrl = link ?: "")
-        }
-    val translatedBlockMap = remember(translatedContentBlocks) {
-        parseTranslatedBlockMap(translatedContentBlocks)
-    }
     val translatedTitle = resolveTranslatedTitle(translatedContentBlocks)
 
     val headline =
@@ -139,8 +133,8 @@ fun Content(
                                 content =
                                     buildWebViewBilingualContent(
                                         content = content,
-                                        baseUrl = link ?: "",
-                                        translationBlocks = translatedContentBlocks,
+                                        blocks = contentBlocks,
+                                        translatedBlockMap = translatedBlockMap,
                                 ),
                                 refererDomain = link.extractDomain(),
                                 onImageClick = onImageClick,

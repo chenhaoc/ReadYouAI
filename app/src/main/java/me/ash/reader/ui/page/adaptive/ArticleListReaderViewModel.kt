@@ -323,6 +323,7 @@ constructor(
     private val translationFocusIndex = MutableStateFlow(0)
     private var translationJob: Job? = null
     private var translationStateJob: Job? = null
+    private var aiChatSessionJob: Job? = null
     private var initDataJob: Job? = null
     private val pendingListTranslationArticleIds = linkedSetOf<String>()
     private val listTranslationJobs = mutableMapOf<String, Job>()
@@ -336,6 +337,8 @@ constructor(
 
     fun initData(articleId: String, listIndex: Int? = null) {
         cancelTranslationJob()
+        aiChatSessionJob?.cancel()
+        aiChatSessionJob = null
         initDataJob?.cancel()
         initDataJob =
             viewModelScope.launch {
@@ -377,6 +380,8 @@ constructor(
         cancelTranslationJob()
         translationStateJob?.cancel()
         translationStateJob = null
+        aiChatSessionJob?.cancel()
+        aiChatSessionJob = null
         initDataJob?.cancel()
         initDataJob = null
         _readingUiState.update { ReadingUiState() }
@@ -896,7 +901,6 @@ constructor(
                 .prefetchArticleId()
                 .renderContent(item)
         }
-        syncAiChatSession(item.article.id)
         syncTranslationStateForContent(_readerState.value.content.text ?: item.article.rawDescription)
     }
 
@@ -966,20 +970,6 @@ constructor(
         )
     }
 
-    private suspend fun syncAiChatSession(articleId: String) {
-        val session = aiChatSessionRepository.querySession(articleId)
-        if (currentArticle?.id != articleId) return
-        _readingUiState.update {
-            it.copy(
-                aiChatMessages = session?.messages.orEmpty(),
-                includeFullContentInAiChat = session?.session?.includeFullContent ?: false,
-                aiChatSelectedSnippet = null,
-                isAiChatSending = false,
-                aiChatError = null,
-            )
-        }
-    }
-
     private fun currentArticleContent(): String =
         when (val contentState = readerStateStateFlow.value.content) {
             is ReaderState.Description -> contentState.content
@@ -989,12 +979,39 @@ constructor(
         }
 
     fun openAiChatSheet(selectedSnippet: String?) {
+        val articleId = currentArticle?.id ?: return
+        val normalizedSnippet = selectedSnippet?.trim()?.takeIf(String::isNotEmpty)
         _readingUiState.update {
             it.copy(
                 isAiChatSheetOpen = true,
-                aiChatSelectedSnippet = selectedSnippet?.trim()?.takeIf(String::isNotEmpty),
+                aiChatSelectedSnippet = normalizedSnippet,
                 aiChatError = null,
             )
+        }
+        aiChatSessionJob?.cancel()
+        val job =
+            viewModelScope.launch(ioDispatcher) {
+                val session = aiChatSessionRepository.querySession(articleId)
+                _readingUiState.update {
+                    if (it.articleWithFeed?.article?.id != articleId || !it.isAiChatSheetOpen) {
+                        it
+                    } else {
+                        it.copy(
+                            aiChatMessages = session?.messages.orEmpty(),
+                            includeFullContentInAiChat =
+                                session?.session?.includeFullContent ?: false,
+                            aiChatSelectedSnippet = normalizedSnippet,
+                            isAiChatSending = false,
+                            aiChatError = null,
+                        )
+                    }
+                }
+            }
+        aiChatSessionJob = job
+        job.invokeOnCompletion {
+            if (aiChatSessionJob === job) {
+                aiChatSessionJob = null
+            }
         }
     }
 

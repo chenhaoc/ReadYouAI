@@ -32,6 +32,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -51,8 +52,10 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.coroutines.resume
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.ash.reader.R
 import me.ash.reader.infrastructure.android.TextToSpeechManager
 import me.ash.reader.infrastructure.preference.LocalOpenLink
@@ -141,17 +144,35 @@ fun ReadingPage(
     val summaryNavigationController = remember { SummaryNavigationController() }
     val minVisibleSummaryHeightPx = with(LocalDensity.current) { 24.dp.toPx() }
     val articleContent = readerState.content.text.orEmpty()
-    val contentBlocks =
-        remember(articleContent, readerState.link) {
-            ArticleContentBlockParser.parse(
-                content = articleContent,
-                baseUrl = readerState.link ?: "",
-            )
+    val contentBlocks by
+        produceState(
+            initialValue = emptyList<ArticleContentBlock>(),
+            key1 = articleContent,
+            key2 = readerState.link,
+        ) {
+            value =
+                if (articleContent.isBlank()) {
+                    emptyList()
+                } else {
+                    withContext(Dispatchers.Default) {
+                        ArticleContentBlockParser.parse(
+                            content = articleContent,
+                            baseUrl = readerState.link ?: "",
+                        )
+                    }
+                }
         }
-    val translatedBlockIds =
-        remember(readingUiState.translatedContentBlocks) {
-            parseTranslatedBlockMap(readingUiState.translatedContentBlocks).keys
+    val translatedBlockMap by
+        produceState(
+            initialValue = emptyMap<String, String>(),
+            key1 = readingUiState.translatedContentBlocks,
+        ) {
+            value =
+                withContext(Dispatchers.Default) {
+                    parseTranslatedBlockMap(readingUiState.translatedContentBlocks)
+                }
         }
+    val translatedBlockIds = remember(translatedBlockMap) { translatedBlockMap.keys }
 
     var isReaderScrollingDown by remember { mutableStateOf(false) }
     var showFullScreenImageViewer by remember { mutableStateOf(false) }
@@ -417,7 +438,12 @@ fun ReadingPage(
                                     }
                                 }
 
-                                LaunchedEffect(scrollState, readingRenderer, readerState.articleId) {
+                                LaunchedEffect(
+                                    scrollState,
+                                    readingRenderer,
+                                    readerState.articleId,
+                                    contentBlocks,
+                                ) {
                                     if (readingRenderer == ReadingRendererPreference.WebView) {
                                         snapshotFlow { scrollState.value }
                                             .collect {
@@ -433,7 +459,13 @@ fun ReadingPage(
                                     }
                                 }
 
-                                LaunchedEffect(listState, readingRenderer, readerState.articleId) {
+                                LaunchedEffect(
+                                    listState,
+                                    readingRenderer,
+                                    readerState.articleId,
+                                    contentBlocks,
+                                    translatedBlockIds,
+                                ) {
                                     if (readingRenderer == ReadingRendererPreference.NativeComponent) {
                                         snapshotFlow {
                                             Triple(
@@ -521,6 +553,8 @@ fun ReadingPage(
                                                 readingUiState.isAiSummaryExpanded,
                                             translatedContentBlocks =
                                                 readingUiState.translatedContentBlocks,
+                                            contentBlocks = contentBlocks,
+                                            translatedBlockMap = translatedBlockMap,
                                             feedName = feedName,
                                             title = title.toString(),
                                             author = author,
