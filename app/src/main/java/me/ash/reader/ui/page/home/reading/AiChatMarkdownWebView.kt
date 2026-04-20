@@ -1,32 +1,30 @@
 package me.ash.reader.ui.page.home.reading
 
+import android.view.MotionEvent
 import android.webkit.WebView
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.rememberNestedScrollInteropConnection
 import androidx.compose.ui.unit.TextUnitType
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import kotlin.math.ceil
 import kotlin.math.roundToInt
+import me.ash.reader.domain.model.ai.AiChatMessage
 import me.ash.reader.infrastructure.preference.LocalDarkTheme
 import me.ash.reader.infrastructure.preference.LocalReadingFonts
 import me.ash.reader.infrastructure.preference.LocalReadingTextFontSize
 import me.ash.reader.infrastructure.preference.LocalReadingTextLetterSpacing
 import me.ash.reader.infrastructure.preference.LocalReadingTextLineHeight
 import me.ash.reader.infrastructure.preference.ReadingFontsPreference
-import me.ash.reader.ui.component.webview.JavaScriptInterface
 import me.ash.reader.ui.component.webview.WebViewClient
 import me.ash.reader.ui.component.webview.WebViewHtml
 import me.ash.reader.ui.component.webview.WebViewLayout
@@ -35,15 +33,14 @@ import me.ash.reader.ui.ext.ExternalFonts
 import me.ash.reader.ui.theme.palette.alwaysLight
 
 @Composable
-internal fun AiChatMarkdownWebView(
-    htmlFragment: String,
-    textColor: Color,
+internal fun AiChatConversationContent(
+    messages: List<AiChatMessage>,
+    isSending: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    if (htmlFragment.isBlank()) return
+    if (messages.isEmpty() && !isSending) return
 
     val context = LocalContext.current
-    val density = LocalDensity.current
     val uriHandler = LocalUriHandler.current
     val readingFonts = LocalReadingFonts.current
     val readingFontSize = LocalReadingTextFontSize.current
@@ -67,6 +64,8 @@ internal fun AiChatMarkdownWebView(
             readingLineHeight
         }
     val useDarkTheme = LocalDarkTheme.current.isDarkTheme()
+    val assistantTextColor = MaterialTheme.colorScheme.onSurface
+    val userTextColor = MaterialTheme.colorScheme.onPrimaryContainer
     val selectionTextColor = Color.Black.toArgb()
     val selectionBgColor = (MaterialTheme.colorScheme.tertiaryContainer alwaysLight true).toArgb()
     val linkTextColor = MaterialTheme.colorScheme.primary.toArgb()
@@ -76,6 +75,8 @@ internal fun AiChatMarkdownWebView(
     val tableBorderColor = MaterialTheme.colorScheme.outlineVariant.toArgb()
     val tableHeaderBackgroundColor = MaterialTheme.colorScheme.surfaceContainerHighest.toArgb()
     val tableAltRowBackgroundColor = MaterialTheme.colorScheme.surfaceContainerLow.toArgb()
+    val assistantBubbleColor = MaterialTheme.colorScheme.surfaceContainerHigh.toArgb()
+    val userBubbleColor = MaterialTheme.colorScheme.primaryContainer.toArgb()
 
     val fontPath =
         if (readingFonts is ReadingFontsPreference.External) {
@@ -86,13 +87,17 @@ internal fun AiChatMarkdownWebView(
             null
         }
 
+    val conversationHtml = remember(messages, isSending) { buildAiChatConversationHtml(messages, isSending) }
     val style =
         remember(
             fontSize,
             fontPath,
             lineHeight,
             letterSpacing,
-            textColor,
+            assistantTextColor,
+            assistantBubbleColor,
+            userTextColor,
+            userBubbleColor,
             linkTextColor,
             selectionTextColor,
             selectionBgColor,
@@ -109,8 +114,8 @@ internal fun AiChatMarkdownWebView(
                 fontPath = fontPath,
                 lineHeight = lineHeight,
                 letterSpacing = letterSpacing,
-                textColor = textColor.toArgb(),
-                boldTextColor = textColor.toArgb(),
+                textColor = assistantTextColor.toArgb(),
+                boldTextColor = assistantTextColor.toArgb(),
                 linkTextColor = linkTextColor,
                 selectionTextColor = selectionTextColor,
                 selectionBgColor = selectionBgColor,
@@ -121,19 +126,20 @@ internal fun AiChatMarkdownWebView(
                 tableHeaderBackgroundColor = tableHeaderBackgroundColor,
                 tableAltRowBackgroundColor = tableAltRowBackgroundColor,
                 useDarkTheme = useDarkTheme,
+                extraCss =
+                    buildAiChatConversationCss(
+                        assistantTextColor = assistantTextColor.toArgb(),
+                        assistantBubbleColor = assistantBubbleColor,
+                        userTextColor = userTextColor.toArgb(),
+                        userBubbleColor = userBubbleColor,
+                    ),
             )
         }
-    val script = remember { aiChatHeightScript() }
     val pageHtml =
-        remember(style, htmlFragment, script) {
-            WebViewHtml.HTML.format(style, "", htmlFragment, script)
+        remember(style, conversationHtml) {
+            WebViewHtml.HTML.format(style, "", conversationHtml, "")
         }
-
-    val minimumHeightPx =
-        with(density) {
-            1.dp.roundToPx()
-        }
-    var contentHeightPx by remember(pageHtml) { mutableStateOf(minimumHeightPx) }
+    val nestedScrollInterop = rememberNestedScrollInteropConnection()
     val webView by
         remember(readingFonts, uriHandler) {
             mutableStateOf(
@@ -148,15 +154,23 @@ internal fun AiChatMarkdownWebView(
                                 uriHandler.openUri(url)
                             },
                         ),
-                    onContentHeightChanged = { cssHeight ->
-                        val heightPx =
-                            ceil(cssHeight * density.density).toInt() +
-                                with(density) { 4.dp.roundToPx() }
-                        contentHeightPx = heightPx.coerceAtLeast(minimumHeightPx)
-                    },
                 ).apply {
                     isVerticalScrollBarEnabled = false
                     overScrollMode = WebView.OVER_SCROLL_NEVER
+                    setOnTouchListener { view, event ->
+                        when (event.actionMasked) {
+                            MotionEvent.ACTION_DOWN,
+                            MotionEvent.ACTION_MOVE -> {
+                                view.parent?.requestDisallowInterceptTouchEvent(true)
+                            }
+
+                            MotionEvent.ACTION_UP,
+                            MotionEvent.ACTION_CANCEL -> {
+                                view.parent?.requestDisallowInterceptTouchEvent(false)
+                            }
+                        }
+                        false
+                    }
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
                         settings.isAlgorithmicDarkeningAllowed = false
                     }
@@ -165,12 +179,8 @@ internal fun AiChatMarkdownWebView(
         }
 
     AndroidView(
-        modifier =
-            modifier.fillMaxWidth()
-                .height(with(density) { contentHeightPx.toDp() }),
-        factory = {
-            webView
-        },
+        modifier = modifier.fillMaxSize().nestedScroll(nestedScrollInterop),
+        factory = { webView },
         update = { view ->
             if (view.tag != pageHtml) {
                 view.tag = pageHtml
@@ -182,6 +192,7 @@ internal fun AiChatMarkdownWebView(
                     "UTF-8",
                     null,
                 )
+                scheduleAiChatScrollToBottom(view, pageHtml)
             }
         },
     )
@@ -204,6 +215,7 @@ private fun buildAiChatWebViewStyle(
     tableHeaderBackgroundColor: Int,
     tableAltRowBackgroundColor: Int,
     useDarkTheme: Boolean,
+    extraCss: String = "",
 ): String =
     buildString {
         append(
@@ -355,59 +367,113 @@ body {
 }
             """.trimIndent()
         )
+        append(extraCss)
     }
 
-private fun aiChatHeightScript(): String =
+private fun buildAiChatConversationCss(
+    assistantTextColor: Int,
+    assistantBubbleColor: Int,
+    userTextColor: Int,
+    userBubbleColor: Int,
+): String =
     """
 
-(function() {
-    function reportHeight() {
-        if (!window.${JavaScriptInterface.NAME} || !window.${JavaScriptInterface.NAME}.onContentHeightChanged) {
-            return;
-        }
-        const contentRoot =
-            document.querySelector('.ry-ai-chat-markdown') ||
-            document.querySelector('article') ||
-            document.body;
-        if (!contentRoot) {
-            return;
-        }
-        const height = Math.max(
-            contentRoot.scrollHeight || 0,
-            contentRoot.offsetHeight || 0,
-            Math.ceil(contentRoot.getBoundingClientRect().height || 0)
-        );
-        window.${JavaScriptInterface.NAME}.onContentHeightChanged(Math.ceil(height));
+.ry-ai-chat-conversation {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 100%;
+    padding: 0 0 8px;
+    box-sizing: border-box;
+}
+
+.ry-ai-chat-message {
+    display: flex;
+    width: 100%;
+}
+
+.ry-ai-chat-message.user {
+    justify-content: flex-end;
+}
+
+.ry-ai-chat-message.assistant {
+    justify-content: flex-start;
+}
+
+.ry-ai-chat-bubble {
+    box-sizing: border-box;
+    max-width: 88%;
+    padding: 8px 12px;
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+.ry-ai-chat-message.assistant .ry-ai-chat-bubble {
+    background: ${assistantBubbleColor.toCssColor()} !important;
+    color: ${assistantTextColor.toCssColor()} !important;
+}
+
+.ry-ai-chat-message.user .ry-ai-chat-bubble {
+    background: ${userBubbleColor.toCssColor()} !important;
+    color: ${userTextColor.toCssColor()} !important;
+}
+
+.ry-ai-chat-message.user .ry-ai-chat-bubble,
+.ry-ai-chat-message.user .ry-ai-chat-bubble * {
+    color: ${userTextColor.toCssColor()} !important;
+}
+
+.ry-ai-chat-typing {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 20px;
+}
+
+.ry-ai-chat-typing span {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.32;
+    animation: ry-ai-chat-typing 1.2s infinite ease-in-out;
+}
+
+.ry-ai-chat-typing span:nth-child(2) {
+    animation-delay: 0.16s;
+}
+
+.ry-ai-chat-typing span:nth-child(3) {
+    animation-delay: 0.32s;
+}
+
+@keyframes ry-ai-chat-typing {
+    0%, 80%, 100% {
+        transform: scale(0.72);
+        opacity: 0.24;
     }
-
-    function scheduleReport() {
-        if (window.requestAnimationFrame) {
-            window.requestAnimationFrame(reportHeight);
-        } else {
-            setTimeout(reportHeight, 0);
-        }
+    40% {
+        transform: scale(1);
+        opacity: 0.88;
     }
-
-    window.addEventListener('load', scheduleReport);
-    window.addEventListener('resize', scheduleReport);
-    document.addEventListener('readystatechange', scheduleReport);
-
-    if (window.ResizeObserver && document.body) {
-        const observer = new ResizeObserver(scheduleReport);
-        observer.observe(document.body);
-    }
-
-    document.querySelectorAll('img').forEach((img) => {
-        if (!img.complete) {
-            img.addEventListener('load', scheduleReport);
-            img.addEventListener('error', scheduleReport);
-        }
-    });
-
-    scheduleReport();
-    setTimeout(scheduleReport, 60);
-    setTimeout(scheduleReport, 240);
-})();
+}
     """.trimIndent()
 
 private fun Int.toCssColor(): String = String.format("#%06X", 0xFFFFFF and this)
+
+private fun scheduleAiChatScrollToBottom(
+    webView: WebView,
+    pageHtml: String,
+) {
+    val script = "window.scrollTo(0, document.body.scrollHeight);"
+    listOf(16L, 96L, 240L).forEach { delayMs ->
+        webView.postDelayed(
+            {
+                if (webView.tag == pageHtml) {
+                    webView.evaluateJavascript(script, null)
+                }
+            },
+            delayMs,
+        )
+    }
+}

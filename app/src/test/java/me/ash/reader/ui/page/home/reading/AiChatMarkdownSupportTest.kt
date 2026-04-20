@@ -1,5 +1,6 @@
 package me.ash.reader.ui.page.home.reading
 
+import me.ash.reader.domain.model.ai.AiChatMessage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -103,5 +104,33 @@ class AiChatMarkdownSupportTest {
         assertTrue(html.contains("<blockquote><p>引用内容</p></blockquote>"))
         assertTrue(html.contains("""<div class="ry-ai-chat-code-language">kotlin</div>"""))
         assertTrue(html.contains("""<code class="language-kotlin">val answer = 42</code>"""))
+    }
+
+    @Test
+    fun buildAiChatConversationHtml_wrapsUserAssistantAndPendingMessagesIntoSingleDocument() {
+        val html =
+            buildAiChatConversationHtml(
+                messages =
+                    listOf(
+                        AiChatMessage(
+                            articleId = "article-1",
+                            role = AI_CHAT_ROLE_USER,
+                            content = "用户提问",
+                            contextType = AI_CHAT_CONTEXT_MANUAL,
+                        ),
+                        AiChatMessage(
+                            articleId = "article-1",
+                            role = AI_CHAT_ROLE_ASSISTANT,
+                            content = "**回答**",
+                            contextType = AI_CHAT_CONTEXT_MANUAL,
+                        ),
+                    ),
+                isSending = true,
+            )
+
+        assertTrue(html.contains("""class="ry-ai-chat-message user""""))
+        assertTrue(html.contains("""class="ry-ai-chat-message assistant""""))
+        assertTrue(html.contains("<strong>回答</strong>"))
+        assertTrue(html.contains("""class="ry-ai-chat-typing""""))
     }
 }

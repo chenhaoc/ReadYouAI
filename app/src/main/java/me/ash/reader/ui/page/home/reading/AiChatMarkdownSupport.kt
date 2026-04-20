@@ -1,9 +1,6 @@
 package me.ash.reader.ui.page.home.reading
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import me.ash.reader.domain.model.ai.AiChatMessage
 import org.jsoup.nodes.Entities
 
 private val codeFenceRegex = Regex("""^```([a-zA-Z0-9_+-]+)?\s*$""")
@@ -208,18 +205,52 @@ fun buildAiChatMarkdownHtml(markdown: String): String {
     }
 }
 
-@Composable
-fun AiChatMarkdownContent(
-    markdown: String,
-    textColor: Color,
-    modifier: Modifier = Modifier,
-) {
-    val html = remember(markdown) { buildAiChatMarkdownHtml(markdown) }
-    AiChatMarkdownWebView(
-        htmlFragment = html,
-        textColor = textColor,
-        modifier = modifier,
-    )
+fun buildAiChatConversationHtml(
+    messages: List<AiChatMessage>,
+    isSending: Boolean,
+): String {
+    if (messages.isEmpty() && !isSending) return ""
+
+    return buildString {
+        append("""<section class="ry-ai-chat-conversation">""")
+        messages.forEach { message ->
+            append(message.toConversationMessageHtml())
+        }
+        if (isSending) {
+            append(
+                """
+                <div class="ry-ai-chat-message assistant pending">
+                    <div class="ry-ai-chat-bubble">
+                        <div class="ry-ai-chat-typing" aria-label="loading">
+                            <span></span><span></span><span></span>
+                        </div>
+                    </div>
+                </div>
+                """.trimIndent()
+            )
+        }
+        append("</section>")
+    }
+}
+
+private fun AiChatMessage.toConversationMessageHtml(): String {
+    val roleClass =
+        if (role == AI_CHAT_ROLE_USER) {
+            "user"
+        } else {
+            "assistant"
+        }
+    val contentHtml =
+        if (role == AI_CHAT_ROLE_USER) {
+            buildAiChatPlainTextHtml(content)
+        } else {
+            buildAiChatMarkdownHtml(content)
+        }
+    return """
+        <div class="ry-ai-chat-message $roleClass">
+            <div class="ry-ai-chat-bubble">$contentHtml</div>
+        </div>
+    """.trimIndent()
 }
 
 private fun AiChatMarkdownBlock.toHtml(): String =
@@ -463,6 +494,11 @@ private fun buildAiChatInlineHtml(text: String): String {
         parseSegment(line)
     }
 }
+
+private fun buildAiChatPlainTextHtml(text: String): String =
+    text.split('\n').joinToString("<br />") { line ->
+        escapeHtml(line)
+    }
 
 private fun buildHtmlTag(
     tag: String,

@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.ash.reader.domain.data.ArticlePagingListUseCase
 import me.ash.reader.domain.data.DiffMapHolder
 import me.ash.reader.domain.data.FilterState
@@ -321,6 +322,7 @@ constructor(
     private val isAiSummaryCardVisible = MutableStateFlow(true)
     private val translationFocusIndex = MutableStateFlow(0)
     private var translationJob: Job? = null
+    private var translationStateJob: Job? = null
     private var initDataJob: Job? = null
     private val pendingListTranslationArticleIds = linkedSetOf<String>()
     private val listTranslationJobs = mutableMapOf<String, Job>()
@@ -352,65 +354,29 @@ constructor(
                     } as? ArticleFlowItem.Article
                 }
 
+            val cachedItem = itemByIndex?.articleWithFeed ?: itemFromList?.articleWithFeed
             val item =
-                rssService.get().findArticleById(articleId)
-                    ?: itemByIndex?.articleWithFeed
-                    ?: itemFromList?.articleWithFeed
+                cachedItem
+                    ?: rssService.get().findArticleById(articleId)
                     ?: error("Article $articleId not found")
 
             if (diffMapHolder.checkIfUnread(item)) {
                 diffMapHolder.updateDiff(item, isUnread = false)
             }
-            item.run {
-                _readingUiState.update {
-                    it.copy(
-                        articleWithFeed = this,
-                        isStarred = article.isStarred,
-                        isUnread = false,
-                        aiSummary = article.aiSummary,
-                        isAiSummaryLoading = false,
-                        isAiSummaryInlineLoading = false,
-                        aiSummaryError = null,
-                        isAiSummaryExpanded = article.aiSummary != null,
-                        shouldRenderAiSummaryInline = article.aiSummary != null,
-                        shouldShowAiSummaryReadyPrompt = false,
-                        hasAutoAiSummaryAttempted = false,
-                        translatedContentBlocks = null,
-                        isTranslationLoading = false,
-                        isTranslationInlineLoading = false,
-                        translationError = null,
-                        shouldRenderTranslationInline = false,
-                        hasAutoTranslationAttempted = false,
-                        translatedBlockCount = 0,
-                        translatableBlockCount = 0,
-                        isAiChatSheetOpen = false,
-                        aiChatMessages = emptyList(),
-                        isAiChatSending = false,
-                        aiChatError = null,
-                        aiChatSelectedSnippet = null,
-                        includeFullContentInAiChat = false,
-                    )
+            openArticle(item)
+            if (cachedItem != null) {
+                val latestItem = rssService.get().findArticleById(articleId)
+                if (latestItem != null && latestItem != item) {
+                    refreshOpenedArticle(latestItem)
                 }
-                _readerState.update {
-                    it.copy(
-                            articleId = article.id,
-                            feedName = feed.name,
-                            title = article.title,
-                            author = article.author,
-                            link = article.link,
-                            publishedDate = article.date,
-                        )
-                        .prefetchArticleId()
-                        .renderContent(this)
-                }
-                syncAiChatSession(article.id)
-                syncTranslationStateForContent(_readerState.value.content.text ?: article.rawDescription)
             }
         }
     }
 
     fun clearReadingData() {
         cancelTranslationJob()
+        translationStateJob?.cancel()
+        translationStateJob = null
         initDataJob?.cancel()
         initDataJob = null
         _readingUiState.update { ReadingUiState() }
@@ -847,6 +813,7 @@ constructor(
     }
 
     private fun syncTranslationStateForContent(content: String) {
+        translationStateJob?.cancel()
         if (currentFeed?.isTranslationEnabled != true) {
             _readingUiState.update {
                 it.copy(
@@ -859,15 +826,107 @@ constructor(
             return
         }
         val article = currentArticle ?: return
-        val translationState = translationContentStateForContent(content = content, article = article)
+        val articleId = article.id
+        val job =
+            viewModelScope.launch {
+                val translationState =
+                    withContext(ioDispatcher) {
+                        translationContentStateForContent(content = content, article = article)
+                    }
+                _readingUiState.update {
+                    if (it.articleWithFeed?.article?.id != articleId) {
+                        it
+                    } else {
+                        it.copy(
+                            translatedContentBlocks = translationState.payload,
+                            shouldRenderTranslationInline = translationState.payload != null,
+                            translatedBlockCount = translationState.translatedBlockCount,
+                            translatableBlockCount = translationState.translatableBlockCount,
+                        )
+                    }
+                }
+            }
+        translationStateJob = job
+        job.invokeOnCompletion {
+            if (translationStateJob === job) {
+                translationStateJob = null
+            }
+        }
+    }
+
+    private suspend fun openArticle(item: ArticleWithFeed) {
         _readingUiState.update {
             it.copy(
-                translatedContentBlocks = translationState.payload,
-                shouldRenderTranslationInline = translationState.payload != null,
-                translatedBlockCount = translationState.translatedBlockCount,
-                translatableBlockCount = translationState.translatableBlockCount,
+                articleWithFeed = item,
+                isStarred = item.article.isStarred,
+                isUnread = false,
+                aiSummary = item.article.aiSummary,
+                isAiSummaryLoading = false,
+                isAiSummaryInlineLoading = false,
+                aiSummaryError = null,
+                isAiSummaryExpanded = item.article.aiSummary != null,
+                shouldRenderAiSummaryInline = item.article.aiSummary != null,
+                shouldShowAiSummaryReadyPrompt = false,
+                hasAutoAiSummaryAttempted = false,
+                translatedContentBlocks = null,
+                isTranslationLoading = false,
+                isTranslationInlineLoading = false,
+                translationError = null,
+                shouldRenderTranslationInline = false,
+                hasAutoTranslationAttempted = false,
+                translatedBlockCount = 0,
+                translatableBlockCount = 0,
+                isAiChatSheetOpen = false,
+                aiChatMessages = emptyList(),
+                isAiChatSending = false,
+                aiChatError = null,
+                aiChatSelectedSnippet = null,
+                includeFullContentInAiChat = false,
             )
         }
+        _readerState.update {
+            it.copy(
+                    articleId = item.article.id,
+                    feedName = item.feed.name,
+                    title = item.article.title,
+                    author = item.article.author,
+                    link = item.article.link,
+                    publishedDate = item.article.date,
+                )
+                .prefetchArticleId()
+                .renderContent(item)
+        }
+        syncAiChatSession(item.article.id)
+        syncTranslationStateForContent(_readerState.value.content.text ?: item.article.rawDescription)
+    }
+
+    private fun refreshOpenedArticle(item: ArticleWithFeed) {
+        val articleId = item.article.id
+        _readingUiState.update {
+            if (it.articleWithFeed?.article?.id != articleId) {
+                it
+            } else {
+                it.copy(
+                    articleWithFeed = item,
+                    isStarred = item.article.isStarred,
+                    aiSummary = item.article.aiSummary,
+                )
+            }
+        }
+        _readerState.update {
+            if (it.articleId != articleId) {
+                it
+            } else {
+                it.copy(
+                    feedName = item.feed.name,
+                    title = item.article.title,
+                    author = item.article.author,
+                    link = item.article.link,
+                    publishedDate = item.article.date,
+                )
+            }
+        }
+        syncTranslationStateForContent(_readerState.value.content.text ?: item.article.rawDescription)
     }
 
     private fun translationContentStateForContent(
