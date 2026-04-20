@@ -1,14 +1,16 @@
 package me.ash.reader.ui.page.home.reading.queue
 
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
@@ -24,8 +26,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
@@ -59,12 +63,43 @@ internal fun resolveDockSideFromOffset(
     }
 }
 
+internal fun verticalButtonOffsetRangePx(
+    containerHeightPx: Float,
+    buttonHeightPx: Float,
+    topInsetPx: Float,
+    bottomInsetPx: Float,
+    bottomPaddingPx: Float,
+    edgePaddingPx: Float,
+): ClosedFloatingPointRange<Float> {
+    val minOffsetPx = topInsetPx + edgePaddingPx
+    val maxOffsetPx =
+        (containerHeightPx - buttonHeightPx - bottomInsetPx - bottomPaddingPx - edgePaddingPx)
+            .coerceAtLeast(minOffsetPx)
+    return minOffsetPx..maxOffsetPx
+}
+
+internal fun resolveVerticalOffsetFromRatio(
+    verticalRatio: Float,
+    minOffsetPx: Float,
+    maxOffsetPx: Float,
+): Float = minOffsetPx + (maxOffsetPx - minOffsetPx) * verticalRatio.coerceIn(0f, 1f)
+
+internal fun resolveVerticalRatioFromOffset(
+    offsetPx: Float,
+    minOffsetPx: Float,
+    maxOffsetPx: Float,
+): Float {
+    if (maxOffsetPx <= minOffsetPx) return 1f
+    return ((offsetPx - minOffsetPx) / (maxOffsetPx - minOffsetPx)).coerceIn(0f, 1f)
+}
+
 @Composable
 fun TtsFloatingPlayerButton(
     visible: Boolean,
     dockSide: TtsFloatingButtonDockSide,
-    bottomPadding: androidx.compose.ui.unit.Dp,
-    onDockSideChange: (TtsFloatingButtonDockSide) -> Unit,
+    verticalRatio: Float,
+    bottomPadding: Dp,
+    onPositionChange: (TtsFloatingButtonDockSide, Float) -> Unit,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -76,20 +111,45 @@ fun TtsFloatingPlayerButton(
         val edgePadding = 16.dp
         val density = LocalDensity.current
         val containerWidthPx = constraints.maxWidth.toFloat()
+        val containerHeightPx = constraints.maxHeight.toFloat()
         val buttonWidthPx = with(density) { buttonSize.toPx() }
+        val buttonHeightPx = with(density) { buttonSize.toPx() }
         val edgePaddingPx = with(density) { edgePadding.toPx() }
+        val bottomPaddingPx = with(density) { bottomPadding.toPx() }
+        val topInsetPx =
+            with(density) { WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx() }
+        val bottomInsetPx =
+            with(density) { WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().toPx() }
+        val maxHorizontalOffsetPx =
+            (containerWidthPx - buttonWidthPx - edgePaddingPx).coerceAtLeast(edgePaddingPx)
+        val verticalOffsetRange =
+            verticalButtonOffsetRangePx(
+                containerHeightPx = containerHeightPx,
+                buttonHeightPx = buttonHeightPx,
+                topInsetPx = topInsetPx,
+                bottomInsetPx = bottomInsetPx,
+                bottomPaddingPx = bottomPaddingPx,
+                edgePaddingPx = edgePaddingPx,
+            )
 
-        var offsetPx by remember { mutableFloatStateOf(0f) }
+        var horizontalOffsetPx by remember { mutableFloatStateOf(0f) }
+        var verticalOffsetPx by remember { mutableFloatStateOf(0f) }
         var dragging by remember { mutableStateOf(false) }
 
-        LaunchedEffect(dockSide, containerWidthPx) {
+        LaunchedEffect(dockSide, verticalRatio, containerWidthPx, containerHeightPx, topInsetPx, bottomInsetPx, bottomPaddingPx) {
             if (!dragging) {
-                offsetPx =
+                horizontalOffsetPx =
                     anchoredButtonOffsetPx(
                         dockSide = dockSide,
                         containerWidthPx = containerWidthPx,
                         buttonWidthPx = buttonWidthPx,
                         edgePaddingPx = edgePaddingPx,
+                    )
+                verticalOffsetPx =
+                    resolveVerticalOffsetFromRatio(
+                        verticalRatio = verticalRatio,
+                        minOffsetPx = verticalOffsetRange.start,
+                        maxOffsetPx = verticalOffsetRange.endInclusive,
                     )
             }
         }
@@ -100,43 +160,75 @@ fun TtsFloatingPlayerButton(
             Box(
                 modifier =
                     Modifier
-                        .align(Alignment.BottomStart)
+                        .align(Alignment.TopStart)
                         .offset {
                             IntOffset(
-                                x = offsetPx.roundToInt(),
-                                y = -bottomPadding.roundToPx(),
+                                x = horizontalOffsetPx.roundToInt(),
+                                y = verticalOffsetPx.roundToInt(),
                             )
                         }
-                        .draggable(
-                            orientation = Orientation.Horizontal,
-                            state =
-                                rememberDraggableState { delta ->
-                                    dragging = true
-                                    offsetPx =
-                                        (offsetPx + delta).coerceIn(
-                                            edgePaddingPx,
-                                            (containerWidthPx - buttonWidthPx - edgePaddingPx)
-                                                .coerceAtLeast(edgePaddingPx),
+                        .pointerInput(dockSide, verticalRatio, containerWidthPx, containerHeightPx, topInsetPx, bottomInsetPx, bottomPaddingPx) {
+                            detectDragGestures(
+                                onDragStart = { dragging = true },
+                                onDragCancel = {
+                                    dragging = false
+                                    horizontalOffsetPx =
+                                        anchoredButtonOffsetPx(
+                                            dockSide = dockSide,
+                                            containerWidthPx = containerWidthPx,
+                                            buttonWidthPx = buttonWidthPx,
+                                            edgePaddingPx = edgePaddingPx,
+                                        )
+                                    verticalOffsetPx =
+                                        resolveVerticalOffsetFromRatio(
+                                            verticalRatio = verticalRatio,
+                                            minOffsetPx = verticalOffsetRange.start,
+                                            maxOffsetPx = verticalOffsetRange.endInclusive,
                                         )
                                 },
-                            onDragStopped = {
-                                dragging = false
-                                val resolvedDockSide =
-                                    resolveDockSideFromOffset(
-                                        offsetPx = offsetPx,
-                                        containerWidthPx = containerWidthPx,
-                                        buttonWidthPx = buttonWidthPx,
+                                onDragEnd = {
+                                    dragging = false
+                                    val resolvedDockSide =
+                                        resolveDockSideFromOffset(
+                                            offsetPx = horizontalOffsetPx,
+                                            containerWidthPx = containerWidthPx,
+                                            buttonWidthPx = buttonWidthPx,
+                                        )
+                                    val resolvedVerticalRatio =
+                                        resolveVerticalRatioFromOffset(
+                                            offsetPx = verticalOffsetPx,
+                                            minOffsetPx = verticalOffsetRange.start,
+                                            maxOffsetPx = verticalOffsetRange.endInclusive,
+                                        )
+                                    horizontalOffsetPx =
+                                        anchoredButtonOffsetPx(
+                                            dockSide = resolvedDockSide,
+                                            containerWidthPx = containerWidthPx,
+                                            buttonWidthPx = buttonWidthPx,
+                                            edgePaddingPx = edgePaddingPx,
+                                        )
+                                    verticalOffsetPx =
+                                        resolveVerticalOffsetFromRatio(
+                                            verticalRatio = resolvedVerticalRatio,
+                                            minOffsetPx = verticalOffsetRange.start,
+                                            maxOffsetPx = verticalOffsetRange.endInclusive,
+                                        )
+                                    onPositionChange(resolvedDockSide, resolvedVerticalRatio)
+                                },
+                            ) { change, dragAmount ->
+                                change.consume()
+                                horizontalOffsetPx =
+                                    (horizontalOffsetPx + dragAmount.x).coerceIn(
+                                        edgePaddingPx,
+                                        maxHorizontalOffsetPx,
                                     )
-                                onDockSideChange(resolvedDockSide)
-                                offsetPx =
-                                    anchoredButtonOffsetPx(
-                                        dockSide = resolvedDockSide,
-                                        containerWidthPx = containerWidthPx,
-                                        buttonWidthPx = buttonWidthPx,
-                                        edgePaddingPx = edgePaddingPx,
+                                verticalOffsetPx =
+                                    (verticalOffsetPx + dragAmount.y).coerceIn(
+                                        verticalOffsetRange.start,
+                                        verticalOffsetRange.endInclusive,
                                     )
-                            },
-                        )
+                            }
+                        }
                         .combinedClickable(
                             onClick = onClick,
                             onLongClick = onLongClick,

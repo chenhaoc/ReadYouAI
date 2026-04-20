@@ -168,6 +168,8 @@ sealed interface PreferencesKey {
         const val readingBoldCharacters = "readingBoldCharacters"
         const val readingPageTonalElevation = "readingPageTonalElevation"
         const val readingTtsMiniPlayer = "readingTtsMiniPlayer"
+        const val readingTtsMiniPlayerDockSide = "readingTtsMiniPlayerDockSide"
+        const val readingTtsMiniPlayerVerticalRatio = "readingTtsMiniPlayerVerticalRatio"
         const val readingTextFontSize = "readingTextFontSize"
         const val readingTextLineHeight = "readingTextLineHeight"
         const val readingTextLetterSpacing = "readingTextLetterSpacing"
@@ -256,6 +258,8 @@ sealed interface PreferencesKey {
                 BooleanKey(readingBoldCharacters),
                 IntKey(readingPageTonalElevation),
                 BooleanKey(readingTtsMiniPlayer),
+                StringKey(readingTtsMiniPlayerDockSide),
+                FloatKey(readingTtsMiniPlayerVerticalRatio),
                 IntKey(readingTextFontSize),
                 FloatKey(readingTextLineHeight),
                 FloatKey(readingTextLetterSpacing),
@@ -350,6 +354,8 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
         const val readingBoldCharacters = "readingBoldCharacters"
         const val readingPageTonalElevation = "readingPageTonalElevation"
         const val readingTtsMiniPlayer = "readingTtsMiniPlayer"
+        const val readingTtsMiniPlayerDockSide = "readingTtsMiniPlayerDockSide"
+        const val readingTtsMiniPlayerVerticalRatio = "readingTtsMiniPlayerVerticalRatio"
         const val readingTextFontSize = "readingTextFontSize"
         const val readingTextLineHeight = "readingTextLineHeight"
         const val readingTextLetterSpacing = "readingTextLetterSpacing"
@@ -484,6 +490,16 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
                     DataStoreKey(intPreferencesKey(readingPageTonalElevation), Int::class.java),
                 readingTtsMiniPlayer to
                     DataStoreKey(booleanPreferencesKey(readingTtsMiniPlayer), Boolean::class.java),
+                readingTtsMiniPlayerDockSide to
+                    DataStoreKey(
+                        stringPreferencesKey(readingTtsMiniPlayerDockSide),
+                        String::class.java,
+                    ),
+                readingTtsMiniPlayerVerticalRatio to
+                    DataStoreKey(
+                        floatPreferencesKey(readingTtsMiniPlayerVerticalRatio),
+                        Float::class.java,
+                    ),
                 readingTextFontSize to
                     DataStoreKey(intPreferencesKey(readingTextFontSize), Int::class.java),
                 readingTextLineHeight to
@@ -677,6 +693,9 @@ private fun buildDefaultBackupPreferenceValues(): Map<String, Any> {
         PreferencesKey.readingBoldCharacters to settings.readingBoldCharacters.value,
         PreferencesKey.readingPageTonalElevation to settings.readingPageTonalElevation.value,
         PreferencesKey.readingTtsMiniPlayer to settings.readingTtsMiniPlayer.value,
+        PreferencesKey.readingTtsMiniPlayerDockSide to settings.readingTtsMiniPlayerDockSide,
+        PreferencesKey.readingTtsMiniPlayerVerticalRatio to
+            settings.readingTtsMiniPlayerVerticalRatio,
         PreferencesKey.readingTextFontSize to settings.readingTextFontSize,
         PreferencesKey.readingTextLineHeight to settings.readingTextLineHeight,
         PreferencesKey.readingTextLetterSpacing to settings.readingLetterSpacing,

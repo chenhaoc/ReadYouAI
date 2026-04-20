@@ -16,12 +16,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
-import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
-import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
-import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,7 +24,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.datastore.preferences.core.edit
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
+import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
+import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
@@ -41,8 +43,11 @@ import androidx.navigation3.ui.LocalNavAnimatedContentScope
 import androidx.navigation3.ui.NavDisplay
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import me.ash.reader.infrastructure.preference.LocalSettings
 import me.ash.reader.infrastructure.preference.LocalReadingTtsMiniPlayer
+import me.ash.reader.ui.ext.PreferencesKey
 import me.ash.reader.ui.ext.collectAsStateValue
+import me.ash.reader.ui.ext.dataStore
 import me.ash.reader.ui.motion.materialSharedAxisXIn
 import me.ash.reader.ui.motion.materialSharedAxisXOut
 import me.ash.reader.ui.page.adaptive.ArticleData
@@ -80,6 +85,10 @@ import me.ash.reader.ui.page.settings.troubleshooting.TroubleshootingPage
 import me.ash.reader.ui.page.startup.StartupPage
 
 private const val INITIAL_OFFSET_FACTOR = 0.10f
+private val readingTtsMiniPlayerDockSideKey =
+    PreferencesKey.StringKey(PreferencesKey.readingTtsMiniPlayerDockSide).key
+private val readingTtsMiniPlayerVerticalRatioKey =
+    PreferencesKey.FloatKey(PreferencesKey.readingTtsMiniPlayerVerticalRatio).key
 
 @OptIn(
     ExperimentalSharedTransitionApi::class,
@@ -90,6 +99,8 @@ private const val INITIAL_OFFSET_FACTOR = 0.10f
 fun AppEntry(backStack: NavBackStack<NavKey>) {
     val subscribeViewModel = hiltViewModel<SubscribeViewModel>()
     val overlayViewModel = hiltViewModel<TtsQueueOverlayViewModel>()
+    val context = LocalContext.current
+    val settings = LocalSettings.current
     val queueState = overlayViewModel.queueState.collectAsStateValue()
     val showFloatingButton = LocalReadingTtsMiniPlayer.current
     val scope = rememberCoroutineScope()
@@ -102,8 +113,10 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
         isQueueSheetMounted ||
             queueSheetState.currentValue != SheetValue.Hidden ||
             queueSheetState.targetValue != SheetValue.Hidden
-    var dockSideName by rememberSaveable { mutableStateOf(TtsFloatingButtonDockSide.Right.name) }
-    val dockSide = TtsFloatingButtonDockSide.valueOf(dockSideName)
+    val dockSide =
+        runCatching {
+            TtsFloatingButtonDockSide.valueOf(settings.readingTtsMiniPlayerDockSide)
+        }.getOrDefault(TtsFloatingButtonDockSide.Right)
     val currentRoute = backStack.lastOrNull()
     val floatingButtonBottomPadding =
         when (currentRoute) {
@@ -363,8 +376,16 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
                     currentRoute != Route.Startup &&
                     queueState.items.isNotEmpty(),
             dockSide = dockSide,
+            verticalRatio = settings.readingTtsMiniPlayerVerticalRatio,
             bottomPadding = floatingButtonBottomPadding,
-            onDockSideChange = { dockSideName = it.name },
+            onPositionChange = { side, verticalRatio ->
+                scope.launch {
+                    context.dataStore.edit {
+                        it[readingTtsMiniPlayerDockSideKey] = side.name
+                        it[readingTtsMiniPlayerVerticalRatioKey] = verticalRatio
+                    }
+                }
+            },
             onClick = openQueue,
             onLongClick = overlayViewModel::toggleQueuePlayback,
         )
