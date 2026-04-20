@@ -68,7 +68,7 @@ android {
         create("githubAi") {
             dimension = "channel"
             applicationId = "me.ash.reader.ai"
-            resValue("string", "read_you", "Read You AI")
+            resValue("string", "read_you", "ReadYouAI")
         }
         create("fdroid") { dimension = "channel" }
         create("googlePlay") {
