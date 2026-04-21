@@ -6,6 +6,10 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.res.Resources
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -29,6 +33,7 @@ import me.ash.reader.infrastructure.android.ttsqueue.msToSegmentIndex
 import me.ash.reader.infrastructure.android.ttsqueue.segmentCharCountsToDurationEstimate
 import me.ash.reader.infrastructure.di.ApplicationScope
 import me.ash.reader.ui.page.common.NotificationGroupName
+import kotlin.math.roundToInt
 
 @AndroidEntryPoint
 class TtsPlaybackService : Service() {
@@ -43,6 +48,9 @@ class TtsPlaybackService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var stateObserverJob: Job? = null
     private var mediaSession: MediaSessionCompat? = null
+    private val notificationLargeIcon: Bitmap by lazy(LazyThreadSafetyMode.NONE) {
+        packageManager.getApplicationIcon(packageName).toNotificationLargeIcon(resources)
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -238,6 +246,7 @@ class TtsPlaybackService : Service() {
             .setContentTitle(title)
             .setContentText(subtitle)
             .setSmallIcon(R.drawable.ic_notification)
+            .setLargeIcon(notificationLargeIcon)
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setShowWhen(false)
@@ -361,4 +370,13 @@ class TtsPlaybackService : Service() {
             context.stopService(intent)
         }
     }
+}
+
+private fun Drawable.toNotificationLargeIcon(resources: Resources, targetDp: Int = 64): Bitmap {
+    val sizePx = (targetDp * resources.displayMetrics.density).roundToInt().coerceAtLeast(1)
+    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    setBounds(0, 0, sizePx, sizePx)
+    draw(canvas)
+    return bitmap
 }
