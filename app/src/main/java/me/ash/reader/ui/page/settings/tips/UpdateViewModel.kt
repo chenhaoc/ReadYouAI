@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import me.ash.reader.domain.service.AppService
 import me.ash.reader.infrastructure.net.Download
-import me.ash.reader.ui.ext.isGitHub
+import me.ash.reader.ui.ext.isGitHubBased
 import javax.inject.Inject
 
 @HiltViewModel
@@ -25,7 +25,7 @@ class UpdateViewModel @Inject constructor(
         preProcessor: suspend () -> Unit = {},
         postProcessor: suspend (Boolean) -> Unit = {},
     ) {
-        if (!isGitHub) return
+        if (!isGitHubBased) return
         if (updateJob?.isActive == true) return
         updateJob = viewModelScope.launch {
             preProcessor()

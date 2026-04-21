@@ -126,6 +126,45 @@
     <string name="chinese_traditional" translatable="false">繁體中文</string>
     <string name="tips_and_support">Tips &amp; support</string>
     <string name="tips_and_support_desc">About, sponsor, open source licenses</string>
+    <string name="tips_support_build_desc_default">Version and support information for the current build.</string>
+    <string name="tips_support_build_desc_ai">A custom build based on ReadYou 0.16.1.</string>
+    <string name="tips_support_section_updates">Updates &amp; docs</string>
+    <string name="tips_support_section_support">Support &amp; community</string>
+    <string name="tips_support_section_features">What this build adds</string>
+    <string name="tips_support_check_updates">Check updates</string>
+    <string name="tips_support_change_log">Release notes</string>
+    <string name="tips_support_github_repo">GitHub repository</string>
+    <string name="tips_support_github_repo_desc_default">ReadYouApp/ReadYou</string>
+    <string name="tips_support_github_repo_desc_ai">chenhaoc/ReadYouAI</string>
+    <string name="tips_support_docs">Documentation</string>
+    <string name="tips_support_docs_desc_default">README / Getting Started</string>
+    <string name="tips_support_docs_desc_ai">README / docs</string>
+    <string name="tips_support_release_notes">Release notes</string>
+    <string name="tips_support_release_notes_desc">0.16.1-custom series</string>
+    <string name="tips_support_licenses_desc">View third-party licenses and the GPL text</string>
+    <string name="tips_support_upstream_project">ReadYou</string>
+    <string name="tips_support_upstream_license_desc">Upstream project source and GPL license</string>
+    <string name="tips_support_telegram_desc">Upstream ReadYou community channel</string>
+    <string name="tips_support_support_upstream">Support upstream ReadYou</string>
+    <string name="tips_support_support_upstream_desc">Funds go to the upstream project and maintainers</string>
+    <string name="tips_support_support_custom">Support ReadYouAI</string>
+    <string name="tips_support_support_custom_desc">Support the current custom branch and ongoing maintenance</string>
+    <string name="tips_support_feature_ai_summary">AI summaries with manual and automatic triggers</string>
+    <string name="tips_support_feature_ai_chat">AI chat with follow-up questions and quick prompts</string>
+    <string name="tips_support_feature_translation">Article translation with segmented and automatic modes</string>
+    <string name="tips_support_feature_tts">TTS playlist, floating entry, and notification controls</string>
+    <string name="tips_support_feature_backup">Backup and restore for settings, accounts, and feeds</string>
+    <string name="tips_support_upstream_dialog_title">Support upstream ReadYou</string>
+    <string name="tips_support_upstream_dialog_desc">The links below support the upstream ReadYou project and maintainers. They are not donations for this custom ReadYouAI branch.</string>
+    <string name="tips_support_upstream_author">Original author</string>
+    <string name="tips_support_upstream_maintainer">Current maintainer</string>
+    <string name="tips_support_custom_dialog_title">Support ReadYouAI</string>
+    <string name="tips_support_custom_dialog_desc">Thank you for supporting the ReadYouAI custom branch. If you would like to support continued development, you can use the Alipay account below.</string>
+    <string name="tips_support_custom_account_label">Alipay account</string>
+    <string name="tips_support_custom_account_value" translatable="false">1635273709@qq.com</string>
+    <string name="tips_support_custom_account_note">When transferring, you can add your ID or project name in the note. Thank you for your support.</string>
+    <string name="tips_support_copy_account">Copy account</string>
+    <string name="tips_support_account_copied">Account copied</string>
     <string name="welcome">Welcome</string>
     <string name="tos_tips">Please read and agree to Read You\'s terms of service and privacy policy to continue.</string>
     <string name="browse_tos_tips">Browse the <i><u>terms of service and privacy policy</u></i></string>
@@ -336,6 +375,9 @@
     <string name="troubleshooting_desc">Bug report, app preferences</string>
     <string name="bug_report">Bug report</string>
     <string name="issue_tracer_url" translatable="false">https://github.com/ReadYouApp/ReadYou/issues</string>
+    <string name="tips_support_release_notes_link" translatable="false">https://github.com/ReadYouApp/ReadYou/releases/latest</string>
+    <string name="tips_support_custom_support_link" translatable="false">https://github.com/ReadYouApp/ReadYou</string>
+    <string name="tips_support_upstream_license_link" translatable="false">https://github.com/ReadYouApp/ReadYou/blob/main/LICENSE</string>
     <string name="app_preferences">App preferences</string>
     <string name="import_from_protobuf_file">Import from protobuf file</string>
     <string name="export_as_protobuf_file">Export as protobuf file</string>

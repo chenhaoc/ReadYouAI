@@ -1,16 +1,17 @@
 package me.ash.reader.ui.page.settings.tips
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
@@ -20,73 +21,60 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import me.ash.reader.R
-import me.ash.reader.infrastructure.preference.OpenLinkPreference
-import me.ash.reader.ui.component.base.RYAsyncImage
-import me.ash.reader.ui.ext.openURL
+import me.ash.reader.ui.ext.showToast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SponsorDialog(modifier: Modifier = Modifier, onDismissRequest: () -> Unit) {
+fun CustomSupportDialog(modifier: Modifier = Modifier, onDismissRequest: () -> Unit) {
     ModalBottomSheet(modifier = modifier, onDismissRequest = onDismissRequest) {
-        SponsorDialogContent()
+        CustomSupportDialogContent()
     }
 }
 
-
-private fun githubAvatar(login: String): String = "https://github.com/${login}.png"
-
 @Composable
-private fun SponsorDialogContent(modifier: Modifier = Modifier) {
+private fun CustomSupportDialogContent(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     Column(modifier = modifier) {
         Column(
             modifier = Modifier
                 .padding(horizontal = 16.dp)
-                .padding(bottom = 16.dp)
+                .padding(bottom = 16.dp),
         ) {
             Text(
-                text = stringResource(R.string.tips_support_upstream_dialog_title),
+                text = stringResource(R.string.tips_support_custom_dialog_title),
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Medium),
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                text = stringResource(R.string.tips_support_upstream_dialog_desc),
+                text = stringResource(R.string.tips_support_custom_dialog_desc),
                 style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.tips_support_custom_account_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
-        SponsorItem(
-            model = githubAvatar("Ashinch"),
-            name = "Ash",
-            description = stringResource(R.string.tips_support_upstream_author),
+        SupportAccountItem(
+            name = stringResource(R.string.tips_support_custom_account_value),
+            description = stringResource(R.string.tips_support_custom_account_label),
         ) {
-            context.openURL("https://ash7.io/sponsor/", openLink = OpenLinkPreference.default)
-        }
-        SponsorItem(
-            model = githubAvatar("JunkFood02"),
-            name = "junkfood",
-            description = stringResource(R.string.tips_support_upstream_maintainer),
-        ) {
-            context.openURL(
-                "https://github.com/sponsors/JunkFood02",
-                openLink = OpenLinkPreference.default
-            )
+            context.copySupportAccount()
         }
         Spacer(Modifier.height(8.dp))
     }
 }
 
 @Composable
-private fun SponsorItem(
+private fun SupportAccountItem(
     modifier: Modifier = Modifier,
-    model: Any?,
     name: String,
     description: String,
     onClick: () -> Unit,
@@ -94,41 +82,45 @@ private fun SponsorItem(
     val interactionSource = remember { MutableInteractionSource() }
     Row(
         modifier =
-        modifier
-            .fillMaxWidth()
-            .clickable(
-                enabled = true,
-                indication = null,
-                interactionSource = interactionSource,
-                onClick = onClick,
-            )
-            .padding(vertical = 12.dp)
-            .padding(horizontal = 16.dp),
+            modifier
+                .fillMaxWidth()
+                .clickable(
+                    enabled = true,
+                    indication = null,
+                    interactionSource = interactionSource,
+                    onClick = onClick,
+                )
+                .padding(vertical = 12.dp)
+                .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RYAsyncImage(
-            data = model,
-            modifier = Modifier
-                .size(64.dp)
-                .aspectRatio(1f)
-                .clip(CircleShape),
-            contentScale = ContentScale.Crop,
+        AppIconImage(
+            size = 64.dp,
+            contentDescription = description,
+            modifier = Modifier.size(64.dp),
         )
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 16.dp)
+                .padding(start = 16.dp),
         ) {
             Text(name, style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(4.dp))
             Text(
                 description,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         FilledTonalButton(onClick = onClick, interactionSource = interactionSource) {
-            Text(stringResource(R.string.sponsor))
+            Text(stringResource(R.string.tips_support_copy_account))
         }
     }
+}
+
+private fun Context.copySupportAccount() {
+    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    val value = getString(R.string.tips_support_custom_account_value)
+    clipboard.setPrimaryClip(ClipData.newPlainText("support_account", value))
+    showToast(getString(R.string.tips_support_account_copied))
 }

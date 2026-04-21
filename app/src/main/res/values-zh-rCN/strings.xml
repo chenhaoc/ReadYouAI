@@ -101,6 +101,45 @@
     <string name="help_translate">帮助我们翻译</string>
     <string name="tips_and_support">提示和支持</string>
     <string name="tips_and_support_desc">关于、赞助者、开源许可证</string>
+    <string name="tips_support_build_desc_default">查看当前版本与支持入口。</string>
+    <string name="tips_support_build_desc_ai">基于 ReadYou 0.16.1 的定制版。</string>
+    <string name="tips_support_section_updates">更新与文档</string>
+    <string name="tips_support_section_support">支持与社区</string>
+    <string name="tips_support_section_features">本版本特性</string>
+    <string name="tips_support_check_updates">检查更新</string>
+    <string name="tips_support_change_log">更新日志</string>
+    <string name="tips_support_github_repo">GitHub 仓库</string>
+    <string name="tips_support_github_repo_desc_default">ReadYouApp/ReadYou</string>
+    <string name="tips_support_github_repo_desc_ai">chenhaoc/ReadYouAI</string>
+    <string name="tips_support_docs">使用说明</string>
+    <string name="tips_support_docs_desc_default">README / 入门文档</string>
+    <string name="tips_support_docs_desc_ai">README / 文档</string>
+    <string name="tips_support_release_notes">更新记录</string>
+    <string name="tips_support_release_notes_desc">0.16.1-custom 系列</string>
+    <string name="tips_support_licenses_desc">查看第三方许可证与 GPL 协议</string>
+    <string name="tips_support_upstream_project">ReadYou</string>
+    <string name="tips_support_upstream_license_desc">上游项目源码与 GPL 许可证</string>
+    <string name="tips_support_telegram_desc">ReadYou 上游 Telegram 社群</string>
+    <string name="tips_support_support_upstream">支持上游 ReadYou</string>
+    <string name="tips_support_support_upstream_desc">资金流向上游项目与维护者</string>
+    <string name="tips_support_support_custom">支持 ReadYouAI</string>
+    <string name="tips_support_support_custom_desc">支持当前定制版的持续维护与更新</string>
+    <string name="tips_support_feature_ai_summary">AI 摘要：支持手动与自动生成</string>
+    <string name="tips_support_feature_ai_chat">AI 问答：支持继续追问与快捷提问</string>
+    <string name="tips_support_feature_translation">文章翻译：支持分段翻译与自动翻译</string>
+    <string name="tips_support_feature_tts">TTS：支持播放列表、悬浮入口与通知控件</string>
+    <string name="tips_support_feature_backup">备份恢复：支持导出与导入配置、账户和订阅</string>
+    <string name="tips_support_upstream_dialog_title">支持上游 ReadYou</string>
+    <string name="tips_support_upstream_dialog_desc">以下入口支持上游 ReadYou 项目及其维护者，不属于当前 ReadYouAI 定制版的捐赠入口。</string>
+    <string name="tips_support_upstream_author">原作者</string>
+    <string name="tips_support_upstream_maintainer">维护者</string>
+    <string name="tips_support_custom_dialog_title">支持 ReadYouAI</string>
+    <string name="tips_support_custom_dialog_desc">感谢支持 ReadYouAI 定制版。如果你愿意支持后续维护与打磨，可以使用下面的支付宝账户。</string>
+    <string name="tips_support_custom_account_label">支付宝账户</string>
+    <string name="tips_support_custom_account_value" translatable="false">1635273709@qq.com</string>
+    <string name="tips_support_custom_account_note">转账时可备注 ID 或项目名，感谢支持。</string>
+    <string name="tips_support_copy_account">复制账号</string>
+    <string name="tips_support_account_copied">账号已复制</string>
     <string name="welcome">欢迎</string>
     <string name="tos_tips">在此之前，请阅读并同意 Read You 的服务条款与隐私政策。</string>
     <string name="browse_tos_tips">查看《<i><u>服务条款与隐私政策</u></i>》</string>
@@ -311,6 +350,9 @@
     <string name="mark_as_read_on_scroll">滚动时标记为已读</string>
     <string name="become_a_sponsor">成为赞助者</string>
     <string name="sponsor_desc">我们在闲暇时间构建并维护这个自由开源应用。如果你觉得应用还不错，请考虑用小额捐赠支持哦我们！☕️</string>
+    <string name="tips_support_release_notes_link" translatable="false">https://github.com/ReadYouApp/ReadYou/releases/latest</string>
+    <string name="tips_support_custom_support_link" translatable="false">https://github.com/ReadYouApp/ReadYou</string>
+    <string name="tips_support_upstream_license_link" translatable="false">https://github.com/ReadYouApp/ReadYou/blob/main/LICENSE</string>
     <string name="toolbars">工具栏</string>
     <string name="hide_empty_groups">隐藏空的分组</string>
     <string name="open_in_browser">在浏览器中打开</string>

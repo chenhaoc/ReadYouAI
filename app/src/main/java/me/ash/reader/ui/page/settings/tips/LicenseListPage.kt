@@ -1,16 +1,24 @@
 package me.ash.reader.ui.page.settings.tips
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Balance
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -48,15 +56,55 @@ fun LicenseListPage(
                 tint = MaterialTheme.colorScheme.onSurface
             ) {
                 context.openURL(
-                    url = context.getString(R.string.github_link) + "/blob/main/LICENSE",
+                    url = context.getString(R.string.tips_support_upstream_license_link),
                     openLink = OpenLinkPreference.AutoPreferCustomTabs,
                 )
             }
         },
         content = {
-            Column {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = androidx.compose.ui.graphics.Color.Unspecified,
+                    onClick = {
+                        context.openURL(
+                            url = context.getString(R.string.tips_support_upstream_license_link),
+                            openLink = OpenLinkPreference.AutoPreferCustomTabs,
+                        )
+                    },
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 14.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Balance,
+                            contentDescription = stringResource(R.string.tips_support_upstream_project),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Column(
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .padding(start = 20.dp),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.tips_support_upstream_project),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = stringResource(R.string.tips_support_upstream_license_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 LibrariesContainer(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
                     contentPadding = WindowInsets(0, 0, 0, 24)
                         .add(WindowInsets.navigationBars)
                         .asPaddingValues(),

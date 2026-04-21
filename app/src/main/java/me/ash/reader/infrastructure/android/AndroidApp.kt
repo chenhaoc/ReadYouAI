@@ -29,7 +29,7 @@ import me.ash.reader.infrastructure.rss.OPMLDataSource
 import me.ash.reader.infrastructure.rss.RssHelper
 import me.ash.reader.ui.ext.del
 import me.ash.reader.ui.ext.getLatestApk
-import me.ash.reader.ui.ext.isGitHub
+import me.ash.reader.ui.ext.isGitHubBased
 import okhttp3.OkHttpClient
 import timber.log.Timber
 
@@ -133,7 +133,7 @@ class AndroidApp : Application(), Configuration.Provider {
     }
 
     private suspend fun checkUpdate() {
-        if (!isGitHub) return
+        if (!isGitHubBased) return
         withContext(ioDispatcher) {
             applicationContext.getLatestApk().let { if (it.exists()) it.del() }
         }

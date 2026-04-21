@@ -1,0 +1,9 @@
+<resources>
+    <string name="github_link" translatable="false">https://github.com/chenhaoc/ReadYouAI</string>
+    <string name="wiki_link" translatable="false">https://github.com/chenhaoc/ReadYouAI/blob/main-custom/README.md</string>
+    <string name="update_link" translatable="false">https://api.github.com/repos/chenhaoc/ReadYouAI/releases/latest</string>
+    <string name="issue_tracer_url" translatable="false">https://github.com/chenhaoc/ReadYouAI/issues</string>
+    <string name="tips_and_support_desc">Version, updates, help, licenses</string>
+    <string name="tips_support_release_notes_link" translatable="false">https://github.com/chenhaoc/ReadYouAI/blob/main-custom/docs/releases/0.16.1-custom.md</string>
+    <string name="tips_support_custom_support_link" translatable="false">https://github.com/chenhaoc</string>
+</resources>
