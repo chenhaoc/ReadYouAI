@@ -42,8 +42,8 @@ android {
         applicationId = "me.ash.reader"
         minSdk = 26
         targetSdk = 34
-        versionCode = 49
-        versionName = "0.16.1-custom.5"
+        versionCode = 50
+        versionName = "0.16.1-custom.6"
 
         buildConfigField(
             "String",
@@ -98,9 +98,10 @@ android {
         all { signingConfig = signingConfigs.getByName("release") }
     }
     applicationVariants.all {
+        val apkBaseName = if (flavorName == "githubAi") "ReadYouAI" else "ReadYou"
         outputs.all {
             (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
-                "ReadYou-${defaultConfig.versionName}-${gitCommitHash}.apk"
+                "$apkBaseName-${defaultConfig.versionName}-${gitCommitHash}.apk"
         }
     }
     kotlinOptions {

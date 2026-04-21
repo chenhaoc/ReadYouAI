@@ -26,8 +26,8 @@ class ArticleTranslationRendererTest {
         val html =
             buildWebViewBilingualContent(
                 content = content,
-                baseUrl = "",
-                translationBlocks = translationBlocks,
+                blocks = ArticleContentBlockParser.parse(content),
+                translatedBlockMap = parseTranslatedBlockMap(translationBlocks),
             )
 
         assertTrue(html.contains("""普通正文</p>"""))
@@ -65,8 +65,8 @@ class ArticleTranslationRendererTest {
         val html =
             buildWebViewBilingualContent(
                 content = content,
-                baseUrl = "",
-                translationBlocks = translationBlocks,
+                blocks = ArticleContentBlockParser.parse(content),
+                translatedBlockMap = parseTranslatedBlockMap(translationBlocks),
             )
 
         assertTrue(
