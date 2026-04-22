@@ -4,12 +4,16 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -19,12 +23,15 @@ import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import androidx.core.app.NotificationCompat
 import androidx.media.app.NotificationCompat.MediaStyle
+import androidx.media.session.MediaButtonReceiver
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.ash.reader.R
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueController
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueuePlaybackState
@@ -48,8 +55,32 @@ class TtsPlaybackService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var stateObserverJob: Job? = null
     private var mediaSession: MediaSessionCompat? = null
+    private var audioFocusRequest: AudioFocusRequest? = null
+    private var hasAudioFocus: Boolean = false
     private val notificationLargeIcon: Bitmap by lazy(LazyThreadSafetyMode.NONE) {
         packageManager.getApplicationIcon(packageName).toNotificationLargeIcon(resources)
+    }
+    private val audioManager: AudioManager by lazy(LazyThreadSafetyMode.NONE) {
+        getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    }
+    private val speechAudioAttributes: AudioAttributes by lazy(LazyThreadSafetyMode.NONE) {
+        AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            .build()
+    }
+    private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_LOSS,
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                hasAudioFocus = false
+                if (ttsQueueController.state.value.isPlaying()) {
+                    ttsQueueController.pause()
+                }
+            }
+            AudioManager.AUDIOFOCUS_GAIN -> hasAudioFocus = true
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -58,9 +89,16 @@ class TtsPlaybackService : Service() {
         super.onCreate()
         createNotificationChannel()
         initMediaSession()
+        updateMediaSession(ttsQueueController.state.value)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == Intent.ACTION_MEDIA_BUTTON) {
+            ensureMediaButtonSessionReady()
+            handleMediaButtonIntent(intent)
+            return START_NOT_STICKY
+        }
+
         when (intent?.action) {
             ACTION_PAUSE -> {
                 ttsQueueController.pause()
@@ -86,6 +124,7 @@ class TtsPlaybackService : Service() {
 
         startForeground(NOTIFICATION_ID, buildNotification(ttsQueueController.state.value))
         updateWakeLock(ttsQueueController.state.value)
+        updateAudioFocus(ttsQueueController.state.value)
         observeState()
         return START_NOT_STICKY
     }
@@ -95,6 +134,7 @@ class TtsPlaybackService : Service() {
         mediaSession?.release()
         mediaSession = null
         releaseWakeLock()
+        abandonAudioFocusIfNeeded()
         super.onDestroy()
     }
 
@@ -112,9 +152,19 @@ class TtsPlaybackService : Service() {
 
     private fun initMediaSession() {
         mediaSession = MediaSessionCompat(this, "ReadYouTts").apply {
+            setFlags(
+                MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS or
+                    MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS,
+            )
+            @Suppress("DEPRECATION")
+            setPlaybackToLocal(AudioManager.STREAM_MUSIC)
+            setMediaButtonReceiver(buildMediaButtonPendingIntent())
+            setSessionActivity(buildContentPendingIntent())
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onPlay() {
-                    ttsQueueController.resumeCurrent()
+                    if (requestAudioFocusIfNeeded()) {
+                        ttsQueueController.resumeCurrent()
+                    }
                 }
 
                 override fun onPause() {
@@ -139,7 +189,7 @@ class TtsPlaybackService : Service() {
                     ttsQueueController.seekCurrent(targetSegment)
                 }
             })
-            isActive = true
+            isActive = ttsQueueController.state.value.hasActiveMediaSession()
         }
     }
 
@@ -149,6 +199,7 @@ class TtsPlaybackService : Service() {
             ttsQueueController.state.collectLatest { state ->
                 updateMediaSession(state)
                 updateWakeLock(state)
+                updateAudioFocus(state)
                 when (state.playbackState) {
                     TtsQueuePlaybackState.Reading,
                     TtsQueuePlaybackState.Preparing,
@@ -172,9 +223,8 @@ class TtsPlaybackService : Service() {
     private fun updateMediaSession(state: TtsQueueState) {
         val session = mediaSession ?: return
         val currentItem = state.currentItem
-        val isPlaying =
-            state.playbackState == TtsQueuePlaybackState.Reading ||
-                state.playbackState == TtsQueuePlaybackState.Preparing
+        val isPlaying = state.isPlaying()
+        session.isActive = state.hasActiveMediaSession()
 
         val metadataBuilder = MediaMetadataCompat.Builder()
             .putString(
@@ -197,18 +247,10 @@ class TtsPlaybackService : Service() {
         )
         session.setMetadata(metadataBuilder.build())
 
-        val playbackState = if (isPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
         val stateBuilder = PlaybackStateCompat.Builder()
-            .setActions(
-                PlaybackStateCompat.ACTION_PLAY or
-                    PlaybackStateCompat.ACTION_PAUSE or
-                    PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
-                    PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
-                    PlaybackStateCompat.ACTION_PLAY_PAUSE or
-                    PlaybackStateCompat.ACTION_SEEK_TO,
-            )
+            .setActions(state.supportedMediaSessionActions())
             .setState(
-                playbackState,
+                state.toMediaSessionPlaybackState(),
                 durationEstimate?.currentMs ?: 0L,
                 if (isPlaying) 1f else 0f,
                 SystemClock.elapsedRealtime(),
@@ -221,18 +263,8 @@ class TtsPlaybackService : Service() {
         val currentItem = state.currentItem
         val title = currentItem?.title ?: getString(R.string.tts_playing)
         val subtitle = currentItem?.feedName.orEmpty()
-        val isPlaying =
-            state.playbackState == TtsQueuePlaybackState.Reading ||
-                state.playbackState == TtsQueuePlaybackState.Preparing
-
-        val contentIntent = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-            },
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
+        val isPlaying = state.isPlaying()
+        val contentIntent = buildContentPendingIntent()
 
         val currentIndex = state.currentIndex
         val totalItems = state.items.size
@@ -300,6 +332,26 @@ class TtsPlaybackService : Service() {
         return builder.build()
     }
 
+    private fun buildContentPendingIntent(): PendingIntent =
+        PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
+    private fun buildMediaButtonPendingIntent(): PendingIntent =
+        PendingIntent.getBroadcast(
+            this,
+            REQUEST_CODE_MEDIA_BUTTON,
+            Intent(Intent.ACTION_MEDIA_BUTTON).apply {
+                component = ComponentName(this@TtsPlaybackService, MediaButtonReceiver::class.java)
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
     private fun buildActionPendingIntent(action: String, requestCode: Int): PendingIntent {
         val intent = Intent(this, TtsPlaybackService::class.java).apply {
             this.action = action
@@ -310,6 +362,82 @@ class TtsPlaybackService : Service() {
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+    }
+
+    private fun ensureMediaButtonSessionReady() {
+        if (stateObserverJob != null) return
+        startForeground(NOTIFICATION_ID, buildNotification(ttsQueueController.state.value))
+        updateWakeLock(ttsQueueController.state.value)
+        updateAudioFocus(ttsQueueController.state.value)
+        observeState()
+    }
+
+    private fun handleMediaButtonIntent(intent: Intent) {
+        val mediaButtonIntent = Intent(intent)
+        if (!ttsQueueController.isRestoreCompleted) {
+            applicationScope.launch {
+                ttsQueueController.awaitRestore()
+                withContext(Dispatchers.Main.immediate) {
+                    val restoredState = ttsQueueController.state.value
+                    updateMediaSession(restoredState)
+                    updateWakeLock(restoredState)
+                    updateAudioFocus(restoredState)
+                    dispatchMediaButtonIntent(mediaButtonIntent)
+                }
+            }
+            return
+        }
+        dispatchMediaButtonIntent(mediaButtonIntent)
+    }
+
+    private fun dispatchMediaButtonIntent(intent: Intent) {
+        updateMediaSession(ttsQueueController.state.value)
+        mediaSession?.let { MediaButtonReceiver.handleIntent(it, intent) }
+    }
+
+    private fun updateAudioFocus(state: TtsQueueState) {
+        if (state.isPlaying()) {
+            if (!requestAudioFocusIfNeeded() && ttsQueueController.state.value.isPlaying()) {
+                ttsQueueController.pause()
+            }
+        } else {
+            abandonAudioFocusIfNeeded()
+        }
+    }
+
+    private fun requestAudioFocusIfNeeded(): Boolean {
+        if (hasAudioFocus) return true
+        val result =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val request =
+                    audioFocusRequest ?: AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                        .setAudioAttributes(speechAudioAttributes)
+                        .setWillPauseWhenDucked(true)
+                        .setOnAudioFocusChangeListener(audioFocusChangeListener)
+                        .build()
+                        .also { audioFocusRequest = it }
+                audioManager.requestAudioFocus(request)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.requestAudioFocus(
+                    audioFocusChangeListener,
+                    AudioManager.STREAM_MUSIC,
+                    AudioManager.AUDIOFOCUS_GAIN,
+                )
+            }
+        hasAudioFocus = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        return hasAudioFocus
+    }
+
+    private fun abandonAudioFocusIfNeeded() {
+        if (!hasAudioFocus) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioFocusRequest?.let(audioManager::abandonAudioFocusRequest)
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus(audioFocusChangeListener)
+        }
+        hasAudioFocus = false
     }
 
     private fun updateWakeLock(state: TtsQueueState) {
@@ -355,6 +483,7 @@ class TtsPlaybackService : Service() {
         private const val REQUEST_CODE_PREVIOUS = 1001
         private const val REQUEST_CODE_TOGGLE = 1002
         private const val REQUEST_CODE_NEXT = 1003
+        private const val REQUEST_CODE_MEDIA_BUTTON = 1004
 
         fun startService(context: Context) {
             val intent = Intent(context, TtsPlaybackService::class.java)
@@ -380,3 +509,25 @@ private fun Drawable.toNotificationLargeIcon(resources: Resources, targetDp: Int
     draw(canvas)
     return bitmap
 }
+
+internal fun TtsQueueState.isPlaying(): Boolean =
+    playbackState == TtsQueuePlaybackState.Reading ||
+        playbackState == TtsQueuePlaybackState.Preparing
+
+internal fun TtsQueueState.hasActiveMediaSession(): Boolean = currentItem != null
+
+internal fun TtsQueueState.supportedMediaSessionActions(): Long =
+    PlaybackStateCompat.ACTION_PLAY or
+        PlaybackStateCompat.ACTION_PAUSE or
+        PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+        PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+        PlaybackStateCompat.ACTION_PLAY_PAUSE or
+        PlaybackStateCompat.ACTION_SEEK_TO
+
+internal fun TtsQueueState.toMediaSessionPlaybackState(): Int =
+    when {
+        currentItem == null -> PlaybackStateCompat.STATE_STOPPED
+        playbackState == TtsQueuePlaybackState.Error -> PlaybackStateCompat.STATE_ERROR
+        isPlaying() -> PlaybackStateCompat.STATE_PLAYING
+        else -> PlaybackStateCompat.STATE_PAUSED
+    }

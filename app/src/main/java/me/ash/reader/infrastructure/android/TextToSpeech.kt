@@ -1,6 +1,7 @@
 package me.ash.reader.infrastructure.android
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.os.Build
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -10,6 +11,7 @@ import android.view.textclassifier.TextLanguage
 import androidx.annotation.RequiresApi
 import androidx.core.content.getSystemService
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,10 +32,16 @@ class TextToSpeechManager @Inject constructor(
     @ApplicationScope
     private val coroutineScope: CoroutineScope,
 ) {
+    private class TtsHandle(
+        val engine: TextToSpeech,
+        val initialization: CompletableDeferred<Boolean>,
+    )
+
     private val _stateFlow = MutableStateFlow<State>(State.Idle)
     val stateFlow = _stateFlow.asStateFlow()
     private val _events = MutableSharedFlow<Event>(extraBufferCapacity = 8)
     val events = _events.asSharedFlow()
+    private val engineLock = Any()
 
     var state
         get() = stateFlow.value
@@ -41,18 +49,40 @@ class TextToSpeechManager @Inject constructor(
             _stateFlow.value = value
         }
 
-    private val tts: TextToSpeech = initTts()
+    private val speechAudioAttributes: AudioAttributes by lazy(LazyThreadSafetyMode.NONE) {
+        AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            .build()
+    }
+    @Volatile
+    private var ttsHandle: TtsHandle = createTtsHandle()
 
-    private fun initTts(): TextToSpeech {
-        return TextToSpeech(context, TextToSpeech.OnInitListener {
+    private fun createTtsHandle(): TtsHandle {
+        val initialization = CompletableDeferred<Boolean>()
+        var engine: TextToSpeech? = null
+        engine = TextToSpeech(context, TextToSpeech.OnInitListener {
             when (it) {
-                TextToSpeech.SUCCESS -> {}
+                TextToSpeech.SUCCESS -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        engine?.setAudioAttributes(speechAudioAttributes)
+                    }
+                    if (!initialization.isCompleted) {
+                        initialization.complete(true)
+                    }
+                }
                 else -> {
-                    state = State.Error
                     Timber.e("TextToSpeech initialization failed $it")
+                    if (!initialization.isCompleted) {
+                        initialization.complete(false)
+                    }
                 }
             }
         })
+        return TtsHandle(
+            engine = checkNotNull(engine),
+            initialization = initialization,
+        )
     }
 
     sealed interface State {
@@ -84,12 +114,14 @@ class TextToSpeechManager @Inject constructor(
         }
     }
 
-    private fun readText(text: String, startSegmentIndex: Int = 0) {
+    private suspend fun readText(text: String, startSegmentIndex: Int = 0) {
         if (state != State.Idle) {
             stop()
         }
 
         state = State.Preparing
+        val handle = ensureTtsReady() ?: return
+        val tts = handle.engine
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             tts.language =
@@ -123,20 +155,63 @@ class TextToSpeechManager @Inject constructor(
             }
 
             override fun onError(utteranceId: String?) {
-                state = State.Error
-                _events.tryEmit(Event.Failed(utteranceId))
+                reportPlaybackFailure(utteranceId, handle)
             }
         })
 
         textSegments.drop(actualStartIndex).forEachIndexed { offset, segment ->
             val actualIndex = actualStartIndex + offset
-            tts.speak(segment, TextToSpeech.QUEUE_ADD, null, (actualIndex + 1).toString())
+            val result = tts.speak(segment, TextToSpeech.QUEUE_ADD, null, (actualIndex + 1).toString())
+            if (result != TextToSpeech.SUCCESS) {
+                Timber.w("TextToSpeech speak failed result=%s index=%s", result, actualIndex)
+                reportPlaybackFailure((actualIndex + 1).toString(), handle)
+                return
+            }
         }
     }
 
     fun stop() {
-        tts.stop()
+        ttsHandle.engine.stop()
         state = State.Idle
+    }
+
+    private suspend fun ensureTtsReady(): TtsHandle? {
+        repeat(2) {
+            val currentHandle = ttsHandle
+            val initialized = currentHandle.initialization.await()
+            if (initialized) {
+                if (ttsHandle === currentHandle) {
+                    return currentHandle
+                }
+            } else {
+                Timber.w("TextToSpeech not ready, rebuilding engine attempt=%s", it + 1)
+                rebuildTtsEngineIfCurrent(currentHandle)
+            }
+        }
+        state = State.Error
+        _events.tryEmit(Event.Failed(null))
+        return null
+    }
+
+    private fun reportPlaybackFailure(
+        utteranceId: String?,
+        handle: TtsHandle,
+    ) {
+        state = State.Error
+        _events.tryEmit(Event.Failed(utteranceId))
+        coroutineScope.launch {
+            rebuildTtsEngineIfCurrent(handle)
+        }
+    }
+
+    private fun rebuildTtsEngineIfCurrent(handle: TtsHandle) {
+        val staleHandle =
+            synchronized(engineLock) {
+                if (ttsHandle !== handle) return
+                ttsHandle = createTtsHandle()
+                handle
+            }
+        staleHandle.engine.shutdown()
     }
 }
 

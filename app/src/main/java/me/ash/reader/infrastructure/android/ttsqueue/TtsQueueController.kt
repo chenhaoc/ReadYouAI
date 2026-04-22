@@ -2,6 +2,7 @@ package me.ash.reader.infrastructure.android.ttsqueue
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -68,6 +69,7 @@ class TtsQueueController(
 ) {
     private val _state = MutableStateFlow(TtsQueueState())
     val state = _state.asStateFlow()
+    private val restoreCompleted = CompletableDeferred<Unit>()
 
     private var sleepTimerJob: Job? = null
 
@@ -78,8 +80,21 @@ class TtsQueueController(
             }
         }
         coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
-            restore()
+            try {
+                restore()
+            } finally {
+                if (!restoreCompleted.isCompleted) {
+                    restoreCompleted.complete(Unit)
+                }
+            }
         }
+    }
+
+    val isRestoreCompleted: Boolean
+        get() = restoreCompleted.isCompleted
+
+    suspend fun awaitRestore() {
+        restoreCompleted.await()
     }
 
     fun enqueue(item: TtsQueueItem) {

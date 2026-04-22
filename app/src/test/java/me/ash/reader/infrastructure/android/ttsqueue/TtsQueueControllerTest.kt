@@ -165,6 +165,40 @@ class TtsQueueControllerTest {
     }
 
     @Test
+    fun awaitRestore_completes_after_snapshot_state_is_loaded() = runTest {
+        val snapshotStore =
+            FakeSnapshotStore(
+                TtsQueueSnapshot(
+                    articleIds = listOf("a"),
+                    currentArticleId = "a",
+                    wasPlaying = false,
+                )
+            )
+        val repository =
+            FakeArticleRepository(
+                mapOf(
+                    "a" to playableArticle("a", segmentCharCounts = listOf(10)),
+                )
+            )
+        val playbackClient = FakePlaybackClient()
+        val controller =
+            TtsQueueController(
+                snapshotStore = snapshotStore,
+                articleRepository = repository,
+                playbackClient = playbackClient,
+                serviceLauncher = NoOpServiceLauncher,
+                coroutineScope = backgroundScope,
+            )
+
+        controller.awaitRestore()
+        advanceUntilIdle()
+
+        assertTrue(controller.isRestoreCompleted)
+        assertEquals("a", controller.state.value.currentArticleId)
+        assertEquals(TtsQueuePlaybackState.Idle, controller.state.value.playbackState)
+    }
+
+    @Test
     fun progress_event_is_persisted_and_resume_continues_from_last_segment() = runTest {
         val snapshotStore = FakeSnapshotStore(null)
         val repository =
