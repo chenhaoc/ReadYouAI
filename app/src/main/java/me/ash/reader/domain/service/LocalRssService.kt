@@ -41,6 +41,7 @@ constructor(
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
     private val workManager: WorkManager,
     private val accountService: AccountService,
+    private val pendingAiSummaryEnqueuer: PendingAiSummaryEnqueuer,
     private val syncLogger: SyncLogger,
 ) :
     AbstractRssRepository(
@@ -96,6 +97,7 @@ constructor(
                                     articles = fetchedArticles,
                                     feed = currentFeed,
                                 )
+                            pendingAiSummaryEnqueuer.enqueue(accountId, newArticles)
                             if (currentFeed.isNotification && newArticles.isNotEmpty()) {
                                 notificationHelper.notify(
                                     fetchedFeed.copy(articles = newArticles, feed = currentFeed)

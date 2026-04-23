@@ -77,6 +77,7 @@ constructor(
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
     private val workManager: WorkManager,
     private val accountService: AccountService,
+    private val pendingAiSummaryEnqueuer: PendingAiSummaryEnqueuer,
     private val syncLogger: SyncLogger,
 ) :
     AbstractRssRepository(
@@ -482,6 +483,7 @@ constructor(
                             for (deferred in deferredList) {
                                 deferred.onAwait {
                                     articleDao.insertList(it)
+                                    pendingAiSummaryEnqueuer.enqueue(accountId, it)
                                     articlesToNotify.addAll(
                                         it.fastFilter {
                                             it.isUnread && notificationFeedIds.contains(it.feedId)

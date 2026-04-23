@@ -149,7 +149,7 @@ class SettingsProvider @Inject constructor(
             LocalAiSummarizationPrompt provides settings.aiSummarizationPrompt,
             LocalAiTranslationPrompt provides settings.aiTranslationPrompt,
             LocalAiChatPrompt provides settings.aiChatPrompt,
-            LocalAiAutoSummary provides settings.aiAutoSummary,
+            LocalAiBackgroundSummary provides settings.aiBackgroundSummary,
         ) {
             content()
         }

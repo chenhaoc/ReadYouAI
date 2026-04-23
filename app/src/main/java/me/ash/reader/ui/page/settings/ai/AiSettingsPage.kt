@@ -33,7 +33,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import me.ash.reader.R
 import me.ash.reader.infrastructure.preference.LocalAiBaseUrl
 import me.ash.reader.infrastructure.preference.LocalAiApiKey
-import me.ash.reader.infrastructure.preference.LocalAiAutoSummary
+import me.ash.reader.infrastructure.preference.LocalAiBackgroundSummary
 import me.ash.reader.infrastructure.preference.LocalAiModel
 import me.ash.reader.infrastructure.preference.LocalAiChatPrompt
 import me.ash.reader.infrastructure.preference.LocalAiSummarizationPrompt
@@ -64,7 +64,7 @@ fun AiSettingsPage(
     val aiSummarizationPrompt = LocalAiSummarizationPrompt.current
     val aiTranslationPrompt = LocalAiTranslationPrompt.current
     val aiChatPrompt = LocalAiChatPrompt.current
-    val aiAutoSummary = LocalAiAutoSummary.current
+    val aiBackgroundSummary = LocalAiBackgroundSummary.current
     
     val scope = rememberCoroutineScope()
     
@@ -227,14 +227,14 @@ fun AiSettingsPage(
                         }
                     ) {}
                     SettingItem(
-                        title = stringResource(R.string.ai_auto_summary),
-                        desc = stringResource(R.string.ai_auto_summary_desc),
+                        title = stringResource(R.string.ai_background_summary),
+                        desc = stringResource(R.string.ai_background_summary_desc),
                         onClick = {
-                            aiAutoSummary.toggle(context, scope)
+                            aiBackgroundSummary.toggle(context, scope)
                         }
                     ) {
-                        RYSwitch(activated = aiAutoSummary.value) {
-                            aiAutoSummary.toggle(context, scope)
+                        RYSwitch(activated = aiBackgroundSummary.value) {
+                            aiBackgroundSummary.toggle(context, scope)
                         }
                     }
                     SettingItem(

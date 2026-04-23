@@ -93,5 +93,5 @@ data class Settings(
     val aiSummarizationPrompt: AiSummarizationPromptPreference = AiSummarizationPromptPreference.default,
     val aiTranslationPrompt: AiTranslationPromptPreference = AiTranslationPromptPreference.default,
     val aiChatPrompt: AiChatPromptPreference = AiChatPromptPreference.default,
-    val aiAutoSummary: AiAutoSummaryPreference = AiAutoSummaryPreference.default,
+    val aiBackgroundSummary: AiBackgroundSummaryPreference = AiBackgroundSummaryPreference.default,
 )

@@ -415,6 +415,8 @@
     <string name="ai_chat_prompt_default" translatable="false">请基于提供的内容，用简体中文直接、清楚地回答问题；优先回答当前问题本身，不确定时请明确说明。</string>
     <string name="ai_auto_summary">自动 AI 摘要</string>
     <string name="ai_auto_summary_desc">打开尚无摘要的文章时自动生成摘要。该设置会作为新订阅源的默认值。</string>
+    <string name="ai_background_summary">后台预生成摘要</string>
+    <string name="ai_background_summary_desc">为自动摘要的新文章预生成摘要</string>
     <string name="api_configuration">API 配置</string>
     <string name="summarization_settings">摘要与提示词</string>
     <string name="backup_restore">备份与恢复</string>

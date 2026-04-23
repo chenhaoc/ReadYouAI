@@ -106,6 +106,6 @@ fun Preferences.toSettings(): Settings {
         aiSummarizationPrompt = AiSummarizationPromptPreference.fromPreferences(this),
         aiTranslationPrompt = AiTranslationPromptPreference.fromPreferences(this),
         aiChatPrompt = AiChatPromptPreference.fromPreferences(this),
-        aiAutoSummary = AiAutoSummaryPreference.fromPreferences(this),
+        aiBackgroundSummary = AiBackgroundSummaryPreference.fromPreferences(this),
     )
 }

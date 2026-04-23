@@ -52,6 +52,7 @@ constructor(
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
     workManager: WorkManager,
     private val accountService: AccountService,
+    private val pendingAiSummaryEnqueuer: PendingAiSummaryEnqueuer,
 ) :
     AbstractRssRepository(
         articleDao,
@@ -264,6 +265,7 @@ constructor(
 
             if (allArticles.isNotEmpty()) {
                 articleDao.insert(*allArticles.toTypedArray())
+                pendingAiSummaryEnqueuer.enqueue(accountId, allArticles)
                 val notificationFeeds =
                     feedDao.queryNotificationEnabled(accountId).associateBy { it.id }
                 val notificationFeedIds = notificationFeeds.keys

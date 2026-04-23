@@ -209,7 +209,7 @@ constructor(
                                     feedLink = feedLink,
                                     groups = groups,
                                     selectedGroupId = firstGroupId,
-                                    autoSummary = settingsProvider.settings.aiAutoSummary.value,
+                                    autoSummary = false,
                                 )
                         }
                         .onFailure {

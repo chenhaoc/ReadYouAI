@@ -16,41 +16,63 @@ constructor(
     @Assisted context: Context,
     @Assisted workerParams: WorkerParameters,
     private val rssService: RssService,
+    private val accountService: AccountService,
     private val readerCacheHelper: ReaderCacheHelper,
     private val workManager: WorkManager,
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
         val data = inputData
-        val accountId = data.getInt("accountId", -1)
+        val accountId = data.getInt(INPUT_ACCOUNT_ID, -1)
         require(accountId != -1)
         val feedId = data.getString("feedId")
         val groupId = data.getString("groupId")
+        val account = accountService.getAccountById(accountId) ?: return Result.failure()
+        val rssRepository = rssService.get(account.type.id)
 
-        return rssService
-            .get()
-            .sync(accountId = accountId, feedId = feedId, groupId = groupId)
-            .also {
-                rssService.get().clearKeepArchivedArticles().forEach {
-                    readerCacheHelper.deleteCacheFor(articleId = it.id)
-                }
-                workManager
-                    .beginUniqueWork(
-                        uniqueWorkName = POST_SYNC_WORK_NAME,
-                        existingWorkPolicy = ExistingWorkPolicy.KEEP,
-                        OneTimeWorkRequestBuilder<ReaderWorker>()
-                            .addTag(READER_TAG)
-                            .addTag(ONETIME_WORK_TAG)
-                            .setBackoffCriteria(
-                                backoffPolicy = BackoffPolicy.EXPONENTIAL,
-                                backoffDelay = 30,
-                                timeUnit = TimeUnit.SECONDS,
-                            )
-                            .build(),
-                    )
-                    .then(OneTimeWorkRequestBuilder<WidgetUpdateWorker>().build())
-                    .enqueue()
+        val result = rssRepository.sync(accountId = accountId, feedId = feedId, groupId = groupId)
+
+        if (result is Result.Success) {
+            rssRepository.clearKeepArchivedArticles().forEach {
+                readerCacheHelper.deleteCacheFor(articleId = it.id, accountId = it.accountId)
             }
+            val workerInputData =
+                workDataOf(
+                    INPUT_ACCOUNT_ID to accountId,
+                    "feedId" to feedId,
+                    "groupId" to groupId,
+                )
+            workManager
+                .beginUniqueWork(
+                    uniqueWorkName = POST_SYNC_WORK_NAME,
+                    existingWorkPolicy = ExistingWorkPolicy.KEEP,
+                    OneTimeWorkRequestBuilder<ReaderWorker>()
+                        .addTag(READER_TAG)
+                        .addTag(ONETIME_WORK_TAG)
+                        .setInputData(workerInputData)
+                        .setBackoffCriteria(
+                            backoffPolicy = BackoffPolicy.EXPONENTIAL,
+                            backoffDelay = 30,
+                            timeUnit = TimeUnit.SECONDS,
+                        )
+                        .build(),
+                )
+                .then(
+                    OneTimeWorkRequestBuilder<AiSummaryPrecomputeWorker>()
+                        .addTag(ONETIME_WORK_TAG)
+                        .setInputData(workerInputData)
+                        .setBackoffCriteria(
+                            backoffPolicy = BackoffPolicy.EXPONENTIAL,
+                            backoffDelay = 30,
+                            timeUnit = TimeUnit.SECONDS,
+                        )
+                        .build()
+                )
+                .then(OneTimeWorkRequestBuilder<WidgetUpdateWorker>().build())
+                .enqueue()
+        }
+
+        return result
     }
 
     companion object {
@@ -58,6 +80,7 @@ constructor(
         @Deprecated("do not use")
         private const val READER_WORK_NAME_PERIODIC = "FETCH_FULL_CONTENT_PERIODIC"
         private const val POST_SYNC_WORK_NAME = "POST_SYNC_WORK"
+        const val INPUT_ACCOUNT_ID = "accountId"
 
         private const val SYNC_ONETIME_NAME = "SYNC_ONETIME"
 
@@ -123,7 +146,7 @@ constructor(
                         backoffDelay = 30,
                         timeUnit = TimeUnit.SECONDS,
                     )
-                    .setInputData(workDataOf("accountId" to account.id))
+                    .setInputData(workDataOf(INPUT_ACCOUNT_ID to account.id))
                     .addTag(SYNC_TAG)
                     .addTag(PERIODIC_WORK_TAG)
                     .setInitialDelay(syncInterval.value, TimeUnit.MINUTES)

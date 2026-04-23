@@ -7,6 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import me.ash.reader.domain.model.account.*
 import me.ash.reader.domain.model.ai.AiChatMessage
 import me.ash.reader.domain.model.ai.AiChatSession
+import me.ash.reader.domain.model.ai.PendingAiSummaryTask
 import me.ash.reader.domain.model.account.security.DESUtils
 import me.ash.reader.domain.model.article.ArchivedArticle
 import me.ash.reader.domain.model.article.Article
@@ -17,6 +18,7 @@ import me.ash.reader.domain.repository.AiChatDao
 import me.ash.reader.domain.repository.ArticleDao
 import me.ash.reader.domain.repository.FeedDao
 import me.ash.reader.domain.repository.GroupDao
+import me.ash.reader.domain.repository.PendingAiSummaryTaskDao
 import me.ash.reader.infrastructure.preference.*
 import me.ash.reader.ui.ext.toInt
 import java.util.*
@@ -30,8 +32,9 @@ import java.util.*
         ArchivedArticle::class,
         AiChatSession::class,
         AiChatMessage::class,
+        PendingAiSummaryTask::class,
     ],
-    version = 11,
+    version = 12,
     autoMigrations = [
         AutoMigration(from = 5, to = 6),
         AutoMigration(from = 5, to = 7),
@@ -55,6 +58,7 @@ abstract class AndroidDatabase : RoomDatabase() {
     abstract fun articleDao(): ArticleDao
     abstract fun groupDao(): GroupDao
     abstract fun aiChatDao(): AiChatDao
+    abstract fun pendingAiSummaryTaskDao(): PendingAiSummaryTaskDao
 
     companion object {
 
@@ -96,6 +100,7 @@ val allMigrations = arrayOf(
     MIGRATION_8_9,
     MIGRATION_9_10,
     MIGRATION_10_11,
+    MIGRATION_11_12,
 )
 
 @Suppress("ClassName")
@@ -258,6 +263,34 @@ object MIGRATION_10_11 : Migration(10, 11) {
         database.execSQL(
             """
             CREATE INDEX IF NOT EXISTS `index_ai_chat_message_articleId` ON `ai_chat_message` (`articleId`)
+            """.trimIndent()
+        )
+    }
+}
+
+@Suppress("ClassName")
+object MIGRATION_11_12 : Migration(11, 12) {
+
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `pending_ai_summary_task` (
+                `articleId` TEXT NOT NULL,
+                `accountId` INTEGER NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                PRIMARY KEY(`articleId`),
+                FOREIGN KEY(`articleId`) REFERENCES `article`(`id`) ON UPDATE CASCADE ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        database.execSQL(
+            """
+            CREATE INDEX IF NOT EXISTS `index_pending_ai_summary_task_accountId` ON `pending_ai_summary_task` (`accountId`)
+            """.trimIndent()
+        )
+        database.execSQL(
+            """
+            CREATE INDEX IF NOT EXISTS `index_pending_ai_summary_task_createdAt` ON `pending_ai_summary_task` (`createdAt`)
             """.trimIndent()
         )
     }

@@ -214,6 +214,7 @@ sealed interface PreferencesKey {
         const val aiTranslationPrompt = "aiTranslationPrompt"
         const val aiChatPrompt = "aiChatPrompt"
         const val aiAutoSummary = "aiAutoSummary"
+        const val aiBackgroundSummary = "aiBackgroundSummary"
 
         private val keyList =
             listOf(
@@ -300,6 +301,7 @@ sealed interface PreferencesKey {
                 StringKey(aiSummarizationPrompt),
                 StringKey(aiTranslationPrompt),
                 BooleanKey(aiAutoSummary),
+                BooleanKey(aiBackgroundSummary),
             )
 
         val keys = keyList.associateBy { it.name }
@@ -400,6 +402,7 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
         const val aiTranslationPrompt = "aiTranslationPrompt"
         const val aiChatPrompt = "aiChatPrompt"
         const val aiAutoSummary = "aiAutoSummary"
+        const val aiBackgroundSummary = "aiBackgroundSummary"
 
         val keys: MutableMap<String, DataStoreKey<*>> =
             mutableMapOf(
@@ -574,6 +577,11 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
                 aiChatPrompt to DataStoreKey(stringPreferencesKey(aiChatPrompt), String::class.java),
                 aiAutoSummary to
                     DataStoreKey(booleanPreferencesKey(aiAutoSummary), Boolean::class.java),
+                aiBackgroundSummary to
+                    DataStoreKey(
+                        booleanPreferencesKey(aiBackgroundSummary),
+                        Boolean::class.java,
+                    ),
             )
     }
 }
@@ -732,6 +740,6 @@ private fun buildDefaultBackupPreferenceValues(): Map<String, Any> {
         PreferencesKey.aiModel to settings.aiModel.value,
         PreferencesKey.aiSummarizationPrompt to settings.aiSummarizationPrompt.value,
         PreferencesKey.aiTranslationPrompt to settings.aiTranslationPrompt.value,
-        PreferencesKey.aiAutoSummary to settings.aiAutoSummary.value,
+        PreferencesKey.aiBackgroundSummary to settings.aiBackgroundSummary.value,
     )
 }

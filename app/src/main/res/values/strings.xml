@@ -455,6 +455,8 @@
     <string name="ai_chat_prompt_default" translatable="false">请基于提供的内容，用简体中文直接、清楚地回答问题；优先回答当前问题本身，不确定时请明确说明。</string>
     <string name="ai_auto_summary">Auto AI Summary</string>
     <string name="ai_auto_summary_desc">Automatically summarize articles without an existing summary when opened. This setting is used as the default for new subscriptions.</string>
+    <string name="ai_background_summary">Background Summary Precompute</string>
+    <string name="ai_background_summary_desc">Precompute summaries for new Auto AI Summary articles</string>
     <string name="api_configuration">API Configuration</string>
     <string name="summarization_settings">Summary &amp; Prompts</string>
     <string name="backup_restore">Backup &amp; Restore</string>

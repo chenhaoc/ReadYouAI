@@ -24,8 +24,10 @@ constructor(
     private val cacheDir = context.cacheDir.resolve("readability")
     private val md = MessageDigest.getInstance("SHA-256")
 
+    private fun cacheDirFor(accountId: Int): File = cacheDir.resolve(accountId.toString())
+
     private val currentCacheDir: File
-        get() = cacheDir.resolve(accountService.getCurrentAccountId().toString())
+        get() = cacheDirFor(accountService.getCurrentAccountId())
 
     @OptIn(ExperimentalStdlibApi::class)
     private fun getFileNameFor(articleId: String): String {
@@ -34,10 +36,14 @@ constructor(
         return digest.toHexString() + ".html"
     }
 
-    private suspend fun writeContentToCache(content: String, articleId: String): Boolean {
+    private suspend fun writeContentToCache(
+        content: String,
+        articleId: String,
+        accountId: Int,
+    ): Boolean {
         return withContext(ioDispatcher) {
             runCatching {
-                    currentCacheDir.run {
+                    cacheDirFor(accountId).run {
                         mkdirs()
                         resolve(getFileNameFor(articleId)).run {
                             createNewFile()
@@ -50,22 +56,28 @@ constructor(
     }
 
     @CheckResult
-    suspend fun readFullContent(articleId: String): Result<String> {
+    suspend fun readFullContent(
+        articleId: String,
+        accountId: Int = accountService.getCurrentAccountId(),
+    ): Result<String> {
         return withContext(ioDispatcher) {
             runCatching {
-                val file = currentCacheDir.resolve(getFileNameFor(articleId))
+                val file = cacheDirFor(accountId).resolve(getFileNameFor(articleId))
                 if (!file.exists()) return@withContext Result.failure(FileNotFoundException())
                 file.readText()
             }
         }
     }
 
-    private suspend fun fetchFullContentInternal(article: Article): Result<String> {
+    private suspend fun fetchFullContentInternal(
+        article: Article,
+        accountId: Int = article.accountId,
+    ): Result<String> {
         return withContext(ioDispatcher) {
             runCatching {
                 val fullContent = rssHelper.parseFullContent(article.link, article.title)
                 if (fullContent.isNotBlank()) {
-                    writeContentToCache(fullContent, article.id)
+                    writeContentToCache(fullContent, article.id, accountId)
                     fullContent
                 } else return@withContext Result.failure(Exception())
             }
@@ -73,22 +85,28 @@ constructor(
     }
 
     @CheckResult
-    suspend fun readOrFetchFullContent(article: Article): Result<String> {
+    suspend fun readOrFetchFullContent(
+        article: Article,
+        accountId: Int = article.accountId,
+    ): Result<String> {
         return withContext(ioDispatcher) {
             runCatching {
-                val result = readFullContent(article.id)
+                val result = readFullContent(article.id, accountId)
                 if (result.isSuccess) return@withContext result
-                return@withContext fetchFullContentInternal(article)
+                return@withContext fetchFullContentInternal(article, accountId)
             }
         }
     }
 
-    suspend fun checkOrFetchFullContent(article: Article): Boolean {
+    suspend fun checkOrFetchFullContent(
+        article: Article,
+        accountId: Int = article.accountId,
+    ): Boolean {
         return withContext(ioDispatcher) {
-            val file = currentCacheDir.resolve(getFileNameFor(article.id))
+            val file = cacheDirFor(accountId).resolve(getFileNameFor(article.id))
             try {
                 if (!file.exists()) {
-                    return@withContext fetchFullContentInternal(article)
+                    return@withContext fetchFullContentInternal(article, accountId)
                         .fold(onFailure = { false }, onSuccess = { true })
                 } else {
                     return@withContext true
@@ -99,10 +117,13 @@ constructor(
         }
     }
 
-    suspend fun deleteCacheFor(articleId: String): Boolean {
+    suspend fun deleteCacheFor(
+        articleId: String,
+        accountId: Int = accountService.getCurrentAccountId(),
+    ): Boolean {
         return withContext(ioDispatcher) {
             runCatching {
-                    val file = currentCacheDir.resolve(getFileNameFor(articleId))
+                    val file = cacheDirFor(accountId).resolve(getFileNameFor(articleId))
                     if (!file.exists()) return@runCatching false
                     return@runCatching file.delete()
                 }
