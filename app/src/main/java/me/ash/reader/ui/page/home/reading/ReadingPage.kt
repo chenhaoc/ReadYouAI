@@ -38,6 +38,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -85,7 +86,7 @@ private sealed interface SummaryReturnTarget {
 }
 
 private class SummaryNavigationController {
-    var jumpToSummary: (() -> Unit)? = null
+    var jumpToSummary: (suspend () -> Unit)? = null
     var restoreReturnTarget: ((SummaryReturnTarget) -> Unit)? = null
 }
 
@@ -286,8 +287,14 @@ fun ReadingPage(
                         },
                         onAiSummaryReadyClick = {
                             summaryReturnTarget = latestReadingPosition
-                            viewModel.showAiSummaryFromPrompt()
-                            summaryNavigationController.jumpToSummary?.invoke()
+                            coroutineScope.launch {
+                                summaryNavigationController.jumpToSummary?.invoke()
+                                // Avoid expanding the summary card in the same frame as the
+                                // programmatic scroll; LazyColumn can otherwise reuse stale item
+                                // heights and briefly overlap the article body.
+                                withFrameNanos { }
+                                viewModel.showAiSummaryFromPrompt()
+                            }
                         },
                         onAiSummaryReturnClick = {
                             summaryReturnTarget?.let { target ->
@@ -394,21 +401,19 @@ fun ReadingPage(
                                 val scope = rememberCoroutineScope()
 
                                 summaryNavigationController.jumpToSummary = {
-                                    scope.launch {
-                                        when (readingRenderer) {
-                                            ReadingRendererPreference.WebView -> {
-                                                if (scrollState.value != 0) {
-                                                    scrollState.animateScrollTo(0)
-                                                }
+                                    when (readingRenderer) {
+                                        ReadingRendererPreference.WebView -> {
+                                            if (scrollState.value != 0) {
+                                                scrollState.animateScrollTo(0)
                                             }
+                                        }
 
-                                            ReadingRendererPreference.NativeComponent -> {
-                                                if (
-                                                    listState.firstVisibleItemIndex != 0 ||
-                                                        listState.firstVisibleItemScrollOffset != 0
-                                                ) {
-                                                    listState.animateScrollToItem(0)
-                                                }
+                                        ReadingRendererPreference.NativeComponent -> {
+                                            if (
+                                                listState.firstVisibleItemIndex != 0 ||
+                                                    listState.firstVisibleItemScrollOffset != 0
+                                            ) {
+                                                listState.animateScrollToItem(0)
                                             }
                                         }
                                     }

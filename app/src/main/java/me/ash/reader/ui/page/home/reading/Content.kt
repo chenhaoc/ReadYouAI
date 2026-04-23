@@ -164,8 +164,10 @@ fun Content(
                             headline()
                         }
 
-                        item(key = AI_SUMMARY_NATIVE_ITEM_KEY) {
-                            summarySection()
+                        item(key = AI_SUMMARY_NATIVE_ITEM_KEY) { summarySection() }
+
+                        item(key = "reading_ai_summary_spacing") {
+                            Spacer(modifier = Modifier.height(16.dp))
                         }
 
                         if (translatedBlockMap.isEmpty()) {
