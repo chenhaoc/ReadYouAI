@@ -3,6 +3,7 @@ package me.ash.reader.infrastructure.preference
 import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import kotlinx.coroutines.CoroutineScope
+import me.ash.reader.ui.ext.DataStoreKey
 import me.ash.reader.ui.ext.PreferencesKey
 
 sealed class Preference {
@@ -95,6 +96,12 @@ fun Preferences.toSettings(): Settings {
         openLink = OpenLinkPreference.fromPreferences(this),
         openLinkSpecificBrowser = OpenLinkSpecificBrowserPreference.fromPreferences(this),
         sharedContent = SharedContentPreference.fromPreferences(this),
+        commuteBriefGroupIds =
+            this[DataStoreKey.keys[DataStoreKey.commuteBriefGroupIds]?.key as Preferences.Key<String>].orEmpty(),
+        commuteBriefFeedIds =
+            this[DataStoreKey.keys[DataStoreKey.commuteBriefFeedIds]?.key as Preferences.Key<String>].orEmpty(),
+        commuteBriefDuration = CommuteBriefDurationPreference.fromPreferences(this),
+        commuteBriefMarkReadOnComplete = CommuteBriefMarkReadOnCompletePreference.fromPreferences(this),
 
         // Languages
         languages = LanguagesPreference.fromPreferences(this),

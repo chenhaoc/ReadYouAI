@@ -1,19 +1,48 @@
 package me.ash.reader.ui.page.home.reading.queue
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueController
-import me.ash.reader.infrastructure.android.ttsqueue.TtsQueuePlaybackState
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import me.ash.reader.infrastructure.android.ttsqueue.CommuteBriefBuildResult
+import me.ash.reader.infrastructure.android.ttsqueue.CommuteBriefQueueBuilder
+import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueController
+import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueMode
+import me.ash.reader.infrastructure.android.ttsqueue.TtsQueuePlaybackState
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueState
 import me.ash.reader.infrastructure.android.ttsqueue.TtsSleepTimerOption
 
 @HiltViewModel
 class TtsQueueOverlayViewModel @Inject constructor(
     private val ttsQueueController: TtsQueueController,
+    private val commuteBriefQueueBuilder: CommuteBriefQueueBuilder,
 ) : ViewModel() {
     val queueState: StateFlow<TtsQueueState> = ttsQueueController.state
+    private val _commuteBuildResult = MutableStateFlow<CommuteBriefBuildResult?>(null)
+    val commuteBuildResult = _commuteBuildResult.asStateFlow()
+
+    fun switchMode(mode: TtsQueueMode) {
+        ttsQueueController.switchMode(mode)
+    }
+
+    fun generateCommuteBrief() {
+        viewModelScope.launch {
+            val result = commuteBriefQueueBuilder.build()
+            _commuteBuildResult.value = result
+            if (result.hasSources) {
+                ttsQueueController.replaceCommuteQueue(result.items, result.meta)
+                ttsQueueController.switchMode(TtsQueueMode.Commute)
+            }
+        }
+    }
+
+    fun clearCommuteBuildResult() {
+        _commuteBuildResult.value = null
+    }
 
     fun stopQueuePlayback() {
         ttsQueueController.pause()
@@ -69,7 +98,7 @@ class TtsQueueOverlayViewModel @Inject constructor(
             if (queueState.value.currentArticleId == articleId) {
                 ttsQueueController.resumeCurrent()
             } else {
-                ttsQueueController.playNow(it)
+                ttsQueueController.playNow(it, queueState.value.mode)
             }
         }
     }

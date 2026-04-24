@@ -48,6 +48,7 @@ import me.ash.reader.infrastructure.preference.LocalReadingTtsMiniPlayer
 import me.ash.reader.ui.ext.PreferencesKey
 import me.ash.reader.ui.ext.collectAsStateValue
 import me.ash.reader.ui.ext.dataStore
+import me.ash.reader.ui.ext.showToast
 import me.ash.reader.ui.motion.materialSharedAxisXIn
 import me.ash.reader.ui.motion.materialSharedAxisXOut
 import me.ash.reader.ui.page.adaptive.ArticleData
@@ -102,6 +103,7 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
     val context = LocalContext.current
     val settings = LocalSettings.current
     val queueState = overlayViewModel.queueState.collectAsStateValue()
+    val commuteBuildResult = overlayViewModel.commuteBuildResult.collectAsStateValue()
     val showFloatingButton = LocalReadingTtsMiniPlayer.current
     val scope = rememberCoroutineScope()
     val queueSheetState =
@@ -113,6 +115,27 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
         isQueueSheetMounted ||
             queueSheetState.currentValue != SheetValue.Hidden ||
             queueSheetState.targetValue != SheetValue.Hidden
+
+    LaunchedEffect(commuteBuildResult) {
+        val result = commuteBuildResult ?: return@LaunchedEffect
+        val message =
+            when {
+                !result.hasSources -> context.getString(me.ash.reader.R.string.commute_brief_no_source)
+                result.items.isEmpty() -> context.getString(me.ash.reader.R.string.commute_brief_no_items)
+                result.estimatedDurationMinutes < settings.commuteBriefDuration.minutes ->
+                    context.getString(
+                        me.ash.reader.R.string.commute_brief_generated_short,
+                        result.estimatedDurationMinutes,
+                    )
+                else ->
+                    context.getString(
+                        me.ash.reader.R.string.commute_brief_generated,
+                        result.estimatedDurationMinutes,
+                    )
+            }
+        context.showToast(message)
+        overlayViewModel.clearCommuteBuildResult()
+    }
     val dockSide =
         runCatching {
             TtsFloatingButtonDockSide.valueOf(settings.readingTtsMiniPlayerDockSide)
@@ -373,8 +396,7 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
         TtsFloatingPlayerButton(
             visible =
                 showFloatingButton.value &&
-                    currentRoute != Route.Startup &&
-                    queueState.items.isNotEmpty(),
+                    currentRoute != Route.Startup,
             dockSide = dockSide,
             verticalRatio = settings.readingTtsMiniPlayerVerticalRatio,
             bottomPadding = floatingButtonBottomPadding,
@@ -405,6 +427,8 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
                 ) {
                     TtsQueueSheet(
                         state = queueState,
+                        onSwitchMode = overlayViewModel::switchMode,
+                        onGenerateCommuteBrief = overlayViewModel::generateCommuteBrief,
                         onPlayItem = overlayViewModel::playPlaylistItem,
                         onPauseCurrent = overlayViewModel::stopQueuePlayback,
                         onSeekCurrent = overlayViewModel::seekCurrentPlayback,

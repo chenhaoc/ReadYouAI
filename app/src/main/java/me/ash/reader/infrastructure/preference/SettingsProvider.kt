@@ -138,6 +138,8 @@ class SettingsProvider @Inject constructor(
             LocalOpenLink provides settings.openLink,
             LocalOpenLinkSpecificBrowser provides settings.openLinkSpecificBrowser,
             LocalSharedContent provides settings.sharedContent,
+            LocalCommuteBriefDuration provides settings.commuteBriefDuration,
+            LocalCommuteBriefMarkReadOnComplete provides settings.commuteBriefMarkReadOnComplete,
 
             // Languages
             LocalLanguages provides settings.languages,

@@ -202,6 +202,10 @@ sealed interface PreferencesKey {
         const val openLinkAppSpecificBrowser = "openLinkAppSpecificBrowser"
         const val sharedContent = "sharedContent"
         const val ttsQueueSnapshot = "ttsQueueSnapshot"
+        const val commuteBriefGroupIds = "commuteBriefGroupIds"
+        const val commuteBriefFeedIds = "commuteBriefFeedIds"
+        const val commuteBriefDurationMinutes = "commuteBriefDurationMinutes"
+        const val commuteBriefMarkReadOnComplete = "commuteBriefMarkReadOnComplete"
 
         // Languages
         const val languages = "languages"
@@ -292,6 +296,10 @@ sealed interface PreferencesKey {
                 StringKey(openLinkAppSpecificBrowser),
                 IntKey(sharedContent),
                 StringKey(ttsQueueSnapshot),
+                StringKey(commuteBriefGroupIds),
+                StringKey(commuteBriefFeedIds),
+                IntKey(commuteBriefDurationMinutes),
+                BooleanKey(commuteBriefMarkReadOnComplete),
                 // Languages
                 IntKey(languages),
                 // AI
@@ -390,6 +398,10 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
         const val openLinkAppSpecificBrowser = "openLinkAppSpecificBrowser"
         const val sharedContent = "sharedContent"
         const val ttsQueueSnapshot = "ttsQueueSnapshot"
+        const val commuteBriefGroupIds = "commuteBriefGroupIds"
+        const val commuteBriefFeedIds = "commuteBriefFeedIds"
+        const val commuteBriefDurationMinutes = "commuteBriefDurationMinutes"
+        const val commuteBriefMarkReadOnComplete = "commuteBriefMarkReadOnComplete"
 
         // Languages
         const val languages = "languages"
@@ -566,6 +578,14 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
                 sharedContent to DataStoreKey(intPreferencesKey(sharedContent), Int::class.java),
                 ttsQueueSnapshot to
                     DataStoreKey(stringPreferencesKey(ttsQueueSnapshot), String::class.java),
+                commuteBriefGroupIds to
+                    DataStoreKey(stringPreferencesKey(commuteBriefGroupIds), String::class.java),
+                commuteBriefFeedIds to
+                    DataStoreKey(stringPreferencesKey(commuteBriefFeedIds), String::class.java),
+                commuteBriefDurationMinutes to
+                    DataStoreKey(intPreferencesKey(commuteBriefDurationMinutes), Int::class.java),
+                commuteBriefMarkReadOnComplete to
+                    DataStoreKey(booleanPreferencesKey(commuteBriefMarkReadOnComplete), Boolean::class.java),
                 // Languages
                 languages to DataStoreKey(intPreferencesKey(languages), Int::class.java),
                 // AI
@@ -735,6 +755,10 @@ private fun buildDefaultBackupPreferenceValues(): Map<String, Any> {
             settings.openLinkSpecificBrowser.packageName.orEmpty(),
         PreferencesKey.sharedContent to settings.sharedContent.value,
         PreferencesKey.ttsQueueSnapshot to "",
+        PreferencesKey.commuteBriefGroupIds to settings.commuteBriefGroupIds,
+        PreferencesKey.commuteBriefFeedIds to settings.commuteBriefFeedIds,
+        PreferencesKey.commuteBriefDurationMinutes to settings.commuteBriefDuration.minutes,
+        PreferencesKey.commuteBriefMarkReadOnComplete to settings.commuteBriefMarkReadOnComplete.value,
         PreferencesKey.languages to settings.languages.value,
         PreferencesKey.aiBaseUrl to settings.aiBaseUrl.value,
         PreferencesKey.aiApiKey to settings.aiApiKey.value,

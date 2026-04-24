@@ -710,6 +710,30 @@ interface ArticleDao {
     )
     suspend fun queryById(id: String): ArticleWithFeed?
 
+    @Transaction
+    @Query(
+        """
+        SELECT a.* FROM article AS a
+        LEFT JOIN feed AS b ON b.id = a.feedId
+        WHERE a.accountId = :accountId
+        AND a.isUnread = 1
+        AND a.aiSummary IS NOT NULL
+        AND a.aiSummary != ''
+        AND (
+            a.feedId IN (:feedIds)
+            OR b.groupId IN (:groupIds)
+        )
+        ORDER BY a.date DESC
+        LIMIT :limit
+        """
+    )
+    suspend fun queryCommuteBriefCandidates(
+        accountId: Int,
+        groupIds: List<String>,
+        feedIds: List<String>,
+        limit: Int,
+    ): List<ArticleWithFeed>
+
 
     @Transaction
     @Query(

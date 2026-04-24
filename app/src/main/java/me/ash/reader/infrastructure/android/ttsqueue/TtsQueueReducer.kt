@@ -7,12 +7,34 @@ private const val TEN_MINUTES_MS = 10 * 60 * 1000L
 private const val FIFTEEN_MINUTES_MS = 15 * 60 * 1000L
 private const val THIRTY_MINUTES_MS = 30 * 60 * 1000L
 
+@Serializable
 data class TtsQueueItem(
     val articleId: String,
     val title: String,
     val feedName: String,
     val imageUrl: String? = null,
     val htmlContent: String? = null,
+    val contentType: TtsQueueContentType = TtsQueueContentType.FullArticle,
+    val summaryHtmlContent: String? = null,
+    val estimatedDurationMs: Long? = null,
+)
+
+enum class TtsQueueMode {
+    Normal,
+    Commute,
+}
+
+enum class TtsQueueContentType {
+    FullArticle,
+    AiSummary,
+}
+
+@Serializable
+data class TtsCommuteQueueMeta(
+    val generatedAtMillis: Long,
+    val targetDurationMinutes: Int,
+    val estimatedDurationMinutes: Int,
+    val itemCount: Int,
 )
 
 enum class TtsQueuePlaybackState {
@@ -58,6 +80,8 @@ data class TtsQueueState(
     val sleepTimer: TtsSleepTimerState = TtsSleepTimerState(),
     val currentSegmentStartedAtMillis: Long? = null,
     val currentSegmentDurationMs: Long = 0,
+    val mode: TtsQueueMode = TtsQueueMode.Normal,
+    val commuteMeta: TtsCommuteQueueMeta? = null,
 ) {
     val currentIndex: Int?
         get() = items.indexOfFirst { it.articleId == currentArticleId }.takeIf { it >= 0 }

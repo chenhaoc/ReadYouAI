@@ -82,6 +82,10 @@ data class Settings(
     val openLink: OpenLinkPreference = OpenLinkPreference.default,
     val openLinkSpecificBrowser: OpenLinkSpecificBrowserPreference = OpenLinkSpecificBrowserPreference.default,
     val sharedContent: SharedContentPreference = SharedContentPreference.default,
+    val commuteBriefGroupIds: String = "",
+    val commuteBriefFeedIds: String = "",
+    val commuteBriefDuration: CommuteBriefDurationPreference = CommuteBriefDurationPreference.default,
+    val commuteBriefMarkReadOnComplete: CommuteBriefMarkReadOnCompletePreference = CommuteBriefMarkReadOnCompletePreference.default,
 
     // Languages
     val languages: LanguagesPreference = LanguagesPreference.default,

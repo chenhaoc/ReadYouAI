@@ -12,6 +12,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import me.ash.reader.domain.model.article.ArticleWithFeed
 import me.ash.reader.domain.repository.ArticleDao
+import me.ash.reader.domain.service.AccountService
 import me.ash.reader.infrastructure.android.TextToSpeechManager
 import me.ash.reader.infrastructure.android.htmlSegmentCharCounts
 import me.ash.reader.infrastructure.html.VideoNoiseCleaner
@@ -48,7 +49,34 @@ class ArticleDaoTtsQueueArticleRepository
 @Inject
 constructor(
     private val articleDao: ArticleDao,
+    private val accountService: AccountService,
 ) : TtsQueueArticleRepository {
+    override suspend fun get(item: TtsQueueItem): TtsQueuePlayableArticle? {
+        if (item.contentType == TtsQueueContentType.AiSummary) {
+            articleDao.queryById(item.articleId) ?: return null
+            val playableHtml = item.summaryHtmlContent?.takeIf { it.isNotBlank() } ?: return null
+            return TtsQueuePlayableArticle(
+                item = item,
+                htmlContent = playableHtml,
+                segmentCharCounts = htmlSegmentCharCounts(playableHtml),
+            )
+        }
+
+        return articleDao.queryById(item.articleId)?.let { articleWithFeed ->
+            val playableHtml =
+                resolvePlayableHtmlContent(
+                    rawDescription = articleWithFeed.article.rawDescription,
+                    shortDescription = articleWithFeed.article.shortDescription,
+                    title = articleWithFeed.article.title,
+                ) ?: item.htmlContent ?: return null
+            TtsQueuePlayableArticle(
+                item = articleWithFeed.toQueueItem(),
+                htmlContent = playableHtml,
+                segmentCharCounts = htmlSegmentCharCounts(playableHtml),
+            )
+        }
+    }
+
     override suspend fun getById(articleId: String): TtsQueuePlayableArticle? {
         return articleDao.queryById(articleId)?.let { articleWithFeed ->
             val playableHtml =
@@ -63,6 +91,14 @@ constructor(
                 segmentCharCounts = htmlSegmentCharCounts(playableHtml),
             )
         }
+    }
+
+    override suspend fun markAsRead(articleId: String) {
+        articleDao.markAsReadByArticleId(
+            accountId = accountService.getCurrentAccountId(),
+            articleId = articleId,
+            isUnread = false,
+        )
     }
 }
 
@@ -107,6 +143,28 @@ fun ArticleWithFeed.toQueueItem(): TtsQueueItem =
                 title = article.title,
             ),
     )
+
+fun ArticleWithFeed.toSummaryQueueItem(summaryHtmlContent: String, estimatedDurationMs: Long): TtsQueueItem =
+    TtsQueueItem(
+        articleId = article.id,
+        title = article.title,
+        feedName = feed.name,
+        imageUrl = article.img,
+        contentType = TtsQueueContentType.AiSummary,
+        summaryHtmlContent = summaryHtmlContent,
+        estimatedDurationMs = estimatedDurationMs,
+    )
+
+fun buildSummaryHtmlContent(title: String, feedName: String, summary: String): String =
+    listOf(title, feedName, summary)
+        .filter { it.isNotBlank() }
+        .joinToString(separator = "。")
+        .let { "<p>${it.escapeHtml()}</p>" }
+
+private fun String.escapeHtml(): String =
+    replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
 
 internal fun resolvePlayableHtmlContent(
     rawDescription: String,

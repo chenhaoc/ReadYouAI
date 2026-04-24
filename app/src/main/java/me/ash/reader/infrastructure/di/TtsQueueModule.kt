@@ -16,6 +16,7 @@ import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueArticleRepository
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueController
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueuePlaybackClient
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueSnapshotStore
+import me.ash.reader.infrastructure.preference.SettingsProvider
 import javax.inject.Singleton
 
 @Module
@@ -61,6 +62,7 @@ object TtsQueueModule {
         articleRepository: TtsQueueArticleRepository,
         playbackClient: TtsQueuePlaybackClient,
         serviceLauncher: TtsPlaybackServiceLauncher,
+        settingsProvider: SettingsProvider,
         @ApplicationScope coroutineScope: CoroutineScope,
     ): TtsQueueController =
         TtsQueueController(
@@ -69,5 +71,6 @@ object TtsQueueModule {
             playbackClient = playbackClient,
             serviceLauncher = serviceLauncher,
             coroutineScope = coroutineScope,
+            markReadOnCommuteComplete = { settingsProvider.settings.commuteBriefMarkReadOnComplete.value },
         )
 }

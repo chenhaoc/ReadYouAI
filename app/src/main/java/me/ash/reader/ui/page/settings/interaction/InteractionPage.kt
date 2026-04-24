@@ -1,15 +1,22 @@
 package me.ash.reader.ui.page.settings.interaction
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,9 +27,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import kotlinx.coroutines.launch
 import me.ash.reader.R
+import me.ash.reader.domain.model.feed.Feed
+import me.ash.reader.domain.model.group.Group
 import me.ash.reader.infrastructure.preference.InitialFilterPreference
 import me.ash.reader.infrastructure.preference.InitialPagePreference
+import me.ash.reader.infrastructure.preference.CommuteBriefDurationPreference
+import me.ash.reader.infrastructure.preference.LocalCommuteBriefDuration
+import me.ash.reader.infrastructure.preference.LocalCommuteBriefMarkReadOnComplete
 import me.ash.reader.infrastructure.preference.LocalArticleListSwipeEndAction
 import me.ash.reader.infrastructure.preference.LocalArticleListSwipeStartAction
 import me.ash.reader.infrastructure.preference.LocalHideEmptyGroups
@@ -46,17 +60,23 @@ import me.ash.reader.infrastructure.preference.not
 import me.ash.reader.ui.component.base.DisplayText
 import me.ash.reader.ui.component.base.FeedbackIconButton
 import me.ash.reader.ui.component.base.RYScaffold
+import me.ash.reader.ui.component.base.RYDialog
 import me.ash.reader.ui.component.base.RYSwitch
 import me.ash.reader.ui.component.base.RadioDialog
 import me.ash.reader.ui.component.base.RadioDialogOption
 import me.ash.reader.ui.component.base.Subtitle
 import me.ash.reader.ui.ext.getBrowserAppList
+import me.ash.reader.ui.ext.dataStore
+import me.ash.reader.ui.ext.put
+import me.ash.reader.ui.ext.DataStoreKey
+import me.ash.reader.ui.ext.collectAsStateValue
 import me.ash.reader.ui.page.settings.SettingItem
 import me.ash.reader.ui.theme.palette.onLight
 
 @Composable
 fun InteractionPage(
     onBack: () -> Unit,
+    interactionViewModel: InteractionViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
     val initialPage = LocalInitialPage.current
@@ -68,10 +88,15 @@ fun InteractionPage(
     val sortUnreadArticles = LocalSortUnreadArticles.current
     val pullToSwitchArticle = LocalPullToSwitchArticle.current
     val showFloatingPlayerButton = LocalReadingTtsMiniPlayer.current
+    val commuteBriefDuration = LocalCommuteBriefDuration.current
+    val commuteBriefMarkReadOnComplete = LocalCommuteBriefMarkReadOnComplete.current
     val openLink = LocalOpenLink.current
     val openLinkSpecificBrowser = LocalOpenLinkSpecificBrowser.current
     val sharedContent = LocalSharedContent.current
     val settings = LocalSettings.current
+    val commuteSources = interactionViewModel.commuteSources.collectAsStateValue()
+    val selectedCommuteGroupIds = remember(settings.commuteBriefGroupIds) { settings.commuteBriefGroupIds.decodeIdSet() }
+    val selectedCommuteFeedIds = remember(settings.commuteBriefFeedIds) { settings.commuteBriefFeedIds.decodeIdSet() }
     val pullToSwitchFeed = settings.pullToSwitchFeed
 
     val scope = rememberCoroutineScope()
@@ -87,6 +112,8 @@ fun InteractionPage(
     var sharedContentDialogVisible by remember { mutableStateOf(false) }
     var showSortUnreadArticlesDialog by remember { mutableStateOf(false) }
     var showPullToLoadDialog by remember { mutableStateOf(false) }
+    var showCommuteBriefDurationDialog by remember { mutableStateOf(false) }
+    var showCommuteBriefSourcesDialog by remember { mutableStateOf(false) }
 
     RYScaffold(
         containerColor = MaterialTheme.colorScheme.surface onLight MaterialTheme.colorScheme.inverseOnSurface,
@@ -195,6 +222,41 @@ fun InteractionPage(
                     ) {
                         RYSwitch(activated = showFloatingPlayerButton.value) {
                             (!showFloatingPlayerButton).put(context, scope)
+                        }
+                    }
+
+                    Subtitle(
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                        text = stringResource(R.string.commute_brief),
+                    )
+                    SettingItem(
+                        title = stringResource(R.string.commute_brief_sources),
+                        desc = stringResource(
+                            R.string.commute_brief_sources_count,
+                            selectedCommuteGroupIds.size,
+                            selectedCommuteFeedIds.size,
+                        ),
+                        onClick = {
+                            interactionViewModel.loadCommuteSources()
+                            showCommuteBriefSourcesDialog = true
+                        },
+                    ) {}
+                    SettingItem(
+                        title = stringResource(R.string.commute_brief_duration),
+                        desc = stringResource(R.string.commute_brief_duration_value, commuteBriefDuration.minutes),
+                        onClick = {
+                            showCommuteBriefDurationDialog = true
+                        },
+                    ) {}
+                    SettingItem(
+                        title = stringResource(R.string.commute_brief_mark_read_on_complete),
+                        desc = stringResource(R.string.commute_brief_mark_read_on_complete_desc),
+                        onClick = {
+                            commuteBriefMarkReadOnComplete.toggle(context, scope)
+                        },
+                    ) {
+                        RYSwitch(activated = commuteBriefMarkReadOnComplete.value) {
+                            commuteBriefMarkReadOnComplete.toggle(context, scope)
                         }
                     }
 
@@ -401,4 +463,128 @@ fun InteractionPage(
             showPullToLoadDialog = false
         }
     )
+
+    RadioDialog(
+        visible = showCommuteBriefDurationDialog,
+        title = stringResource(R.string.commute_brief_duration),
+        options = CommuteBriefDurationPreference.values.map {
+            RadioDialogOption(
+                text = stringResource(R.string.commute_brief_duration_value, it.minutes),
+                selected = it == commuteBriefDuration,
+            ) {
+                it.put(context, scope)
+            }
+        },
+        onDismissRequest = {
+            showCommuteBriefDurationDialog = false
+        }
+    )
+
+    CommuteBriefSourcesDialog(
+        visible = showCommuteBriefSourcesDialog,
+        groups = commuteSources.groups,
+        feeds = commuteSources.feeds,
+        selectedGroupIds = selectedCommuteGroupIds,
+        selectedFeedIds = selectedCommuteFeedIds,
+        onToggleGroup = { groupId ->
+            val updated = selectedCommuteGroupIds.toggleId(groupId)
+            scope.launch {
+                context.dataStore.put(DataStoreKey.commuteBriefGroupIds, updated.encodeIdSet())
+            }
+        },
+        onToggleFeed = { feedId ->
+            val updated = selectedCommuteFeedIds.toggleId(feedId)
+            scope.launch {
+                context.dataStore.put(DataStoreKey.commuteBriefFeedIds, updated.encodeIdSet())
+            }
+        },
+        onDismissRequest = {
+            showCommuteBriefSourcesDialog = false
+        },
+    )
 }
+
+@Composable
+private fun CommuteBriefSourcesDialog(
+    visible: Boolean,
+    groups: List<Group>,
+    feeds: List<Feed>,
+    selectedGroupIds: Set<String>,
+    selectedFeedIds: Set<String>,
+    onToggleGroup: (String) -> Unit,
+    onToggleFeed: (String) -> Unit,
+    onDismissRequest: () -> Unit,
+) {
+    RYDialog(
+        visible = visible,
+        onDismissRequest = onDismissRequest,
+        title = { Text(text = stringResource(R.string.commute_brief_sources)) },
+        text = {
+            LazyColumn {
+                item {
+                    Text(
+                        text = stringResource(R.string.commute_brief_sources_desc),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = stringResource(R.string.commute_brief_groups),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                }
+                items(groups, key = Group::id) { group ->
+                    CommuteSourceRow(
+                        text = group.name,
+                        checked = group.id in selectedGroupIds,
+                        onClick = { onToggleGroup(group.id) },
+                    )
+                }
+                item {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = stringResource(R.string.commute_brief_feeds),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                }
+                items(feeds, key = Feed::id) { feed ->
+                    CommuteSourceRow(
+                        text = feed.name,
+                        checked = feed.id in selectedFeedIds,
+                        onClick = { onToggleFeed(feed.id) },
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text(text = stringResource(R.string.done))
+            }
+        },
+    )
+}
+
+@Composable
+private fun CommuteSourceRow(
+    text: String,
+    checked: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    ) {
+        Checkbox(checked = checked, onCheckedChange = { onClick() })
+        Text(text = text, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+private fun String.decodeIdSet(): Set<String> =
+    split('\n')
+        .map(String::trim)
+        .filter(String::isNotEmpty)
+        .toSet()
+
+private fun Set<String>.toggleId(id: String): Set<String> =
+    if (id in this) this - id else this + id
+
+private fun Set<String>.encodeIdSet(): String = joinToString(separator = "\n")

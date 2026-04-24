@@ -130,6 +130,86 @@ class TtsQueueControllerTest {
     }
 
     @Test
+    fun commute_queue_is_separate_from_normal_queue_and_uses_summary_content() = runTest {
+        val snapshotStore = FakeSnapshotStore(null)
+        val repository = FakeArticleRepository(mapOf("a" to playableArticle("a")))
+        val playbackClient = FakePlaybackClient()
+        val controller =
+            TtsQueueController(
+                snapshotStore = snapshotStore,
+                articleRepository = repository,
+                playbackClient = playbackClient,
+                serviceLauncher = NoOpServiceLauncher,
+                coroutineScope = backgroundScope,
+            )
+
+        controller.enqueue(playableArticle("a").item)
+        controller.replaceCommuteQueue(
+            items =
+                listOf(
+                    TtsQueueItem(
+                        articleId = "summary-a",
+                        title = "summary-title",
+                        feedName = "feed",
+                        contentType = TtsQueueContentType.AiSummary,
+                        summaryHtmlContent = "<p>summary</p>",
+                    )
+                ),
+            meta = null,
+        )
+        controller.switchMode(TtsQueueMode.Commute)
+        controller.resumeCurrent()
+        advanceUntilIdle()
+
+        assertEquals(TtsQueueMode.Commute, controller.state.value.mode)
+        assertEquals(listOf("summary-a"), controller.state.value.items.map(TtsQueueItem::articleId))
+        assertEquals(listOf("<p>summary</p>"), playbackClient.playedHtmlContents)
+
+        controller.switchMode(TtsQueueMode.Normal)
+        advanceUntilIdle()
+
+        assertEquals(listOf("a"), controller.state.value.items.map(TtsQueueItem::articleId))
+    }
+
+    @Test
+    fun commute_completion_marks_read_only_when_enabled() = runTest {
+        val snapshotStore = FakeSnapshotStore(null)
+        val repository = FakeArticleRepository(emptyMap())
+        val playbackClient = FakePlaybackClient()
+        val controller =
+            TtsQueueController(
+                snapshotStore = snapshotStore,
+                articleRepository = repository,
+                playbackClient = playbackClient,
+                serviceLauncher = NoOpServiceLauncher,
+                coroutineScope = backgroundScope,
+                markReadOnCommuteComplete = { true },
+            )
+
+        controller.replaceCommuteQueue(
+            items =
+                listOf(
+                    TtsQueueItem(
+                        articleId = "summary-a",
+                        title = "summary-title",
+                        feedName = "feed",
+                        contentType = TtsQueueContentType.AiSummary,
+                        summaryHtmlContent = "<p>summary</p>",
+                    )
+                ),
+            meta = null,
+        )
+        controller.switchMode(TtsQueueMode.Commute)
+        controller.resumeCurrent()
+        advanceUntilIdle()
+
+        controller.handlePlaybackEvent(TtsPlaybackEvent.Completed)
+        advanceUntilIdle()
+
+        assertEquals(listOf("summary-a"), repository.markedReadArticleIds)
+    }
+
+    @Test
     fun restore_resumes_playback_when_snapshot_was_playing() = runTest {
         val snapshotStore =
             FakeSnapshotStore(
@@ -572,7 +652,25 @@ private class FakeSnapshotStore(
 private class FakeArticleRepository(
     private val articles: Map<String, TtsQueuePlayableArticle>,
 ) : TtsQueueArticleRepository {
+    val markedReadArticleIds = mutableListOf<String>()
+
+    override suspend fun get(item: TtsQueueItem): TtsQueuePlayableArticle? {
+        if (item.contentType == TtsQueueContentType.AiSummary) {
+            val html = item.summaryHtmlContent ?: return null
+            return TtsQueuePlayableArticle(
+                item = item,
+                htmlContent = html,
+                segmentCharCounts = listOf(10),
+            )
+        }
+        return articles[item.articleId]
+    }
+
     override suspend fun getById(articleId: String): TtsQueuePlayableArticle? = articles[articleId]
+
+    override suspend fun markAsRead(articleId: String) {
+        markedReadArticleIds += articleId
+    }
 }
 
 private class FakePlaybackClient : TtsQueuePlaybackClient {
