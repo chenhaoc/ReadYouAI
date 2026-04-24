@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.withContext
 import me.ash.reader.R
+import me.ash.reader.BuildConfig
 import me.ash.reader.domain.model.general.toVersion
 import me.ash.reader.infrastructure.di.IODispatcher
 import me.ash.reader.infrastructure.di.MainDispatcher
@@ -34,7 +35,7 @@ class AppService @Inject constructor(
 
     suspend fun checkUpdate(showToast: Boolean = true): Boolean? = withContext(ioDispatcher) {
         try {
-            val response = networkDataSource.getReleaseLatest(context.getString(R.string.update_link))
+            val response = networkDataSource.getReleaseLatest(BuildConfig.UPDATE_LINK)
             when {
                 response.code() == 403 -> {
                     withContext(mainDispatcher) {

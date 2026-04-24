@@ -42,6 +42,7 @@ class TextToSpeechManager @Inject constructor(
     private val _events = MutableSharedFlow<Event>(extraBufferCapacity = 8)
     val events = _events.asSharedFlow()
     private val engineLock = Any()
+    private var playbackGeneration: Long = 0L
 
     var state
         get() = stateFlow.value
@@ -119,6 +120,7 @@ class TextToSpeechManager @Inject constructor(
             stop()
         }
 
+        val generation = nextPlaybackGeneration()
         state = State.Preparing
         val handle = ensureTtsReady() ?: return
         val tts = handle.engine
@@ -136,16 +138,19 @@ class TextToSpeechManager @Inject constructor(
             return
         }
         val actualStartIndex = startSegmentIndex.coerceIn(0, total - 1)
+        if (!isCurrentPlayback(generation)) return
         state = State.Reading(actualStartIndex, total)
 
         tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {
+                if (!isCurrentPlayback(generation)) return
                 val current = utteranceId?.toIntOrNull() ?: 0
                 state = State.Reading(current, total)
                 _events.tryEmit(Event.Progress(current = current, total = total))
             }
 
             override fun onDone(utteranceId: String?) {
+                if (!isCurrentPlayback(generation)) return
                 val index = utteranceId?.toIntOrNull() ?: 0
                 val cur = state
                 if (cur is State.Reading && index >= cur.total) {
@@ -155,15 +160,18 @@ class TextToSpeechManager @Inject constructor(
             }
 
             override fun onError(utteranceId: String?) {
+                if (!isCurrentPlayback(generation)) return
                 reportPlaybackFailure(utteranceId, handle)
             }
         })
 
         textSegments.drop(actualStartIndex).forEachIndexed { offset, segment ->
+            if (!isCurrentPlayback(generation)) return
             val actualIndex = actualStartIndex + offset
             val result = tts.speak(segment, TextToSpeech.QUEUE_ADD, null, (actualIndex + 1).toString())
             if (result != TextToSpeech.SUCCESS) {
                 Timber.w("TextToSpeech speak failed result=%s index=%s", result, actualIndex)
+                if (!isCurrentPlayback(generation)) return
                 reportPlaybackFailure((actualIndex + 1).toString(), handle)
                 return
             }
@@ -171,9 +179,19 @@ class TextToSpeechManager @Inject constructor(
     }
 
     fun stop() {
+        nextPlaybackGeneration()
         ttsHandle.engine.stop()
         state = State.Idle
     }
+
+    private fun nextPlaybackGeneration(): Long =
+        synchronized(engineLock) {
+            playbackGeneration += 1
+            playbackGeneration
+        }
+
+    private fun isCurrentPlayback(generation: Long): Boolean =
+        synchronized(engineLock) { playbackGeneration == generation }
 
     private suspend fun ensureTtsReady(): TtsHandle? {
         repeat(2) {

@@ -34,7 +34,7 @@ import java.util.*
         AiChatMessage::class,
         PendingAiSummaryTask::class,
     ],
-    version = 12,
+    version = 13,
     autoMigrations = [
         AutoMigration(from = 5, to = 6),
         AutoMigration(from = 5, to = 7),
@@ -101,6 +101,7 @@ val allMigrations = arrayOf(
     MIGRATION_9_10,
     MIGRATION_10_11,
     MIGRATION_11_12,
+    MIGRATION_12_13,
 )
 
 @Suppress("ClassName")
@@ -291,6 +292,33 @@ object MIGRATION_11_12 : Migration(11, 12) {
         database.execSQL(
             """
             CREATE INDEX IF NOT EXISTS `index_pending_ai_summary_task_createdAt` ON `pending_ai_summary_task` (`createdAt`)
+            """.trimIndent()
+        )
+    }
+}
+
+@Suppress("ClassName")
+object MIGRATION_12_13 : Migration(12, 13) {
+
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL(
+            """
+            ALTER TABLE pending_ai_summary_task ADD COLUMN attemptCount INTEGER NOT NULL DEFAULT 0
+            """.trimIndent()
+        )
+        database.execSQL(
+            """
+            ALTER TABLE pending_ai_summary_task ADD COLUMN lastAttemptAt INTEGER DEFAULT NULL
+            """.trimIndent()
+        )
+        database.execSQL(
+            """
+            ALTER TABLE pending_ai_summary_task ADD COLUMN nextRunAt INTEGER NOT NULL DEFAULT 0
+            """.trimIndent()
+        )
+        database.execSQL(
+            """
+            CREATE INDEX IF NOT EXISTS `index_pending_ai_summary_task_nextRunAt` ON `pending_ai_summary_task` (`nextRunAt`)
             """.trimIndent()
         )
     }

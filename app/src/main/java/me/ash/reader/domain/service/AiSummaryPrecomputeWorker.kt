@@ -11,6 +11,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import java.util.Date
 import me.ash.reader.domain.model.ai.PendingAiSummaryTask
 import me.ash.reader.domain.repository.AiSummaryRepository
 import me.ash.reader.domain.repository.ArticleDao
@@ -48,9 +49,13 @@ constructor(
             return Result.success()
         }
 
-        var shouldRetry = false
         while (true) {
-            val tasks = pendingAiSummaryTaskDao.queryByAccountId(accountId, TASK_BATCH_SIZE)
+            val tasks =
+                pendingAiSummaryTaskDao.queryRunnableByAccountId(
+                    accountId = accountId,
+                    now = Date(),
+                    limit = TASK_BATCH_SIZE,
+                )
             if (tasks.isEmpty()) break
 
             val semaphore = Semaphore(MAX_PARALLELISM)
@@ -70,13 +75,29 @@ constructor(
                 pendingAiSummaryTaskDao.deleteByArticleIds(completedTaskIds)
             }
 
-            if (outcomes.any { it.shouldRetry }) {
-                shouldRetry = true
-                break
+            val retryOutcomes = outcomes.filter { it.retryTask }
+            retryOutcomes.forEach { outcome ->
+                val nextAttemptCount = outcome.attemptCount + 1
+                if (nextAttemptCount >= MAX_RETRY_ATTEMPTS) {
+                    Timber.w(
+                        "Drop background AI summary task after %s attempts for article %s",
+                        nextAttemptCount,
+                        outcome.articleId,
+                    )
+                    pendingAiSummaryTaskDao.deleteByArticleIds(listOf(outcome.articleId))
+                } else {
+                    val now = Date()
+                    pendingAiSummaryTaskDao.scheduleRetry(
+                        articleId = outcome.articleId,
+                        lastAttemptAt = now,
+                        nextRunAt = Date(now.time + retryDelayMillis(nextAttemptCount)),
+                    )
+                }
             }
+            if (retryOutcomes.size == tasks.size) break
         }
 
-        return if (shouldRetry) Result.retry() else Result.success()
+        return Result.success()
     }
 
     private suspend fun processTask(
@@ -135,7 +156,11 @@ constructor(
                     "Background AI summary network error for article %s",
                     task.articleId,
                 )
-                TaskOutcome(articleId = task.articleId, shouldRetry = true)
+                TaskOutcome(
+                    articleId = task.articleId,
+                    attemptCount = task.attemptCount,
+                    retryTask = true,
+                )
             }
 
             is me.ash.reader.infrastructure.net.ApiResult.UnknownError -> {
@@ -144,19 +169,29 @@ constructor(
                     "Background AI summary unknown error for article %s",
                     task.articleId,
                 )
-                TaskOutcome(articleId = task.articleId, shouldRetry = true)
+                TaskOutcome(
+                    articleId = task.articleId,
+                    attemptCount = task.attemptCount,
+                    retryTask = true,
+                )
             }
         }
     }
 
     private data class TaskOutcome(
         val articleId: String,
+        val attemptCount: Int = 0,
         val deleteTask: Boolean = false,
-        val shouldRetry: Boolean = false,
+        val retryTask: Boolean = false,
     )
 
     companion object {
         private const val MAX_PARALLELISM = 3
         private const val TASK_BATCH_SIZE = 12
+        private const val MAX_RETRY_ATTEMPTS = 3
+        private const val INITIAL_RETRY_DELAY_MS = 15 * 60 * 1000L
+
+        internal fun retryDelayMillis(nextAttemptCount: Int): Long =
+            INITIAL_RETRY_DELAY_MS shl (nextAttemptCount - 1).coerceAtLeast(0)
     }
 }

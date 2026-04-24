@@ -50,6 +50,11 @@ android {
             "USER_AGENT_STRING",
             "\"ReadYou/${versionName}(${versionCode})\"",
         )
+        buildConfigField(
+            "String",
+            "UPDATE_LINK",
+            "\"https://api.github.com/repos/ReadYouApp/ReadYou/releases/latest\"",
+        )
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -69,6 +74,11 @@ android {
             dimension = "channel"
             applicationId = "me.ash.reader.ai"
             resValue("string", "read_you", "ReadYouAI")
+            buildConfigField(
+                "String",
+                "UPDATE_LINK",
+                "\"https://api.github.com/repos/chenhaoc/ReadYouAI/releases/latest\"",
+            )
         }
         create("fdroid") { dimension = "channel" }
         create("googlePlay") {

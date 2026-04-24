@@ -19,7 +19,7 @@ import me.ash.reader.domain.model.article.Article
             onUpdate = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index(value = ["accountId"]), Index(value = ["createdAt"])],
+    indices = [Index(value = ["accountId"]), Index(value = ["createdAt"]), Index(value = ["nextRunAt"])],
 )
 data class PendingAiSummaryTask(
     @PrimaryKey
@@ -27,4 +27,9 @@ data class PendingAiSummaryTask(
     @ColumnInfo
     val accountId: Int,
     val createdAt: Date,
+    @ColumnInfo(defaultValue = "0")
+    val attemptCount: Int = 0,
+    val lastAttemptAt: Date? = null,
+    @ColumnInfo(defaultValue = "0")
+    val nextRunAt: Date = Date(0L),
 )
