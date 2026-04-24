@@ -33,7 +33,7 @@ constructor(
         val result = rssRepository.sync(accountId = accountId, feedId = feedId, groupId = groupId)
 
         if (result is Result.Success) {
-            rssRepository.clearKeepArchivedArticles().forEach {
+            rssRepository.clearKeepArchivedArticles(accountId).forEach {
                 readerCacheHelper.deleteCacheFor(articleId = it.id, accountId = it.accountId)
             }
             val workerInputData =

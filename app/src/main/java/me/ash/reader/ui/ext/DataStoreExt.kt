@@ -300,7 +300,7 @@ sealed interface PreferencesKey {
                 StringKey(aiModel),
                 StringKey(aiSummarizationPrompt),
                 StringKey(aiTranslationPrompt),
-                BooleanKey(aiAutoSummary),
+                StringKey(aiChatPrompt),
                 BooleanKey(aiBackgroundSummary),
             )
 
@@ -734,12 +734,14 @@ private fun buildDefaultBackupPreferenceValues(): Map<String, Any> {
         PreferencesKey.openLinkAppSpecificBrowser to
             settings.openLinkSpecificBrowser.packageName.orEmpty(),
         PreferencesKey.sharedContent to settings.sharedContent.value,
+        PreferencesKey.ttsQueueSnapshot to "",
         PreferencesKey.languages to settings.languages.value,
         PreferencesKey.aiBaseUrl to settings.aiBaseUrl.value,
         PreferencesKey.aiApiKey to settings.aiApiKey.value,
         PreferencesKey.aiModel to settings.aiModel.value,
         PreferencesKey.aiSummarizationPrompt to settings.aiSummarizationPrompt.value,
         PreferencesKey.aiTranslationPrompt to settings.aiTranslationPrompt.value,
+        PreferencesKey.aiChatPrompt to settings.aiChatPrompt.value,
         PreferencesKey.aiBackgroundSummary to settings.aiBackgroundSummary.value,
     )
 }

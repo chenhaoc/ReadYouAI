@@ -437,7 +437,7 @@
     <string name="ai_settings_desc">Configure AI summary, translation, and Q&amp;A</string>
     <string name="ai_base_url">Base URL</string>
     <string name="ai_base_url_hint">OpenAI-compatible API base URL</string>
-    <string name="ai_base_url_default" translatable="false">https://api.openai.com/v1</string>
+    <string name="ai_base_url_default" translatable="false">https://api.openai.com/v1/</string>
     <string name="ai_api_key">API Key</string>
     <string name="ai_api_key_hint">Enter your API key</string>
     <string name="ai_model">LLM Model</string>

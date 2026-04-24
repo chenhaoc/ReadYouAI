@@ -555,8 +555,8 @@ constructor(
             }
 
             if (settings.aiApiKey.value.isEmpty() || settings.aiBaseUrl.value.isEmpty()) {
-                _readingUiState.update {
-                    it.copy(
+                updateAiSummaryStateIfCurrent(articleId) { state ->
+                    state.copy(
                         isAiSummaryLoading = false,
                         isAiSummaryInlineLoading = false,
                         aiSummaryError =
@@ -583,9 +583,9 @@ constructor(
                                 article =
                                     (currentArticle ?: return@launch).copy(aiSummary = result.data)
                             )
-                    _readingUiState.update {
+                    updateAiSummaryStateIfCurrent(articleId) { state ->
                         val shouldExpandInlineSummary = isAiSummaryCardVisible.value
-                        it.copy(
+                        state.copy(
                             articleWithFeed = updatedArticleWithFeed,
                             aiSummary = result.data,
                             isAiSummaryLoading = false,
@@ -598,8 +598,8 @@ constructor(
                     }
                 }
                 is me.ash.reader.infrastructure.net.ApiResult.BizError -> {
-                    _readingUiState.update {
-                        it.copy(
+                    updateAiSummaryStateIfCurrent(articleId) { state ->
+                        state.copy(
                             isAiSummaryLoading = false,
                             isAiSummaryInlineLoading = false,
                             aiSummaryError =
@@ -609,8 +609,8 @@ constructor(
                     }
                 }
                 is me.ash.reader.infrastructure.net.ApiResult.NetworkError -> {
-                    _readingUiState.update {
-                        it.copy(
+                    updateAiSummaryStateIfCurrent(articleId) { state ->
+                        state.copy(
                             isAiSummaryLoading = false,
                             isAiSummaryInlineLoading = false,
                             aiSummaryError =
@@ -620,8 +620,8 @@ constructor(
                     }
                 }
                 is me.ash.reader.infrastructure.net.ApiResult.UnknownError -> {
-                    _readingUiState.update {
-                        it.copy(
+                    updateAiSummaryStateIfCurrent(articleId) { state ->
+                        state.copy(
                             isAiSummaryLoading = false,
                             isAiSummaryInlineLoading = false,
                             aiSummaryError =
@@ -631,6 +631,15 @@ constructor(
                     }
                 }
             }
+        }
+    }
+
+    private fun updateAiSummaryStateIfCurrent(
+        articleId: String,
+        transform: (ReadingUiState) -> ReadingUiState,
+    ) {
+        _readingUiState.update { state ->
+            if (state.articleWithFeed?.article?.id != articleId) state else transform(state)
         }
     }
 

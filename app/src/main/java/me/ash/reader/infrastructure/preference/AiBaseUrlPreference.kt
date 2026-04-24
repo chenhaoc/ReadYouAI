@@ -7,7 +7,6 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.datastore.preferences.core.Preferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import me.ash.reader.R
 import me.ash.reader.ui.ext.DataStoreKey
 import me.ash.reader.ui.ext.DataStoreKey.Companion.aiBaseUrl
 import me.ash.reader.ui.ext.dataStore
@@ -19,18 +18,26 @@ data class AiBaseUrlPreference(val value: String) : Preference() {
 
     override fun put(context: Context, scope: CoroutineScope) {
         scope.launch {
-            context.dataStore.put(aiBaseUrl, value)
+            context.dataStore.put(aiBaseUrl, normalize(value))
         }
     }
 
-    fun toDesc(context: Context): String = value.ifEmpty { context.getString(R.string.ai_base_url_default) }
+    fun toDesc(context: Context): String = normalize(value)
 
     companion object {
-        val default = AiBaseUrlPreference("")
+        const val DEFAULT_BASE_URL = "https://api.openai.com/v1/"
+        val default = AiBaseUrlPreference(DEFAULT_BASE_URL)
+
+        fun normalize(value: String): String =
+            value.trim().trimEnd('/').takeIf { it.isNotBlank() }?.let { "$it/" }
+                ?: DEFAULT_BASE_URL
 
         fun fromPreferences(preferences: Preferences): AiBaseUrlPreference {
             return AiBaseUrlPreference(
-                preferences[DataStoreKey.keys[aiBaseUrl]?.key as Preferences.Key<String>] ?: default.value
+                normalize(
+                    preferences[DataStoreKey.keys[aiBaseUrl]?.key as Preferences.Key<String>]
+                        ?: default.value
+                )
             )
         }
     }

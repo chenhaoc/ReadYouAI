@@ -40,11 +40,15 @@ interface OpenAiApiService {
                 .build()
 
             return Retrofit.Builder()
-                .baseUrl(baseUrl)
+                .baseUrl(normalizeBaseUrl(baseUrl))
                 .client(client)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
                 .create(OpenAiApiService::class.java)
         }
+
+        internal fun normalizeBaseUrl(baseUrl: String): String =
+            baseUrl.trim().trimEnd('/').takeIf { it.isNotBlank() }?.let { "$it/" }
+                ?: "https://api.openai.com/v1/"
     }
 }
