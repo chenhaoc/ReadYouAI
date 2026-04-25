@@ -3,7 +3,11 @@ package me.ash.reader.domain.service
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.async
@@ -12,6 +16,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import java.util.Date
+import java.util.concurrent.TimeUnit
 import me.ash.reader.domain.model.ai.PendingAiSummaryTask
 import me.ash.reader.domain.repository.AiSummaryRepository
 import me.ash.reader.domain.repository.ArticleDao
@@ -49,14 +54,16 @@ constructor(
             return Result.success()
         }
 
-        while (true) {
+        var remainingTasks = settings.aiBackgroundSummaryLimit.limit ?: Int.MAX_VALUE
+        while (remainingTasks > 0) {
             val tasks =
                 pendingAiSummaryTaskDao.queryRunnableByAccountId(
                     accountId = accountId,
                     now = Date(),
-                    limit = TASK_BATCH_SIZE,
+                    limit = minOf(TASK_BATCH_SIZE, remainingTasks),
                 )
             if (tasks.isEmpty()) break
+            remainingTasks -= tasks.size
 
             val semaphore = Semaphore(MAX_PARALLELISM)
             val outcomes =
@@ -190,6 +197,26 @@ constructor(
         private const val TASK_BATCH_SIZE = 12
         private const val MAX_RETRY_ATTEMPTS = 3
         private const val INITIAL_RETRY_DELAY_MS = 15 * 60 * 1000L
+        private const val MANUAL_WORK_NAME = "AI_SUMMARY_PRECOMPUTE"
+
+        fun enqueueOneTimeWork(workManager: WorkManager, accountId: Int) {
+            val inputData = workDataOf(SyncWorker.INPUT_ACCOUNT_ID to accountId)
+            val request =
+                OneTimeWorkRequestBuilder<AiSummaryPrecomputeWorker>()
+                    .addTag(SyncWorker.ONETIME_WORK_TAG)
+                    .setInputData(inputData)
+                    .setBackoffCriteria(
+                        backoffPolicy = androidx.work.BackoffPolicy.EXPONENTIAL,
+                        backoffDelay = 30,
+                        timeUnit = TimeUnit.SECONDS,
+                    )
+                    .build()
+            workManager.enqueueUniqueWork(
+                "$MANUAL_WORK_NAME:$accountId",
+                ExistingWorkPolicy.KEEP,
+                request,
+            )
+        }
 
         internal fun retryDelayMillis(nextAttemptCount: Int): Long =
             INITIAL_RETRY_DELAY_MS shl (nextAttemptCount - 1).coerceAtLeast(0)

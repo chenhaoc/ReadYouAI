@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,13 +34,18 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import me.ash.reader.R
 import me.ash.reader.infrastructure.preference.LocalAiBaseUrl
 import me.ash.reader.infrastructure.preference.LocalAiApiKey
+import me.ash.reader.domain.service.PendingAiSummaryEnqueuer
+import me.ash.reader.infrastructure.preference.AiBackgroundSummaryLimitPreference
 import me.ash.reader.infrastructure.preference.LocalAiBackgroundSummary
+import me.ash.reader.infrastructure.preference.LocalAiBackgroundSummaryBackfillOnSync
+import me.ash.reader.infrastructure.preference.LocalAiBackgroundSummaryLimit
 import me.ash.reader.infrastructure.preference.LocalAiModel
 import me.ash.reader.infrastructure.preference.LocalAiChatPrompt
 import me.ash.reader.infrastructure.preference.LocalAiSummarizationPrompt
 import me.ash.reader.infrastructure.preference.LocalAiTranslationPrompt
 import me.ash.reader.ui.component.base.DisplayText
 import me.ash.reader.ui.component.base.FeedbackIconButton
+import me.ash.reader.ui.component.base.RYDialog
 import me.ash.reader.ui.component.base.RYScaffold
 import me.ash.reader.ui.component.base.RYSwitch
 import me.ash.reader.ui.component.base.RadioDialog
@@ -49,6 +55,7 @@ import me.ash.reader.ui.component.base.TextFieldDialog
 import me.ash.reader.ui.page.home.reading.resolveAiChatPrompt
 import me.ash.reader.ui.page.home.reading.resolveAiSummarizationPrompt
 import me.ash.reader.ui.page.home.reading.resolveAiTranslationPrompt
+import me.ash.reader.ui.ext.showToast
 import me.ash.reader.ui.page.settings.SettingItem
 import me.ash.reader.ui.theme.palette.onLight
 
@@ -65,6 +72,8 @@ fun AiSettingsPage(
     val aiTranslationPrompt = LocalAiTranslationPrompt.current
     val aiChatPrompt = LocalAiChatPrompt.current
     val aiBackgroundSummary = LocalAiBackgroundSummary.current
+    val aiBackgroundSummaryLimit = LocalAiBackgroundSummaryLimit.current
+    val aiBackgroundSummaryBackfillOnSync = LocalAiBackgroundSummaryBackfillOnSync.current
     
     val scope = rememberCoroutineScope()
     
@@ -74,6 +83,8 @@ fun AiSettingsPage(
     var promptDialogVisible by remember { mutableStateOf(false) }
     var translationPromptDialogVisible by remember { mutableStateOf(false) }
     var chatPromptDialogVisible by remember { mutableStateOf(false) }
+    var backgroundSummaryLimitDialogVisible by remember { mutableStateOf(false) }
+    var backfillConfirmDialogVisible by remember { mutableStateOf(false) }
 
     val summarizationPromptState = rememberTextFieldState()
     val translationPromptState = rememberTextFieldState()
@@ -238,6 +249,31 @@ fun AiSettingsPage(
                         }
                     }
                     SettingItem(
+                        title = stringResource(R.string.ai_background_summary_limit),
+                        desc = aiBackgroundSummaryLimit.toDesc(context),
+                        onClick = {
+                            backgroundSummaryLimitDialogVisible = true
+                        }
+                    ) {}
+                    SettingItem(
+                        title = stringResource(R.string.ai_background_summary_backfill_on_sync),
+                        desc = stringResource(R.string.ai_background_summary_backfill_on_sync_desc),
+                        onClick = {
+                            aiBackgroundSummaryBackfillOnSync.toggle(context, scope)
+                        }
+                    ) {
+                        RYSwitch(activated = aiBackgroundSummaryBackfillOnSync.value) {
+                            aiBackgroundSummaryBackfillOnSync.toggle(context, scope)
+                        }
+                    }
+                    SettingItem(
+                        title = stringResource(R.string.ai_background_summary_backfill_unread),
+                        desc = stringResource(R.string.ai_background_summary_backfill_unread_desc),
+                        onClick = {
+                            backfillConfirmDialogVisible = true
+                        }
+                    ) {}
+                    SettingItem(
                         title = stringResource(R.string.ai_translation_prompt),
                         desc = aiTranslationPrompt.toDesc(context),
                         onClick = {
@@ -305,6 +341,75 @@ fun AiSettingsPage(
         )
     }
 
+    RadioDialog(
+        visible = backgroundSummaryLimitDialogVisible,
+        title = stringResource(R.string.ai_background_summary_limit),
+        options = AiBackgroundSummaryLimitPreference.values.map { option ->
+            RadioDialogOption(
+                text = option.toDesc(context),
+                selected = option == aiBackgroundSummaryLimit,
+            ) {
+                option.put(context, scope)
+                backgroundSummaryLimitDialogVisible = false
+            }
+        },
+        onDismissRequest = {
+            backgroundSummaryLimitDialogVisible = false
+        }
+    )
+
+    RYDialog(
+        visible = backfillConfirmDialogVisible,
+        onDismissRequest = { backfillConfirmDialogVisible = false },
+        title = { Text(text = stringResource(R.string.ai_background_summary_backfill_confirm_title)) },
+        text = {
+            Text(
+                text = stringResource(
+                    R.string.ai_background_summary_backfill_confirm_desc,
+                    aiBackgroundSummaryLimit.toDesc(context),
+                )
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    backfillConfirmDialogVisible = false
+                    aiSettingsViewModel.enqueueUnreadSummaryBackfill { result ->
+                        when (result) {
+                            is PendingAiSummaryEnqueuer.BackfillResult.Enqueued -> {
+                                if (result.count > 0) {
+                                    context.showToast(
+                                        context.getString(
+                                            R.string.ai_background_summary_backfill_enqueued,
+                                            result.count,
+                                        )
+                                    )
+                                } else {
+                                    context.showToast(
+                                        context.getString(R.string.ai_background_summary_backfill_empty)
+                                    )
+                                }
+                            }
+                            PendingAiSummaryEnqueuer.BackfillResult.Disabled,
+                            PendingAiSummaryEnqueuer.BackfillResult.Unavailable -> {
+                                context.showToast(
+                                    context.getString(R.string.ai_background_summary_unavailable)
+                                )
+                            }
+                        }
+                    }
+                }
+            ) {
+                Text(text = stringResource(R.string.ai_background_summary_backfill_start))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { backfillConfirmDialogVisible = false }) {
+                Text(text = stringResource(R.string.cancel))
+            }
+        },
+    )
+
     TextFieldDialog(
         textFieldState = summarizationPromptState,
         visible = promptDialogVisible,
@@ -344,3 +449,7 @@ fun AiSettingsPage(
         }
     )
 }
+
+private fun AiBackgroundSummaryLimitPreference.toDesc(context: android.content.Context): String =
+    limit?.let { context.getString(R.string.ai_background_summary_limit_value, it) }
+        ?: context.getString(R.string.ai_background_summary_limit_unlimited)

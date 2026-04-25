@@ -710,6 +710,23 @@ interface ArticleDao {
     )
     suspend fun queryById(id: String): ArticleWithFeed?
 
+    @Query(
+        """
+        SELECT a.* FROM article AS a
+        LEFT JOIN feed AS b ON b.id = a.feedId
+        WHERE a.accountId = :accountId
+        AND a.isUnread = 1
+        AND b.isAutoSummary = 1
+        AND (a.aiSummary IS NULL OR a.aiSummary = '')
+        ORDER BY a.date DESC
+        LIMIT :limit
+        """
+    )
+    suspend fun queryUnreadAutoSummaryMissingAiSummary(
+        accountId: Int,
+        limit: Int,
+    ): List<Article>
+
     @Transaction
     @Query(
         """

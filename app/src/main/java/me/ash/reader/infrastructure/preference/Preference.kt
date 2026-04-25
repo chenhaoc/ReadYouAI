@@ -114,5 +114,7 @@ fun Preferences.toSettings(): Settings {
         aiTranslationPrompt = AiTranslationPromptPreference.fromPreferences(this),
         aiChatPrompt = AiChatPromptPreference.fromPreferences(this),
         aiBackgroundSummary = AiBackgroundSummaryPreference.fromPreferences(this),
+        aiBackgroundSummaryLimit = AiBackgroundSummaryLimitPreference.fromPreferences(this),
+        aiBackgroundSummaryBackfillOnSync = AiBackgroundSummaryBackfillOnSyncPreference.fromPreferences(this),
     )
 }

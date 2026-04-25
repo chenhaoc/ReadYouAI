@@ -152,6 +152,8 @@ class SettingsProvider @Inject constructor(
             LocalAiTranslationPrompt provides settings.aiTranslationPrompt,
             LocalAiChatPrompt provides settings.aiChatPrompt,
             LocalAiBackgroundSummary provides settings.aiBackgroundSummary,
+            LocalAiBackgroundSummaryLimit provides settings.aiBackgroundSummaryLimit,
+            LocalAiBackgroundSummaryBackfillOnSync provides settings.aiBackgroundSummaryBackfillOnSync,
         ) {
             content()
         }

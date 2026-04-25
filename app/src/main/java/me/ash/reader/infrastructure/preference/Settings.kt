@@ -98,4 +98,6 @@ data class Settings(
     val aiTranslationPrompt: AiTranslationPromptPreference = AiTranslationPromptPreference.default,
     val aiChatPrompt: AiChatPromptPreference = AiChatPromptPreference.default,
     val aiBackgroundSummary: AiBackgroundSummaryPreference = AiBackgroundSummaryPreference.default,
+    val aiBackgroundSummaryLimit: AiBackgroundSummaryLimitPreference = AiBackgroundSummaryLimitPreference.default,
+    val aiBackgroundSummaryBackfillOnSync: AiBackgroundSummaryBackfillOnSyncPreference = AiBackgroundSummaryBackfillOnSyncPreference.default,
 )

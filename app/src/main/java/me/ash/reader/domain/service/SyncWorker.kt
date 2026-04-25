@@ -19,6 +19,7 @@ constructor(
     private val accountService: AccountService,
     private val readerCacheHelper: ReaderCacheHelper,
     private val workManager: WorkManager,
+    private val pendingAiSummaryEnqueuer: PendingAiSummaryEnqueuer,
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
@@ -33,6 +34,10 @@ constructor(
         val result = rssRepository.sync(accountId = accountId, feedId = feedId, groupId = groupId)
 
         if (result is Result.Success) {
+            pendingAiSummaryEnqueuer.enqueueUnreadBackfill(
+                accountId = accountId,
+                requireBackfillOnSync = true,
+            )
             rssRepository.clearKeepArchivedArticles(accountId).forEach {
                 readerCacheHelper.deleteCacheFor(articleId = it.id, accountId = it.accountId)
             }

@@ -219,6 +219,8 @@ sealed interface PreferencesKey {
         const val aiChatPrompt = "aiChatPrompt"
         const val aiAutoSummary = "aiAutoSummary"
         const val aiBackgroundSummary = "aiBackgroundSummary"
+        const val aiBackgroundSummaryLimit = "aiBackgroundSummaryLimit"
+        const val aiBackgroundSummaryBackfillOnSync = "aiBackgroundSummaryBackfillOnSync"
 
         private val keyList =
             listOf(
@@ -310,6 +312,8 @@ sealed interface PreferencesKey {
                 StringKey(aiTranslationPrompt),
                 StringKey(aiChatPrompt),
                 BooleanKey(aiBackgroundSummary),
+                IntKey(aiBackgroundSummaryLimit),
+                BooleanKey(aiBackgroundSummaryBackfillOnSync),
             )
 
         val keys = keyList.associateBy { it.name }
@@ -415,6 +419,8 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
         const val aiChatPrompt = "aiChatPrompt"
         const val aiAutoSummary = "aiAutoSummary"
         const val aiBackgroundSummary = "aiBackgroundSummary"
+        const val aiBackgroundSummaryLimit = "aiBackgroundSummaryLimit"
+        const val aiBackgroundSummaryBackfillOnSync = "aiBackgroundSummaryBackfillOnSync"
 
         val keys: MutableMap<String, DataStoreKey<*>> =
             mutableMapOf(
@@ -602,6 +608,13 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
                         booleanPreferencesKey(aiBackgroundSummary),
                         Boolean::class.java,
                     ),
+                aiBackgroundSummaryLimit to
+                    DataStoreKey(intPreferencesKey(aiBackgroundSummaryLimit), Int::class.java),
+                aiBackgroundSummaryBackfillOnSync to
+                    DataStoreKey(
+                        booleanPreferencesKey(aiBackgroundSummaryBackfillOnSync),
+                        Boolean::class.java,
+                    ),
             )
     }
 }
@@ -767,5 +780,7 @@ private fun buildDefaultBackupPreferenceValues(): Map<String, Any> {
         PreferencesKey.aiTranslationPrompt to settings.aiTranslationPrompt.value,
         PreferencesKey.aiChatPrompt to settings.aiChatPrompt.value,
         PreferencesKey.aiBackgroundSummary to settings.aiBackgroundSummary.value,
+        PreferencesKey.aiBackgroundSummaryLimit to settings.aiBackgroundSummaryLimit.value,
+        PreferencesKey.aiBackgroundSummaryBackfillOnSync to settings.aiBackgroundSummaryBackfillOnSync.value,
     )
 }
