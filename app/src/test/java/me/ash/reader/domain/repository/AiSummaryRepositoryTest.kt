@@ -1,11 +1,56 @@
 package me.ash.reader.domain.repository
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AiSummaryRepositoryTest {
 
     private val repository = AiSummaryRepository()
+
+    @Test
+    fun parseRecommendedArticleIds_readsPlainJson() {
+        val ids = repository.parseRecommendedArticleIds("{\"articleIds\":[\"a1\",\"a2\"]}")
+
+        assertEquals(listOf("a1", "a2"), ids)
+    }
+
+    @Test
+    fun parseRecommendedArticleIds_readsFencedJson() {
+        val ids =
+            repository.parseRecommendedArticleIds(
+                """
+                ```json
+                {"articleIds":["a1","a2"]}
+                ```
+                """.trimIndent(),
+            )
+
+        assertEquals(listOf("a1", "a2"), ids)
+    }
+
+    @Test
+    fun buildCommuteBriefRecommendationMessages_containsCandidateAndJsonRules() {
+        val messages =
+            repository.buildCommuteBriefRecommendationMessages(
+                targetDurationMinutes = 30,
+                candidates =
+                    listOf(
+                        CommuteBriefRecommendationCandidate(
+                            articleId = "a1",
+                            title = "重要科技新闻",
+                            feedName = "Tech Feed",
+                            publishedAt = "2026-04-24 08:12",
+                            summary = "这是一条值得通勤收听的摘要。",
+                            estimatedDurationMinutes = 3,
+                        )
+                    ),
+            )
+
+        assertTrue(messages.first().content.contains("articleIds"))
+        assertTrue(messages.last().content.contains("id: a1"))
+        assertTrue(messages.last().content.contains("重要科技新闻"))
+    }
 
     @Test
     fun buildSummaryMessages_keepsStructuredLengthGuidanceInternal() {

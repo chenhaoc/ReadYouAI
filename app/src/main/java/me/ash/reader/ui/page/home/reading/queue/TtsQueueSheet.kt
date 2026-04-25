@@ -1,20 +1,27 @@
 package me.ash.reader.ui.page.home.reading.queue
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -24,12 +31,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -38,8 +47,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 import me.ash.reader.R
 import me.ash.reader.infrastructure.android.htmlSegmentCharCounts
+import me.ash.reader.infrastructure.android.ttsqueue.TtsCommuteQueueGenerationMode
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueContentType
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueItem
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueMode
@@ -49,6 +60,7 @@ import me.ash.reader.infrastructure.android.ttsqueue.TtsSleepTimerOption
 import me.ash.reader.ui.component.base.RYDialog
 
 private const val MS_PER_MINUTE = 60_000L
+private const val MODE_SWITCH_AFTER_MENU_CLOSE_DELAY_MS = 120L
 
 @Composable
 private fun TtsNowPlayingCard(
@@ -125,7 +137,7 @@ private fun TtsNowPlayingCard(
                         Text(
                             text = "${(state.currentIndex ?: 0) + 1}/${state.items.size}",
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
                 }
@@ -158,8 +170,9 @@ private fun TtsNowPlayingCard(
 @Composable
 fun TtsQueueSheet(
     state: TtsQueueState,
+    commuteBuildGenerationMode: TtsCommuteQueueGenerationMode?,
     onSwitchMode: (TtsQueueMode) -> Unit,
-    onGenerateCommuteBrief: () -> Unit,
+    onGenerateCommuteBrief: (TtsCommuteQueueGenerationMode) -> Unit,
     onPlayItem: (String) -> Unit,
     onPauseCurrent: () -> Unit,
     onSeekCurrent: (Int) -> Unit,
@@ -175,17 +188,22 @@ fun TtsQueueSheet(
     onClear: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var showRegenerateConfirm by remember { mutableStateOf(false) }
+    var showGenerateDialog by remember { mutableStateOf(false) }
+    var pendingGenerationMode by remember { mutableStateOf<TtsCommuteQueueGenerationMode?>(null) }
+    LaunchedEffect(commuteBuildGenerationMode) {
+        if (commuteBuildGenerationMode != null) {
+            pendingGenerationMode = commuteBuildGenerationMode
+        } else if (pendingGenerationMode != null) {
+            showGenerateDialog = false
+            pendingGenerationMode = null
+        }
+    }
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         QueueHeader(
             state = state,
             onSwitchMode = onSwitchMode,
             onGenerateCommuteBrief = {
-                if (state.mode != TtsQueueMode.Commute || state.items.isEmpty()) {
-                    onGenerateCommuteBrief()
-                } else {
-                    showRegenerateConfirm = true
-                }
+                showGenerateDialog = true
             },
             onClear = onClear,
             onSetSleepTimer = onSetSleepTimer,
@@ -280,14 +298,15 @@ fun TtsQueueSheet(
         }
     }
 
-    RegenerateCommuteBriefDialog(
-        visible = showRegenerateConfirm,
+    GenerateCommuteBriefDialog(
+        visible = showGenerateDialog,
         state = state,
-        onConfirm = {
-            showRegenerateConfirm = false
-            onGenerateCommuteBrief()
+        generationMode = commuteBuildGenerationMode ?: pendingGenerationMode,
+        onGenerate = { generationMode ->
+            pendingGenerationMode = generationMode
+            onGenerateCommuteBrief(generationMode)
         },
-        onDismiss = { showRegenerateConfirm = false },
+        onDismiss = { showGenerateDialog = false },
     )
 }
 
@@ -300,6 +319,15 @@ private fun QueueHeader(
     onSetSleepTimer: (TtsSleepTimerOption) -> Unit,
 ) {
     var modeMenuExpanded by remember { mutableStateOf(false) }
+    var pendingModeSwitch by remember { mutableStateOf<TtsQueueMode?>(null) }
+    LaunchedEffect(modeMenuExpanded, pendingModeSwitch) {
+        val mode = pendingModeSwitch ?: return@LaunchedEffect
+        if (!modeMenuExpanded) {
+            delay(MODE_SWITCH_AFTER_MENU_CLOSE_DELAY_MS)
+            pendingModeSwitch = null
+            onSwitchMode(mode)
+        }
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -323,15 +351,15 @@ private fun QueueHeader(
                 DropdownMenuItem(
                     text = { Text(text = stringResource(id = R.string.normal_mode)) },
                     onClick = {
+                        pendingModeSwitch = TtsQueueMode.Normal
                         modeMenuExpanded = false
-                        onSwitchMode(TtsQueueMode.Normal)
                     },
                 )
                 DropdownMenuItem(
                     text = { Text(text = stringResource(id = R.string.commute_mode)) },
                     onClick = {
+                        pendingModeSwitch = TtsQueueMode.Commute
                         modeMenuExpanded = false
-                        onSwitchMode(TtsQueueMode.Commute)
                     },
                 )
             }
@@ -369,53 +397,214 @@ private fun QueueHeader(
 }
 
 @Composable
-private fun RegenerateCommuteBriefDialog(
+private fun GenerateCommuteBriefDialog(
     state: TtsQueueState,
     visible: Boolean,
-    onConfirm: () -> Unit,
+    generationMode: TtsCommuteQueueGenerationMode?,
+    onGenerate: (TtsCommuteQueueGenerationMode) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val stats = remember(state.items, state.commuteMeta) { state.collectCommuteBriefStats() }
+    val isGenerating = generationMode != null
     RYDialog(
         visible = visible,
         onDismissRequest = onDismiss,
-        title = { Text(text = stringResource(id = R.string.regenerate_commute_brief_title)) },
+        title = { Text(text = stringResource(id = R.string.generate_commute_brief_title)) },
         text = {
-            Text(
-                text =
-                    if (stats != null && stats.targetDurationMinutes != null) {
-                        stringResource(
-                            id = R.string.regenerate_commute_brief_desc_with_stats_and_target,
-                            formatCommuteGeneratedDateTime(stats.generatedAtMillis),
-                            stats.itemCount,
-                            formatCount(stats.totalChars),
-                            stats.estimatedDurationMinutes,
-                            stats.targetDurationMinutes,
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (stats != null) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = stringResource(id = R.string.commute_brief_current_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
-                    } else if (stats != null) {
-                        stringResource(
-                            id = R.string.regenerate_commute_brief_desc_with_stats,
-                            formatCommuteGeneratedDateTime(stats.generatedAtMillis),
-                            stats.itemCount,
-                            formatCount(stats.totalChars),
-                            stats.estimatedDurationMinutes,
+                        CommuteBriefStatRow(
+                            label = stringResource(id = R.string.commute_brief_generated_at_label),
+                            value = formatCommuteGeneratedDateTime(stats.generatedAtMillis),
                         )
-                    } else {
-                        stringResource(id = R.string.regenerate_commute_brief_desc)
+                        CommuteBriefStatRow(
+                            label = stringResource(id = R.string.commute_brief_content_size_label),
+                            value = stringResource(
+                                id = R.string.commute_brief_content_size_value,
+                                stats.itemCount,
+                                formatCount(stats.totalChars),
+                            ),
+                        )
+                        CommuteBriefStatRow(
+                            label = stringResource(id = R.string.commute_brief_duration_label),
+                            value =
+                                stats.targetDurationMinutes?.let {
+                                    stringResource(
+                                        id = R.string.commute_brief_duration_stats_with_target,
+                                        stats.estimatedDurationMinutes,
+                                        it,
+                                    )
+                                } ?: stringResource(
+                                    id = R.string.commute_brief_duration_stats,
+                                    stats.estimatedDurationMinutes,
+                                ),
+                        )
                     }
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(text = stringResource(id = R.string.replace_and_generate))
+                    HorizontalDivider()
+                }
+                Text(
+                    text = stringResource(id = R.string.commute_brief_generate_new_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                if (generationMode != null) {
+                    GenerateCommuteBriefLoading(generationMode = generationMode)
+                } else {
+                    GenerateCommuteBriefOption(
+                        title = stringResource(id = R.string.commute_brief_generate_newest_first),
+                        desc = stringResource(id = R.string.commute_brief_generate_newest_first_desc),
+                        onClick = { onGenerate(TtsCommuteQueueGenerationMode.NewestFirst) },
+                    )
+                    GenerateCommuteBriefOption(
+                        title = stringResource(id = R.string.commute_brief_generate_ai_recommended),
+                        desc = stringResource(id = R.string.commute_brief_generate_ai_recommended_desc),
+                        badge = stringResource(id = R.string.commute_brief_ai_recommended_badge),
+                        onClick = { onGenerate(TtsCommuteQueueGenerationMode.AiRecommended) },
+                    )
+                }
             }
         },
+        confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(text = stringResource(id = R.string.cancel))
+                Text(text = stringResource(id = if (isGenerating) R.string.close else R.string.cancel))
             }
         },
     )
+}
+
+@Composable
+private fun CommuteBriefStatRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+@Composable
+private fun GenerateCommuteBriefOption(
+    title: String,
+    desc: String,
+    onClick: () -> Unit,
+    badge: String? = null,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = MaterialTheme.shapes.large,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = title, style = MaterialTheme.typography.titleMedium)
+                    if (badge != null) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Box(
+                            modifier =
+                                Modifier
+                                    .clip(MaterialTheme.shapes.small)
+                                    .background(MaterialTheme.colorScheme.primaryContainer)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                        ) {
+                            Text(
+                                text = badge,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        }
+                    }
+                }
+                Text(
+                    text = desc,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Icon(
+                imageVector = Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun GenerateCommuteBriefLoading(generationMode: TtsCommuteQueueGenerationMode) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ),
+        shape = MaterialTheme.shapes.large,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text =
+                        stringResource(
+                            id =
+                                when (generationMode) {
+                                    TtsCommuteQueueGenerationMode.NewestFirst ->
+                                        R.string.commute_brief_generating_newest_first
+                                    TtsCommuteQueueGenerationMode.AiRecommended ->
+                                        R.string.commute_brief_generating_ai_recommended
+                                },
+                        ),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text =
+                        stringResource(
+                            id =
+                                when (generationMode) {
+                                    TtsCommuteQueueGenerationMode.NewestFirst ->
+                                        R.string.commute_brief_generating_newest_first_desc
+                                    TtsCommuteQueueGenerationMode.AiRecommended ->
+                                        R.string.commute_brief_generating_ai_recommended_desc
+                                },
+                        ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
 }
 
 private data class CommuteBriefStats(

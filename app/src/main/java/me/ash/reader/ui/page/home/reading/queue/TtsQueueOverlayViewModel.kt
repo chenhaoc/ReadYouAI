@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import me.ash.reader.infrastructure.android.ttsqueue.CommuteBriefBuildResult
 import me.ash.reader.infrastructure.android.ttsqueue.CommuteBriefQueueBuilder
+import me.ash.reader.infrastructure.android.ttsqueue.TtsCommuteQueueGenerationMode
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueController
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueMode
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueuePlaybackState
@@ -24,18 +25,28 @@ class TtsQueueOverlayViewModel @Inject constructor(
     val queueState: StateFlow<TtsQueueState> = ttsQueueController.state
     private val _commuteBuildResult = MutableStateFlow<CommuteBriefBuildResult?>(null)
     val commuteBuildResult = _commuteBuildResult.asStateFlow()
+    private val _commuteBuildGenerationMode = MutableStateFlow<TtsCommuteQueueGenerationMode?>(null)
+    val commuteBuildGenerationMode = _commuteBuildGenerationMode.asStateFlow()
 
     fun switchMode(mode: TtsQueueMode) {
         ttsQueueController.switchMode(mode)
     }
 
-    fun generateCommuteBrief() {
+    fun generateCommuteBrief(
+        generationMode: TtsCommuteQueueGenerationMode = TtsCommuteQueueGenerationMode.NewestFirst,
+    ) {
+        if (_commuteBuildGenerationMode.value != null) return
         viewModelScope.launch {
-            val result = commuteBriefQueueBuilder.build()
-            _commuteBuildResult.value = result
-            if (result.hasSources) {
-                ttsQueueController.replaceCommuteQueue(result.items, result.meta)
-                ttsQueueController.switchMode(TtsQueueMode.Commute)
+            _commuteBuildGenerationMode.value = generationMode
+            try {
+                val result = commuteBriefQueueBuilder.build(generationMode)
+                _commuteBuildResult.value = result
+                if (result.hasSources) {
+                    ttsQueueController.replaceCommuteQueue(result.items, result.meta)
+                    ttsQueueController.switchMode(TtsQueueMode.Commute)
+                }
+            } finally {
+                _commuteBuildGenerationMode.value = null
             }
         }
     }

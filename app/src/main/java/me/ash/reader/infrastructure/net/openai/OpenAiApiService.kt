@@ -21,7 +21,12 @@ interface OpenAiApiService {
     ): Response<ChatCompletionResponse>
 
     companion object {
-        fun getInstance(baseUrl: String, apiKey: String): OpenAiApiService {
+        fun getInstance(
+            baseUrl: String,
+            apiKey: String,
+            timeoutSeconds: Long = 30L,
+            callTimeoutSeconds: Long? = null,
+        ): OpenAiApiService {
             val authInterceptor = Interceptor { chain ->
                 val originalRequest: Request = chain.request()
                 val requestBuilder: Request.Builder = originalRequest.newBuilder()
@@ -32,12 +37,15 @@ interface OpenAiApiService {
                 chain.proceed(request)
             }
 
-            val client = OkHttpClient.Builder()
+            val clientBuilder = OkHttpClient.Builder()
                 .addInterceptor(authInterceptor)
                 .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
-                .writeTimeout(30, TimeUnit.SECONDS)
-                .build()
+                .readTimeout(timeoutSeconds, TimeUnit.SECONDS)
+                .writeTimeout(timeoutSeconds, TimeUnit.SECONDS)
+            if (callTimeoutSeconds != null) {
+                clientBuilder.callTimeout(callTimeoutSeconds, TimeUnit.SECONDS)
+            }
+            val client = clientBuilder.build()
 
             return Retrofit.Builder()
                 .baseUrl(normalizeBaseUrl(baseUrl))

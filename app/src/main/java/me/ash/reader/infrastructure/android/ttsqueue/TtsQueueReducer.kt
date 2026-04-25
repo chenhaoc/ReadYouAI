@@ -29,12 +29,18 @@ enum class TtsQueueContentType {
     AiSummary,
 }
 
+enum class TtsCommuteQueueGenerationMode {
+    NewestFirst,
+    AiRecommended,
+}
+
 @Serializable
 data class TtsCommuteQueueMeta(
     val generatedAtMillis: Long,
     val targetDurationMinutes: Int,
     val estimatedDurationMinutes: Int,
     val itemCount: Int,
+    val generationMode: TtsCommuteQueueGenerationMode = TtsCommuteQueueGenerationMode.NewestFirst,
 )
 
 enum class TtsQueuePlaybackState {

@@ -273,6 +273,12 @@ fun AiSettingsPage(
                             backfillConfirmDialogVisible = true
                         }
                     ) {}
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Subtitle(
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                        text = stringResource(R.string.translation_settings)
+                    )
                     SettingItem(
                         title = stringResource(R.string.ai_translation_prompt),
                         desc = aiTranslationPrompt.toDesc(context),
@@ -280,6 +286,12 @@ fun AiSettingsPage(
                             translationPromptDialogVisible = true
                         }
                     ) {}
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Subtitle(
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                        text = stringResource(R.string.chat_settings)
+                    )
                     SettingItem(
                         title = stringResource(R.string.ai_chat_prompt),
                         desc = aiChatPrompt.toDesc(context),

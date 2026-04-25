@@ -43,6 +43,7 @@ import androidx.navigation3.ui.LocalNavAnimatedContentScope
 import androidx.navigation3.ui.NavDisplay
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import me.ash.reader.infrastructure.android.ttsqueue.TtsCommuteQueueGenerationMode
 import me.ash.reader.infrastructure.preference.LocalSettings
 import me.ash.reader.infrastructure.preference.LocalReadingTtsMiniPlayer
 import me.ash.reader.ui.ext.PreferencesKey
@@ -104,6 +105,7 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
     val settings = LocalSettings.current
     val queueState = overlayViewModel.queueState.collectAsStateValue()
     val commuteBuildResult = overlayViewModel.commuteBuildResult.collectAsStateValue()
+    val commuteBuildGenerationMode = overlayViewModel.commuteBuildGenerationMode.collectAsStateValue()
     val showFloatingButton = LocalReadingTtsMiniPlayer.current
     val scope = rememberCoroutineScope()
     val queueSheetState =
@@ -122,6 +124,13 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
             when {
                 !result.hasSources -> context.getString(me.ash.reader.R.string.commute_brief_no_source)
                 result.items.isEmpty() -> context.getString(me.ash.reader.R.string.commute_brief_no_items)
+                result.aiRecommendationFallback ->
+                    context.getString(me.ash.reader.R.string.commute_brief_ai_fallback)
+                result.generationMode == TtsCommuteQueueGenerationMode.AiRecommended ->
+                    context.getString(
+                        me.ash.reader.R.string.commute_brief_ai_generated,
+                        result.estimatedDurationMinutes,
+                    )
                 result.estimatedDurationMinutes < settings.commuteBriefDuration.minutes ->
                     context.getString(
                         me.ash.reader.R.string.commute_brief_generated_short,
@@ -427,6 +436,7 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
                 ) {
                     TtsQueueSheet(
                         state = queueState,
+                        commuteBuildGenerationMode = commuteBuildGenerationMode,
                         onSwitchMode = overlayViewModel::switchMode,
                         onGenerateCommuteBrief = overlayViewModel::generateCommuteBrief,
                         onPlayItem = overlayViewModel::playPlaylistItem,
