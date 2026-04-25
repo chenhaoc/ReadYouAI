@@ -350,8 +350,10 @@ fun Modifier.pullToLoad(
     },
     onScroll: ((Float) -> Unit)? = null,
     enabled: Boolean = true,
-): Modifier =
-    nestedScroll(
+): Modifier {
+    if (!enabled) return this
+
+    return nestedScroll(
         ReaderNestedScrollConnection(
             enabled = enabled,
             onPreScroll = state::onPullBack,
@@ -360,8 +362,8 @@ fun Modifier.pullToLoad(
             onScroll = onScroll
         )
     ).then(
-        if (enabled) Modifier.offset {
+        Modifier.offset {
             IntOffset(x = 0, y = contentOffsetY(state.offsetFraction))
         }
-        else this
     )
+}

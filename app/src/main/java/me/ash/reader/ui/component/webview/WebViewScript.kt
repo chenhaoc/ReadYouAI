@@ -144,5 +144,27 @@ images.forEach(function(img) {
         console.error("Failed to load image:", img.src);
     };
 });
+
+function reportContentHeight() {
+    if (!window.${JavaScriptInterface.NAME}) return;
+    const body = document.body;
+    const html = document.documentElement;
+    const height = Math.max(
+        body ? body.scrollHeight : 0,
+        body ? body.offsetHeight : 0,
+        html ? html.clientHeight : 0,
+        html ? html.scrollHeight : 0,
+        html ? html.offsetHeight : 0
+    );
+    window.${JavaScriptInterface.NAME}.onContentHeightChanged(Math.ceil(height));
+}
+
+reportContentHeight();
+window.addEventListener('load', reportContentHeight);
+setTimeout(reportContentHeight, 100);
+setTimeout(reportContentHeight, 500);
+if (window.ResizeObserver) {
+    new ResizeObserver(reportContentHeight).observe(document.body);
+}
 """
 }

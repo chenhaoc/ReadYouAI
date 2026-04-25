@@ -127,6 +127,7 @@ fun Content(
                             // padding
                             headline()
                             summarySection()
+                            Spacer(modifier = Modifier.height(16.dp))
 
                             RYWebView(
                                 modifier = Modifier.fillMaxWidth(),
@@ -139,6 +140,7 @@ fun Content(
                                 refererDomain = link.extractDomain(),
                                 onImageClick = onImageClick,
                                 onWebViewReady = onWebViewReady,
+                                onScrollDelta = { delta -> scrollState.dispatchRawDelta(delta) },
                             )
                             Spacer(modifier = Modifier.height(128.dp))
                             Spacer(
