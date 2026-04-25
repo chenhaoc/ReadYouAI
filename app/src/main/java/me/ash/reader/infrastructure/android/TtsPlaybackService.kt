@@ -17,6 +17,7 @@ import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
 import android.os.Build
+import android.os.Bundle
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.SystemClock
@@ -123,6 +124,10 @@ class TtsPlaybackService : Service() {
                 ttsQueueController.resumeCurrent()
                 return START_NOT_STICKY
             }
+            ACTION_TOGGLE_STARRED -> {
+                ttsQueueController.toggleCurrentStarred()
+                return START_NOT_STICKY
+            }
         }
 
         startForeground(NOTIFICATION_ID, buildNotification(ttsQueueController.state.value))
@@ -192,6 +197,12 @@ class TtsPlaybackService : Service() {
                     val targetSegment = msToSegmentIndex(pos, segmentCharCounts)
                     ttsQueueController.seekCurrent(targetSegment)
                 }
+
+                override fun onCustomAction(action: String?, extras: Bundle?) {
+                    if (action == ACTION_TOGGLE_STARRED) {
+                        ttsQueueController.toggleCurrentStarred()
+                    }
+                }
             })
             isActive = ttsQueueController.state.value.hasActiveMediaSession()
         }
@@ -260,7 +271,21 @@ class TtsPlaybackService : Service() {
                 if (isPlaying) 1f else 0f,
                 SystemClock.elapsedRealtime(),
             )
-
+        if (currentItem != null) {
+            stateBuilder.addCustomAction(
+                PlaybackStateCompat.CustomAction.Builder(
+                    ACTION_TOGGLE_STARRED,
+                    getString(
+                        if (state.currentItemStarred) {
+                            R.string.mark_as_unstar
+                        } else {
+                            R.string.mark_as_starred
+                        }
+                    ),
+                    if (state.currentItemStarred) R.drawable.ic_star else R.drawable.ic_star_outline,
+                ).build()
+            )
+        }
         session.setPlaybackState(stateBuilder.build())
     }
 
@@ -327,6 +352,22 @@ class TtsPlaybackService : Service() {
                 buildActionPendingIntent(ACTION_SKIP_NEXT, REQUEST_CODE_NEXT),
             ).build()
         )
+
+        if (currentItem != null) {
+            builder.addAction(
+                NotificationCompat.Action.Builder(
+                    if (state.currentItemStarred) R.drawable.ic_star else R.drawable.ic_star_outline,
+                    getString(
+                        if (state.currentItemStarred) {
+                            R.string.mark_as_unstar
+                        } else {
+                            R.string.mark_as_starred
+                        }
+                    ),
+                    buildActionPendingIntent(ACTION_TOGGLE_STARRED, REQUEST_CODE_TOGGLE_STARRED),
+                ).build()
+            )
+        }
 
         builder.setStyle(
             MediaStyle()
@@ -502,10 +543,12 @@ class TtsPlaybackService : Service() {
         private const val ACTION_RESUME = "me.ash.reader.TTS_RESUME"
         private const val ACTION_SKIP_NEXT = "me.ash.reader.TTS_SKIP_NEXT"
         private const val ACTION_SKIP_PREVIOUS = "me.ash.reader.TTS_SKIP_PREVIOUS"
+        private const val ACTION_TOGGLE_STARRED = "me.ash.reader.TTS_TOGGLE_STARRED"
         private const val REQUEST_CODE_PREVIOUS = 1001
         private const val REQUEST_CODE_TOGGLE = 1002
         private const val REQUEST_CODE_NEXT = 1003
         private const val REQUEST_CODE_MEDIA_BUTTON = 1004
+        private const val REQUEST_CODE_TOGGLE_STARRED = 1005
 
         fun startService(context: Context) {
             val intent = Intent(context, TtsPlaybackService::class.java)

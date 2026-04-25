@@ -445,6 +445,7 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
                         onPreviousSegment = overlayViewModel::previousQueueSegment,
                         onNextSegment = overlayViewModel::nextQueueSegment,
                         onSetSleepTimer = overlayViewModel::setSleepTimer,
+                        onToggleCurrentStarred = overlayViewModel::toggleCurrentStarred,
                         onOpenCurrentArticle = { articleId ->
                             closeQueue {
                                 scope.launch {

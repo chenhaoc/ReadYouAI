@@ -19,6 +19,8 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarOutline
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -72,6 +74,7 @@ private fun TtsNowPlayingCard(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onNextSegment: () -> Unit,
+    onToggleCurrentStarred: () -> Unit,
 ) {
     val currentItem = state.currentItem
     val playbackControlEnabled =
@@ -109,13 +112,53 @@ private fun TtsNowPlayingCard(
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = currentItem.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.clickable { onOpenCurrentArticle(currentItem.articleId) },
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = currentItem.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .clickable { onOpenCurrentArticle(currentItem.articleId) },
+                        )
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(32.dp)
+                                    .clickable(onClick = onToggleCurrentStarred),
+                            contentAlignment = Alignment.CenterEnd,
+                        ) {
+                            Icon(
+                                modifier = Modifier.size(22.dp),
+                                imageVector =
+                                    if (state.currentItemStarred) {
+                                        Icons.Rounded.Star
+                                    } else {
+                                        Icons.Rounded.StarOutline
+                                    },
+                                contentDescription =
+                                    stringResource(
+                                        if (state.currentItemStarred) {
+                                            R.string.mark_as_unstar
+                                        } else {
+                                            R.string.mark_as_starred
+                                        }
+                                    ),
+                                tint =
+                                    if (state.currentItemStarred) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                            )
+                        }
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -180,6 +223,7 @@ fun TtsQueueSheet(
     onNextSegment: () -> Unit,
     onSetSleepTimer: (TtsSleepTimerOption) -> Unit,
     onOpenCurrentArticle: (String) -> Unit,
+    onToggleCurrentStarred: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onRemove: (String) -> Unit,
@@ -224,6 +268,7 @@ fun TtsQueueSheet(
             onPrevious = onPrevious,
             onNext = onNext,
             onNextSegment = onNextSegment,
+            onToggleCurrentStarred = onToggleCurrentStarred,
         )
 
         if (state.items.isEmpty()) {

@@ -81,6 +81,10 @@ class TtsQueueOverlayViewModel @Inject constructor(
         ttsQueueController.setSleepTimer(option)
     }
 
+    fun toggleCurrentStarred() {
+        ttsQueueController.toggleCurrentStarred()
+    }
+
     fun clearPlaylist() {
         ttsQueueController.clear()
     }

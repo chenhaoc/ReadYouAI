@@ -13,6 +13,7 @@ import kotlinx.serialization.json.Json
 import me.ash.reader.domain.model.article.ArticleWithFeed
 import me.ash.reader.domain.repository.ArticleDao
 import me.ash.reader.domain.service.AccountService
+import me.ash.reader.domain.service.RssService
 import me.ash.reader.infrastructure.android.TextToSpeechManager
 import me.ash.reader.infrastructure.android.htmlSegmentCharCounts
 import me.ash.reader.infrastructure.html.VideoNoiseCleaner
@@ -50,6 +51,7 @@ class ArticleDaoTtsQueueArticleRepository
 constructor(
     private val articleDao: ArticleDao,
     private val accountService: AccountService,
+    private val rssService: RssService,
 ) : TtsQueueArticleRepository {
     override suspend fun get(item: TtsQueueItem): TtsQueuePlayableArticle? {
         if (item.contentType == TtsQueueContentType.AiSummary) {
@@ -99,6 +101,13 @@ constructor(
             articleId = articleId,
             isUnread = false,
         )
+    }
+
+    override fun observeIsStarred(articleId: String): Flow<Boolean> =
+        articleDao.queryIsStarredByArticleId(articleId).map { it == true }
+
+    override suspend fun markAsStarred(articleId: String, isStarred: Boolean) {
+        rssService.get().markAsStarred(articleId = articleId, isStarred = isStarred)
     }
 }
 

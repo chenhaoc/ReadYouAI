@@ -81,6 +81,7 @@ data class TtsPlaybackBookmark(
 data class TtsQueueState(
     val items: List<TtsQueueItem> = emptyList(),
     val currentArticleId: String? = null,
+    val currentItemStarred: Boolean = false,
     val playbackState: TtsQueuePlaybackState = TtsQueuePlaybackState.Idle,
     val bookmarks: Map<String, TtsPlaybackBookmark> = emptyMap(),
     val sleepTimer: TtsSleepTimerState = TtsSleepTimerState(),

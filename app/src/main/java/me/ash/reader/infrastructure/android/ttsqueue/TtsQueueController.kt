@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
@@ -57,6 +59,10 @@ interface TtsQueueArticleRepository {
     suspend fun getById(articleId: String): TtsQueuePlayableArticle?
 
     suspend fun markAsRead(articleId: String)
+
+    fun observeIsStarred(articleId: String): Flow<Boolean>
+
+    suspend fun markAsStarred(articleId: String, isStarred: Boolean)
 }
 
 interface TtsQueuePlaybackClient {
@@ -94,6 +100,7 @@ class TtsQueueController(
                 handlePlaybackEvent(event)
             }
         }
+        observeCurrentItemStarred()
         coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
             try {
                 restore()
@@ -317,6 +324,17 @@ class TtsQueueController(
                 delay(durationMs)
                 sleepTimerJob = null
                 stop()
+            }
+        }
+    }
+
+    fun toggleCurrentStarred() {
+        val articleId = _state.value.currentArticleId ?: return
+        val targetStarred = !_state.value.currentItemStarred
+        setCurrentItemStarred(targetStarred)
+        coroutineScope.launch {
+            runCatching {
+                articleRepository.markAsStarred(articleId = articleId, isStarred = targetStarred)
             }
         }
     }
@@ -558,6 +576,28 @@ class TtsQueueController(
                 bookmarks = _state.value.bookmarks + (articleId to transform(current)),
             )
         )
+    }
+
+    private fun observeCurrentItemStarred() {
+        coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            _state
+                .map { it.mode to it.currentArticleId }
+                .distinctUntilChanged()
+                .collectLatest { (_, articleId) ->
+                    if (articleId == null) {
+                        setCurrentItemStarred(false)
+                    } else {
+                        articleRepository.observeIsStarred(articleId).collectLatest { isStarred ->
+                            setCurrentItemStarred(isStarred)
+                        }
+                    }
+                }
+        }
+    }
+
+    private fun setCurrentItemStarred(isStarred: Boolean) {
+        if (_state.value.currentItemStarred == isStarred) return
+        setActiveState(_state.value.copy(currentItemStarred = isStarred))
     }
 
     private fun updateQueue(

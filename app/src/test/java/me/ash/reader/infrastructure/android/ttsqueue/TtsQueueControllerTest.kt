@@ -2,6 +2,7 @@ package me.ash.reader.infrastructure.android.ttsqueue
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -671,6 +672,10 @@ private class FakeArticleRepository(
     override suspend fun markAsRead(articleId: String) {
         markedReadArticleIds += articleId
     }
+
+    override fun observeIsStarred(articleId: String): Flow<Boolean> = flowOf(false)
+
+    override suspend fun markAsStarred(articleId: String, isStarred: Boolean) = Unit
 }
 
 private class FakePlaybackClient : TtsQueuePlaybackClient {

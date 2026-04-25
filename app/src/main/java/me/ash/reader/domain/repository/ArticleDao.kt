@@ -399,6 +399,15 @@ interface ArticleDao {
 
     @Query(
         """
+        SELECT isStarred FROM article
+        WHERE id = :articleId
+        LIMIT 1
+        """
+    )
+    fun queryIsStarredByArticleId(articleId: String): Flow<Boolean?>
+
+    @Query(
+        """
         UPDATE article SET aiSummary = :aiSummary
         WHERE id = :articleId
         """
