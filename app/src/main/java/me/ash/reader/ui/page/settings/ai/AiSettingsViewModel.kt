@@ -36,6 +36,23 @@ class AiSettingsViewModel @Inject constructor(
         }
     }
 
+    fun testConnection(
+        baseUrl: String,
+        apiKey: String,
+        model: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        viewModelScope.launch {
+            when (val result = aiSummaryRepository.testAiServiceConnection(baseUrl, apiKey, model)) {
+                is ApiResult.Success -> onSuccess()
+                is ApiResult.BizError -> onError(result.exception.message ?: "Business error")
+                is ApiResult.NetworkError -> onError(result.exception.message ?: "Network error")
+                is ApiResult.UnknownError -> onError(result.throwable.message ?: "Unknown error")
+            }
+        }
+    }
+
     fun enqueueUnreadSummaryBackfill(onResult: (PendingAiSummaryEnqueuer.BackfillResult) -> Unit) {
         viewModelScope.launch {
             val accountId = accountService.getCurrentAccountId()

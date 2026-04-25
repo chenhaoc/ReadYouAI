@@ -12,8 +12,11 @@ import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Cancel
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -93,8 +96,10 @@ fun AiSettingsPage(
     val availableModels = remember { mutableStateListOf<String>() }
     var isLoadingModels by remember { mutableStateOf(false) }
     var fetchError by remember { mutableStateOf<String?>(null) }
+    var testConnectionState by remember { mutableStateOf(AiConnectionTestState.Idle) }
     
-    LaunchedEffect(aiBaseUrl.value, aiApiKey.value) {
+    LaunchedEffect(aiBaseUrl.value, aiApiKey.value, aiModel.value) {
+        testConnectionState = AiConnectionTestState.Idle
         if (aiBaseUrl.value.isNotEmpty() && aiApiKey.value.isNotEmpty()) {
             isLoadingModels = true
             fetchError = null
@@ -222,6 +227,46 @@ fun AiSettingsPage(
                 }
 
                 item {
+                    SettingItem(
+                        enabled = testConnectionState != AiConnectionTestState.Testing,
+                        title = stringResource(R.string.ai_test_connection),
+                        desc =
+                            stringResource(
+                                when (testConnectionState) {
+                                    AiConnectionTestState.Idle -> R.string.ai_test_connection_desc
+                                    AiConnectionTestState.Testing -> R.string.ai_test_connection_testing
+                                    AiConnectionTestState.Success -> R.string.ai_test_connection_success
+                                    AiConnectionTestState.Failed -> R.string.ai_test_connection_retry
+                                }
+                            ),
+                        onClick = {
+                            val baseUrl = aiBaseUrl.value.trim()
+                            val apiKey = aiApiKey.value.trim()
+                            val model = aiModel.value.trim()
+                            if (baseUrl.isBlank() || apiKey.isBlank() || model.isBlank()) {
+                                context.showToast(context.getString(R.string.ai_test_connection_missing_config))
+                                return@SettingItem
+                            }
+                            testConnectionState = AiConnectionTestState.Testing
+                            aiSettingsViewModel.testConnection(
+                                baseUrl = baseUrl,
+                                apiKey = apiKey,
+                                model = model,
+                                onSuccess = {
+                                    testConnectionState = AiConnectionTestState.Success
+                                    context.showToast(context.getString(R.string.ai_test_connection_success))
+                                },
+                                onError = { error ->
+                                    testConnectionState = AiConnectionTestState.Failed
+                                    context.showToast(
+                                        context.getString(R.string.ai_test_connection_failed, error)
+                                    )
+                                },
+                            )
+                        },
+                    ) {
+                        AiConnectionTestStateIcon(state = testConnectionState)
+                    }
                     Spacer(modifier = Modifier.height(24.dp))
                 }
 
@@ -460,6 +505,40 @@ fun AiSettingsPage(
             chatPromptDialogVisible = false
         }
     )
+}
+
+@Composable
+private fun AiConnectionTestStateIcon(state: AiConnectionTestState) {
+    when (state) {
+        AiConnectionTestState.Idle -> Unit
+        AiConnectionTestState.Testing -> {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                strokeWidth = 2.dp,
+            )
+        }
+        AiConnectionTestState.Success -> {
+            Icon(
+                imageVector = Icons.Rounded.CheckCircle,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
+        AiConnectionTestState.Failed -> {
+            Icon(
+                imageVector = Icons.Rounded.Cancel,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+            )
+        }
+    }
+}
+
+private enum class AiConnectionTestState {
+    Idle,
+    Testing,
+    Success,
+    Failed,
 }
 
 private fun AiBackgroundSummaryLimitPreference.toDesc(context: android.content.Context): String =

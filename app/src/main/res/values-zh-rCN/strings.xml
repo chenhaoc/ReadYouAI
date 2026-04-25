@@ -404,6 +404,13 @@
     <string name="ai_model">大模型</string>
     <string name="ai_fetch_models">正在获取可用模型…</string>
     <string name="ai_fetch_models_error">获取模型失败，请检查地址和 API 密钥。</string>
+    <string name="ai_test_connection">测试连接</string>
+    <string name="ai_test_connection_desc">使用当前模型发送一次轻量请求</string>
+    <string name="ai_test_connection_testing">正在测试 AI 服务连接…</string>
+    <string name="ai_test_connection_missing_config">请先配置 API 地址、API Key 和模型</string>
+    <string name="ai_test_connection_success">AI 服务连接正常</string>
+    <string name="ai_test_connection_failed">AI 服务连接失败：%1$s</string>
+    <string name="ai_test_connection_retry">连接失败，点击重试</string>
     <string name="ai_summarization_prompt">摘要提示词</string>
     <string name="ai_summarization_prompt_hint">自定义文章摘要生成方式</string>
     <string name="ai_summarization_prompt_default" translatable="false">请用简体中文写一份适合快速阅读的结构化摘要，按 3 到 4 个短段落输出，每段聚焦一个重点，每段 1 到 2 句。\n\n先说明发生了什么，再补充关键事实，然后说明为什么值得关注；如果还有必要，再补充后续变化、争议或不确定性。\n\n要求表达清楚、信息密度高、避免重复，不要写成流水账。</string>

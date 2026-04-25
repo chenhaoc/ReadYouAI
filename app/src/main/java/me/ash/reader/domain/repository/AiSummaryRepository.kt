@@ -76,6 +76,44 @@ class AiSummaryRepository @Inject constructor() {
         }
     }
 
+    suspend fun testAiServiceConnection(
+        baseUrl: String,
+        apiKey: String,
+        model: String,
+    ): ApiResult<Unit> {
+        return try {
+            val service = OpenAiApiService.getInstance(
+                baseUrl = baseUrl,
+                apiKey = apiKey,
+                timeoutSeconds = AI_CONNECTION_TEST_TIMEOUT_SECONDS,
+                callTimeoutSeconds = AI_CONNECTION_TEST_TIMEOUT_SECONDS,
+            )
+            val request = ChatCompletionRequest(
+                model = model,
+                messages = listOf(ChatMessage(role = "user", content = "Reply with OK only.")),
+                temperature = 0.0,
+                maxTokens = 8,
+            )
+            val response =
+                withTimeout(AI_CONNECTION_TEST_TIMEOUT_SECONDS * 1000L) {
+                    service.createChatCompletion(request)
+                }
+            if (response.isSuccessful && response.body() != null) {
+                val content = response.body()!!.choices.firstOrNull()?.message?.content.orEmpty()
+                if (content.isNotBlank()) {
+                    ApiResult.Success(Unit)
+                } else {
+                    ApiResult.BizError(Exception("No content returned from API"))
+                }
+            } else {
+                val errorMsg = response.errorBody()?.string() ?: "Unknown error"
+                ApiResult.BizError(Exception(errorMsg))
+            }
+        } catch (e: Exception) {
+            ApiResult.NetworkError(e)
+        }
+    }
+
     suspend fun summarizeArticle(
         baseUrl: String,
         apiKey: String,
@@ -196,3 +234,4 @@ data class CommuteBriefRecommendationCandidate(
 
 private const val MAX_RECOMMENDATION_SUMMARY_CHARS = 800
 private const val COMMUTE_BRIEF_RECOMMENDATION_TIMEOUT_SECONDS = 60L
+private const val AI_CONNECTION_TEST_TIMEOUT_SECONDS = 15L
