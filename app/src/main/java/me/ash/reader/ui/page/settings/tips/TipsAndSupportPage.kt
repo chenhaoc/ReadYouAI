@@ -122,6 +122,12 @@ fun TipsAndSupportPage(
                 )
                 add(
                     SupportFeature(
+                        icon = Icons.Rounded.Book,
+                        text = context.getString(R.string.tips_support_feature_reading),
+                    ),
+                )
+                add(
+                    SupportFeature(
                         icon = Icons.AutoMirrored.Rounded.VolumeUp,
                         text = context.getString(R.string.tips_support_feature_tts),
                     ),

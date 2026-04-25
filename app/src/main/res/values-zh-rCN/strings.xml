@@ -124,11 +124,12 @@
     <string name="tips_support_support_upstream_desc">资金流向上游项目与维护者</string>
     <string name="tips_support_support_custom">支持 ReadYouAI</string>
     <string name="tips_support_support_custom_desc">支持当前定制版的持续维护与更新</string>
-    <string name="tips_support_feature_ai_summary">AI 摘要：支持手动与自动生成</string>
-    <string name="tips_support_feature_ai_chat">AI 问答：支持继续追问与快捷提问</string>
-    <string name="tips_support_feature_translation">文章翻译：支持分段翻译与自动翻译</string>
-    <string name="tips_support_feature_tts">TTS：支持播放列表、悬浮入口与通知控件</string>
-    <string name="tips_support_feature_backup">备份恢复：支持导出与导入配置、账户和订阅</string>
+    <string name="tips_support_feature_ai_summary">AI 摘要：支持手动、自动与后台预生成</string>
+    <string name="tips_support_feature_ai_chat">AI 问答：围绕文章追问并展示 Markdown 回复</string>
+    <string name="tips_support_feature_translation">文章翻译：列表与阅读页联动展示</string>
+    <string name="tips_support_feature_reading">阅读体验：内联摘要、长按原文与字数统计</string>
+    <string name="tips_support_feature_tts">TTS：播放列表、摘要模式与媒体控制</string>
+    <string name="tips_support_feature_backup">备份恢复：导出与导入配置、账户和订阅</string>
     <string name="tips_support_upstream_dialog_title">支持上游 ReadYou</string>
     <string name="tips_support_upstream_dialog_desc">以下入口支持上游 ReadYou 项目及其维护者，不属于当前 ReadYouAI 定制版的捐赠入口。</string>
     <string name="tips_support_upstream_author">原作者</string>

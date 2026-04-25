@@ -149,10 +149,11 @@
     <string name="tips_support_support_upstream_desc">Funds go to the upstream project and maintainers</string>
     <string name="tips_support_support_custom">Support ReadYouAI</string>
     <string name="tips_support_support_custom_desc">Support the current custom branch and ongoing maintenance</string>
-    <string name="tips_support_feature_ai_summary">AI summaries with manual and automatic triggers</string>
-    <string name="tips_support_feature_ai_chat">AI chat with follow-up questions and quick prompts</string>
-    <string name="tips_support_feature_translation">Article translation with segmented and automatic modes</string>
-    <string name="tips_support_feature_tts">TTS playlist, floating entry, and notification controls</string>
+    <string name="tips_support_feature_ai_summary">AI summaries with manual, automatic, and background generation</string>
+    <string name="tips_support_feature_ai_chat">Article Q&amp;A with follow-up questions and Markdown answers</string>
+    <string name="tips_support_feature_translation">Article translation across lists and reading pages</string>
+    <string name="tips_support_feature_reading">Reading page with inline summaries and article stats</string>
+    <string name="tips_support_feature_tts">TTS playlists, summary mode, and media controls</string>
     <string name="tips_support_feature_backup">Backup and restore for settings, accounts, and feeds</string>
     <string name="tips_support_upstream_dialog_title">Support upstream ReadYou</string>
     <string name="tips_support_upstream_dialog_desc">The links below support the upstream ReadYou project and maintainers. They are not donations for this custom ReadYouAI branch.</string>
