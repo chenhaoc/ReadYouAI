@@ -13,7 +13,9 @@ import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
+import android.media.AudioFormat
 import android.media.AudioManager
+import android.media.AudioTrack
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -57,6 +59,7 @@ class TtsPlaybackService : Service() {
     private var mediaSession: MediaSessionCompat? = null
     private var audioFocusRequest: AudioFocusRequest? = null
     private var hasAudioFocus: Boolean = false
+    private var mediaPlaybackAnchor: SilentMediaPlaybackAnchor? = null
     private val notificationLargeIcon: Bitmap by lazy(LazyThreadSafetyMode.NONE) {
         packageManager.getApplicationIcon(packageName).toNotificationLargeIcon(resources)
     }
@@ -133,6 +136,7 @@ class TtsPlaybackService : Service() {
         stateObserverJob?.cancel()
         mediaSession?.release()
         mediaSession = null
+        releaseMediaPlaybackAnchor()
         releaseWakeLock()
         abandonAudioFocusIfNeeded()
         super.onDestroy()
@@ -200,6 +204,7 @@ class TtsPlaybackService : Service() {
                 updateMediaSession(state)
                 updateWakeLock(state)
                 updateAudioFocus(state)
+                updateMediaPlaybackAnchor(ttsQueueController.state.value)
                 when (state.playbackState) {
                     TtsQueuePlaybackState.Reading,
                     TtsQueuePlaybackState.Preparing,
@@ -369,6 +374,7 @@ class TtsPlaybackService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification(ttsQueueController.state.value))
         updateWakeLock(ttsQueueController.state.value)
         updateAudioFocus(ttsQueueController.state.value)
+        updateMediaPlaybackAnchor(ttsQueueController.state.value)
         observeState()
     }
 
@@ -403,6 +409,22 @@ class TtsPlaybackService : Service() {
         } else {
             abandonAudioFocusIfNeeded()
         }
+    }
+
+    private fun updateMediaPlaybackAnchor(state: TtsQueueState) {
+        if (state.isPlaying()) {
+            val anchor = mediaPlaybackAnchor ?: SilentMediaPlaybackAnchor(speechAudioAttributes).also {
+                mediaPlaybackAnchor = it
+            }
+            anchor.start()
+        } else {
+            mediaPlaybackAnchor?.pause()
+        }
+    }
+
+    private fun releaseMediaPlaybackAnchor() {
+        mediaPlaybackAnchor?.release()
+        mediaPlaybackAnchor = null
     }
 
     private fun requestAudioFocusIfNeeded(): Boolean {
@@ -498,6 +520,58 @@ class TtsPlaybackService : Service() {
             val intent = Intent(context, TtsPlaybackService::class.java)
             context.stopService(intent)
         }
+    }
+}
+
+private class SilentMediaPlaybackAnchor(
+    private val audioAttributes: AudioAttributes,
+) {
+    private var audioTrack: AudioTrack? = null
+
+    fun start() {
+        val track = audioTrack ?: createAudioTrack().also { audioTrack = it }
+        if (track.playState != AudioTrack.PLAYSTATE_PLAYING) {
+            track.play()
+        }
+    }
+
+    fun pause() {
+        audioTrack?.let { track ->
+            if (track.playState == AudioTrack.PLAYSTATE_PLAYING) {
+                track.pause()
+            }
+        }
+    }
+
+    fun release() {
+        audioTrack?.release()
+        audioTrack = null
+    }
+
+    private fun createAudioTrack(): AudioTrack {
+        val format =
+            AudioFormat.Builder()
+                .setSampleRate(SILENCE_SAMPLE_RATE)
+                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                .build()
+        val frameCount = SILENCE_SAMPLE_RATE
+        val silence = ShortArray(frameCount)
+        return AudioTrack.Builder()
+            .setAudioAttributes(audioAttributes)
+            .setAudioFormat(format)
+            .setTransferMode(AudioTrack.MODE_STATIC)
+            .setBufferSizeInBytes(silence.size * Short.SIZE_BYTES)
+            .build()
+            .apply {
+                write(silence, 0, silence.size)
+                setLoopPoints(0, frameCount, -1)
+                setVolume(0f)
+            }
+    }
+
+    private companion object {
+        const val SILENCE_SAMPLE_RATE = 8_000
     }
 }
 
