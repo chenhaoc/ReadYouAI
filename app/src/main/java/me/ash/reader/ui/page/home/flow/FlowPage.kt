@@ -261,19 +261,6 @@ fun FlowPage(
             }
         }
 
-    val snapAppBarToCollapsed =
-        remember(topAppBarState) {
-            {
-                scope.launch {
-                    val initial = topAppBarState.heightOffset
-                    val target = topAppBarState.heightOffsetLimit
-                    if (initial != target) {
-                        topAppBarState.heightOffset = target
-                    }
-                }
-            }
-        }
-
     val readerState = viewModel.readerStateStateFlow.collectAsStateValue()
 
     var pagingItems: LazyPagingItems<ArticleFlowItem>? by remember { mutableStateOf(null) }
@@ -286,31 +273,14 @@ fun FlowPage(
                 val itemList = pagingItems?.itemSnapshotList
 
                 val index =
-                    itemList?.indexOfFirst {
-                        it is ArticleFlowItem.Article && it.articleWithFeed.article.id == articleId
-                    } ?: -1
+                    itemList?.items?.lazyListIndexOfArticle(
+                        articleId = articleId,
+                        isStickyHeaderEnabled = articleListDateStickyHeader.value,
+                    ) ?: -1
 
                 if (index != -1) {
                     scrollAppBarToCollapsed()
                     listState.animateScrollToItem(index, scrollOffset = -200)
-                }
-            }
-        }
-    } else {
-        LaunchedEffect(Unit) {
-            if (readerState.articleId != null) {
-                val articleId = readerState.articleId
-
-                val itemList = pagingItems?.itemSnapshotList
-
-                val index =
-                    itemList?.indexOfFirst {
-                        it is ArticleFlowItem.Article && it.articleWithFeed.article.id == articleId
-                    } ?: -1
-
-                if (index != -1) {
-                    snapAppBarToCollapsed()
-                    listState.requestScrollToItem(index, scrollOffset = -400)
                 }
             }
         }
@@ -801,4 +771,27 @@ fun FlowPage(
             )
         }
     }
+}
+
+private fun List<ArticleFlowItem>.lazyListIndexOfArticle(
+    articleId: String,
+    isStickyHeaderEnabled: Boolean,
+): Int {
+    var extraItemsBeforeArticle = 0
+    forEachIndexed { index, item ->
+        when (item) {
+            is ArticleFlowItem.Article -> {
+                if (item.articleWithFeed.article.id == articleId) {
+                    return index + extraItemsBeforeArticle
+                }
+            }
+
+            is ArticleFlowItem.Date -> {
+                if (isStickyHeaderEnabled && item.showSpacer) {
+                    extraItemsBeforeArticle += 1
+                }
+            }
+        }
+    }
+    return -1
 }
