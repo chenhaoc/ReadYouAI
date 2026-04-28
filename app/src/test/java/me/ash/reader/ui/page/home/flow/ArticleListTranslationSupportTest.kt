@@ -49,6 +49,23 @@ class ArticleListTranslationSupportTest {
 
         assertEquals("中文标题", preview.title)
         assertEquals("第一段摘要", preview.shortDescription)
+        assertEquals(true, preview.isTitleTranslated)
+        assertEquals(true, preview.isShortDescriptionTranslated)
+    }
+
+    @Test
+    fun translatedListPreviewKeepsFallbackFlagsFalseWhenTranslationMissing() {
+        val preview =
+            resolveTranslatedListPreview(
+                translationBlocks = null,
+                fallbackTitle = "Original Title",
+                fallbackDescription = "Original Description",
+            )
+
+        assertEquals("Original Title", preview.title)
+        assertEquals("Original Description", preview.shortDescription)
+        assertEquals(false, preview.isTitleTranslated)
+        assertEquals(false, preview.isShortDescriptionTranslated)
     }
 
     @Test

@@ -11,6 +11,8 @@ import me.ash.reader.ui.page.home.reading.resolveTranslatedTitle
 data class ArticleListTranslationPreview(
     val title: String,
     val shortDescription: String,
+    val isTitleTranslated: Boolean = false,
+    val isShortDescriptionTranslated: Boolean = false,
 )
 
 fun buildListTranslationTargetIds(
@@ -34,11 +36,13 @@ fun resolveTranslatedListPreview(
             shortDescription = fallbackDescription,
         )
     }
-    val translatedTitle = resolveTranslatedTitle(translationBlocks) ?: fallbackTitle
-    val translatedSummary = resolveTranslatedSummary(translationBlocks).orEmpty()
+    val translatedTitle = resolveTranslatedTitle(translationBlocks)
+    val translatedSummary = resolveTranslatedSummary(translationBlocks)
     return ArticleListTranslationPreview(
-        title = translatedTitle,
-        shortDescription = translatedSummary.ifBlank { fallbackDescription },
+        title = translatedTitle ?: fallbackTitle,
+        shortDescription = translatedSummary?.ifBlank { fallbackDescription } ?: fallbackDescription,
+        isTitleTranslated = translatedTitle != null,
+        isShortDescriptionTranslated = !translatedSummary.isNullOrBlank(),
     )
 }
 

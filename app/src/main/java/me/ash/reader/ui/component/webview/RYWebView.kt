@@ -76,7 +76,7 @@ fun RYWebView(
         MaterialTheme.colorScheme.surfaceColorAtElevation((tonalElevation.value + 6).dp).toArgb()
     val boldCharacters = LocalReadingBoldCharacters.current
     val useDarkTheme = LocalDarkTheme.current.isDarkTheme()
-    var contentHeightDp by remember(content) { mutableIntStateOf(1) }
+    var contentHeightDp by remember { mutableIntStateOf(1) }
 
     val webView by
         remember(backgroundColor) {
@@ -91,7 +91,7 @@ fun RYWebView(
                             onOpenLink = { url ->
                                 context.openURL(url, openLink, openLinkSpecificBrowser)
                             },
-                        ),
+                    ),
                     onImageClick = onImageClick,
                     onContentHeightChanged = { height ->
                         contentHeightDp = height.coerceAtLeast(1)

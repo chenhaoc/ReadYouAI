@@ -1,19 +1,25 @@
 package me.ash.reader.ui.page.home.reading
 
 import android.content.Context
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import me.ash.reader.domain.repository.ArticleTranslationPayloadCodec
 import me.ash.reader.ui.component.reader.LocalTextContentWidth
 import me.ash.reader.ui.component.reader.Reader
+import me.ash.reader.ui.component.reader.bodyStyle
+import me.ash.reader.ui.component.reader.textHorizontalPadding
 import org.jsoup.nodes.Entities
 
 internal fun parseTranslatedBlockMap(translationBlocks: String?): Map<String, String> {
@@ -27,7 +33,7 @@ internal fun buildWebViewBilingualContent(
     blocks: List<ArticleContentBlock>,
     translatedBlockMap: Map<String, String>,
 ): String {
-    if (translatedBlockMap.isEmpty()) return content
+    if (!hasInlineTranslatedBlocks(blocks, translatedBlockMap)) return content
     return buildString {
         blocks.forEach { block ->
             append(block.originalHtml)
@@ -37,6 +43,14 @@ internal fun buildWebViewBilingualContent(
             }
         }
     }
+}
+
+internal fun hasInlineTranslatedBlocks(
+    blocks: List<ArticleContentBlock>,
+    translatedBlockMap: Map<String, String>,
+): Boolean {
+    if (blocks.isEmpty() || translatedBlockMap.isEmpty()) return false
+    return blocks.any { !translatedBlockMap[it.id].isNullOrBlank() }
 }
 
 internal fun LazyListScope.BilingualReader(
@@ -72,22 +86,83 @@ private fun TranslationBlockText(
     text: String,
 ) {
     val contentWidth = LocalTextContentWidth.current
-    val typography =
+    val baseHorizontalPadding = textHorizontalPadding().dp
+    val translationColor = MaterialTheme.colorScheme.primary
+    val quoteBorderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+    val (linePadding, startPadding, endPadding, topPadding, bottomPadding) =
         when (type) {
-            ArticleContentBlockType.Heading -> MaterialTheme.typography.titleMedium
-            else -> MaterialTheme.typography.bodyMedium
+            ArticleContentBlockType.ListItem ->
+                TranslationPadding(
+                    line = null,
+                    start = baseHorizontalPadding + 36.dp,
+                    end = baseHorizontalPadding + 16.dp,
+                    top = 20.dp,
+                    bottom = 14.dp,
+                )
+            ArticleContentBlockType.Quote ->
+                TranslationPadding(
+                    line = baseHorizontalPadding + 16.dp,
+                    start = baseHorizontalPadding + 31.dp,
+                    end = baseHorizontalPadding + 16.dp,
+                    top = 20.dp,
+                    bottom = 18.dp,
+                )
+            else ->
+                TranslationPadding(
+                    line = null,
+                    start = baseHorizontalPadding + 16.dp,
+                    end = baseHorizontalPadding + 16.dp,
+                    top = 20.dp,
+                    bottom = 18.dp,
+                )
         }
-    Text(
-        text = text,
+    val baseStyle = bodyStyle()
+    val typography =
+        baseStyle.copy(
+            color = translationColor,
+            fontWeight =
+                if (type == ArticleContentBlockType.Heading) FontWeight.SemiBold
+                else baseStyle.fontWeight,
+            fontStyle = if (type == ArticleContentBlockType.Quote) FontStyle.Italic else FontStyle.Normal,
+        )
+    Box(
         modifier =
             Modifier.width(contentWidth)
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 16.dp),
-        style = typography,
-        color = MaterialTheme.colorScheme.primary,
-        fontStyle = if (type == ArticleContentBlockType.Quote) FontStyle.Italic else FontStyle.Normal,
-    )
+                .padding(top = topPadding, bottom = bottomPadding)
+                .then(
+                    if (linePadding != null) {
+                        Modifier
+                            .drawBehind {
+                                val lineX = linePadding.toPx()
+                                drawLine(
+                                    color = quoteBorderColor,
+                                    start = Offset(lineX, 0f),
+                                    end = Offset(lineX, size.height),
+                                    strokeWidth = 3.dp.toPx(),
+                                )
+                            }
+                    } else {
+                        Modifier
+                    }
+                )
+    ) {
+        Text(
+            text = text,
+            modifier =
+                Modifier.fillMaxWidth()
+                    .padding(start = startPadding, end = endPadding),
+            style = typography,
+        )
+    }
 }
+
+private data class TranslationPadding(
+    val line: androidx.compose.ui.unit.Dp?,
+    val start: androidx.compose.ui.unit.Dp,
+    val end: androidx.compose.ui.unit.Dp,
+    val top: androidx.compose.ui.unit.Dp,
+    val bottom: androidx.compose.ui.unit.Dp,
+)
 
 private fun buildTranslatedHtml(
     type: ArticleContentBlockType,
@@ -97,13 +172,13 @@ private fun buildTranslatedHtml(
     val style =
         when (type) {
             ArticleContentBlockType.Heading ->
-                "margin: 0 16px 18px; color: inherit; opacity: 0.92; font-weight: 600;"
+                "margin: 0 16px 18px; color: var(--link-text-color); font-weight: 600;"
             ArticleContentBlockType.ListItem ->
-                "margin: 0 16px 14px 36px; color: inherit; opacity: 0.88;"
+                "margin: 0 16px 14px 36px; color: var(--link-text-color);"
             ArticleContentBlockType.Quote ->
-                "margin: 0 16px 18px; padding-left: 12px; border-left: 3px solid rgba(127,127,127,.35); color: inherit; opacity: 0.88; font-style: italic;"
+                "margin: 0 16px 18px; padding-left: 12px; border-left: 3px solid rgba(127,127,127,.35); color: var(--link-text-color); font-style: italic;"
             else ->
-                "margin: 0 16px 18px; color: inherit; opacity: 0.88;"
+                "margin: 0 16px 18px; color: var(--link-text-color);"
         }
     return """<p class="ry-translation-block" style="$style">$escapedText</p>"""
 }

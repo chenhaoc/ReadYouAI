@@ -1,10 +1,51 @@
 package me.ash.reader.ui.page.home.reading
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ArticleTranslationRendererTest {
+
+    @Test
+    fun buildWebViewBilingualContent_returnsOriginalContentWhenOnlyExtraTranslationExists() {
+        val content = """<div class="wrapper"><p>Hello paragraph</p></div>"""
+        val translationBlocks =
+            """
+            [
+              {"id":"list_title","translatedText":"标题译文"}
+            ]
+            """.trimIndent()
+
+        val html =
+            buildWebViewBilingualContent(
+                content = content,
+                blocks = ArticleContentBlockParser.parse(content),
+                translatedBlockMap = parseTranslatedBlockMap(translationBlocks),
+            )
+
+        assertEquals(content, html)
+    }
+
+    @Test
+    fun buildWebViewBilingualContent_returnsOriginalContentWhenNoBlocksCanBeParsed() {
+        val content = """<custom-tag><br /></custom-tag>"""
+        val translationBlocks =
+            """
+            [
+              {"id":"paragraph_1","translatedText":"段落译文"}
+            ]
+            """.trimIndent()
+
+        val html =
+            buildWebViewBilingualContent(
+                content = content,
+                blocks = ArticleContentBlockParser.parse(content),
+                translatedBlockMap = parseTranslatedBlockMap(translationBlocks),
+            )
+
+        assertEquals(content, html)
+    }
 
     @Test
     fun buildWebViewBilingualContent_keepsParagraphAndListTranslationNonItalic() {
@@ -35,12 +76,12 @@ class ArticleTranslationRendererTest {
         assertTrue(html.contains("""引用内容</p>"""))
         assertFalse(
             html.contains(
-                """style="margin: 0 16px 18px; color: inherit; opacity: 0.88; font-style: italic;">普通正文</p>"""
+                """style="margin: 0 16px 18px; color: var(--link-text-color); font-style: italic;">普通正文</p>"""
             )
         )
         assertFalse(
             html.contains(
-                """style="margin: 0 16px 14px 36px; color: inherit; opacity: 0.88; font-style: italic;">列表项目</p>"""
+                """style="margin: 0 16px 14px 36px; color: var(--link-text-color); font-style: italic;">列表项目</p>"""
             )
         )
     }
@@ -71,17 +112,17 @@ class ArticleTranslationRendererTest {
 
         assertTrue(
             html.contains(
-                """style="margin: 0 16px 18px; color: inherit; opacity: 0.88;">普通正文</p>"""
+                """style="margin: 0 16px 18px; color: var(--link-text-color);">普通正文</p>"""
             )
         )
         assertTrue(
             html.contains(
-                """style="margin: 0 16px 14px 36px; color: inherit; opacity: 0.88;">列表项目</p>"""
+                """style="margin: 0 16px 14px 36px; color: var(--link-text-color);">列表项目</p>"""
             )
         )
         assertTrue(
             html.contains(
-                """style="margin: 0 16px 18px; padding-left: 12px; border-left: 3px solid rgba(127,127,127,.35); color: inherit; opacity: 0.88; font-style: italic;">引用内容</p>"""
+                """style="margin: 0 16px 18px; padding-left: 12px; border-left: 3px solid rgba(127,127,127,.35); color: var(--link-text-color); font-style: italic;">引用内容</p>"""
             )
         )
     }

@@ -119,6 +119,8 @@ fun ArticleItem(
         feedIconUrl = feed.icon,
         title = translationPreview.title,
         shortDescription = translationPreview.shortDescription,
+        isTitleTranslated = translationPreview.isTitleTranslated,
+        isShortDescriptionTranslated = translationPreview.isShortDescriptionTranslated,
         timeString = article.dateString,
         imgData = article.img,
         isStarred = article.isStarred,
@@ -136,6 +138,8 @@ fun ArticleItem(
     feedIconUrl: String? = null,
     title: String = "",
     shortDescription: String = "",
+    isTitleTranslated: Boolean = false,
+    isShortDescriptionTranslated: Boolean = false,
     timeString: String? = null,
     imgData: Any? = null,
     isStarred: Boolean = false,
@@ -248,7 +252,12 @@ fun ArticleItem(
                 Row {
                     Text(
                         text = title,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color =
+                            if (isTitleTranslated) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
                         style =
                             MaterialTheme.typography.titleMedium
                                 .applyTextDirection(title.requiresBidi())
@@ -275,7 +284,12 @@ fun ArticleItem(
                     Text(
                         modifier = Modifier.padding(top = 4.dp),
                         text = shortDescription,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color =
+                            if (isShortDescriptionTranslated) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                         style =
                             MaterialTheme.typography.bodySmall.applyTextDirection(
                                 shortDescription.requiresBidi()

@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -71,6 +72,13 @@ fun Content(
     val maxWidthModifier = Modifier.widthIn(max = textContentWidth)
     val uriHandler = LocalUriHandler.current
     val translatedTitle = resolveTranslatedTitle(translatedContentBlocks)
+    val hasInlineTranslations =
+        remember(contentBlocks, translatedBlockMap) {
+            hasInlineTranslatedBlocks(
+                blocks = contentBlocks,
+                translatedBlockMap = translatedBlockMap,
+            )
+        }
 
     val headline =
         @Composable {
@@ -132,11 +140,15 @@ fun Content(
                             RYWebView(
                                 modifier = Modifier.fillMaxWidth(),
                                 content =
-                                    buildWebViewBilingualContent(
-                                        content = content,
-                                        blocks = contentBlocks,
-                                        translatedBlockMap = translatedBlockMap,
-                                ),
+                                    if (hasInlineTranslations) {
+                                        buildWebViewBilingualContent(
+                                            content = content,
+                                            blocks = contentBlocks,
+                                            translatedBlockMap = translatedBlockMap,
+                                        )
+                                    } else {
+                                        content
+                                    },
                                 refererDomain = link.extractDomain(),
                                 onImageClick = onImageClick,
                                 onWebViewReady = onWebViewReady,
@@ -172,7 +184,7 @@ fun Content(
                             Spacer(modifier = Modifier.height(16.dp))
                         }
 
-                        if (translatedBlockMap.isEmpty()) {
+                        if (!hasInlineTranslations) {
                             Reader(
                                 context = context,
                                 subheadUpperCase = subheadUpperCase.value,

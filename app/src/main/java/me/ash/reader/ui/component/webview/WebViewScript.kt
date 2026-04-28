@@ -147,24 +147,72 @@ images.forEach(function(img) {
 
 function reportContentHeight() {
     if (!window.${JavaScriptInterface.NAME}) return;
+    const article = document.querySelector('article');
+    const main = document.querySelector('main');
     const body = document.body;
     const html = document.documentElement;
+    const measureElementHeight = (element) => {
+        if (!element) return 0;
+        const rectHeight = element.getBoundingClientRect ? element.getBoundingClientRect().height : 0;
+        return Math.max(
+            rectHeight || 0,
+            element.scrollHeight || 0,
+            element.offsetHeight || 0,
+            element.clientHeight || 0
+        );
+    };
     const height = Math.max(
-        body ? body.scrollHeight : 0,
-        body ? body.offsetHeight : 0,
-        html ? html.clientHeight : 0,
-        html ? html.scrollHeight : 0,
-        html ? html.offsetHeight : 0
+        measureElementHeight(article),
+        measureElementHeight(main),
+        measureElementHeight(body),
+        measureElementHeight(html)
     );
     window.${JavaScriptInterface.NAME}.onContentHeightChanged(Math.ceil(height));
 }
 
+let scheduledHeightReport = false;
+function scheduleContentHeightReport() {
+    if (scheduledHeightReport) return;
+    scheduledHeightReport = true;
+    requestAnimationFrame(() => {
+        scheduledHeightReport = false;
+        reportContentHeight();
+    });
+}
+
 reportContentHeight();
-window.addEventListener('load', reportContentHeight);
-setTimeout(reportContentHeight, 100);
-setTimeout(reportContentHeight, 500);
+scheduleContentHeightReport();
+window.addEventListener('load', scheduleContentHeightReport);
+window.addEventListener('resize', scheduleContentHeightReport);
+document.addEventListener('readystatechange', scheduleContentHeightReport);
+setTimeout(scheduleContentHeightReport, 50);
+setTimeout(scheduleContentHeightReport, 150);
+setTimeout(scheduleContentHeightReport, 500);
+setTimeout(scheduleContentHeightReport, 1000);
 if (window.ResizeObserver) {
-    new ResizeObserver(reportContentHeight).observe(document.body);
+    const resizeObserver = new ResizeObserver(scheduleContentHeightReport);
+    if (document.body) {
+        resizeObserver.observe(document.body);
+    }
+    if (document.documentElement) {
+        resizeObserver.observe(document.documentElement);
+    }
+    const article = document.querySelector('article');
+    if (article) {
+        resizeObserver.observe(article);
+    }
+    const main = document.querySelector('main');
+    if (main) {
+        resizeObserver.observe(main);
+    }
+}
+if (window.MutationObserver && document.body) {
+    new MutationObserver(scheduleContentHeightReport).observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+    });
 }
 """
 }
