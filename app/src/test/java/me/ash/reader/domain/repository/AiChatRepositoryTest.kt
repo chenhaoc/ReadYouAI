@@ -2,6 +2,10 @@ package me.ash.reader.domain.repository
 
 import java.util.Date
 import me.ash.reader.domain.model.ai.AiChatMessage
+import me.ash.reader.infrastructure.net.openai.OpenAiResponsesResponse
+import me.ash.reader.infrastructure.net.openai.ResponseOutputAnnotation
+import me.ash.reader.infrastructure.net.openai.ResponseOutputContent
+import me.ash.reader.infrastructure.net.openai.ResponseOutputItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -92,5 +96,91 @@ class AiChatRepositoryTest {
         assertTrue(prompt.contains("优先围绕选中内容回答"))
         assertTrue(prompt.contains("可将全文作为背景参考"))
         assertTrue(prompt.contains("不要编造"))
+    }
+
+    @Test
+    fun buildResponsesRequest_enablesWebSearchToolAndKeepsChatContext() {
+        val request =
+            repository.buildResponsesRequest(
+                model = "gpt-5.4-mini",
+                prompt = "system prompt",
+                articleTitle = "Title",
+                feedName = "Feed",
+                articleLink = "https://example.com",
+                articleContent = "Article content",
+                includeFullContent = true,
+                selectedSnippet = null,
+                history =
+                    listOf(
+                        AiChatMessage(
+                            id = 1,
+                            articleId = "article-1",
+                            role = "assistant",
+                            content = "prior answer",
+                            contextType = "manual",
+                            createdAt = Date(1),
+                        )
+                    ),
+                userQuestion = "current question",
+            )
+
+        assertEquals("gpt-5.4-mini", request.model)
+        assertEquals("web_search", request.tools.single().type)
+        assertEquals("auto", request.toolChoice)
+        assertTrue(request.instructions.contains("联网搜索工具"))
+        assertEquals(listOf("user", "assistant", "user"), request.input.map { it.role })
+        assertEquals("current question", request.input.last().content)
+    }
+
+    @Test
+    fun extractResponsesReply_appendsUrlCitationSources() {
+        val response =
+            OpenAiResponsesResponse(
+                output =
+                    listOf(
+                        ResponseOutputItem(
+                            type = "message",
+                            content =
+                                listOf(
+                                    ResponseOutputContent(
+                                        type = "output_text",
+                                        text = "这是搜索后的回答。",
+                                        annotations =
+                                            listOf(
+                                                ResponseOutputAnnotation(
+                                                    type = "url_citation",
+                                                    url = "https://example.com/report",
+                                                    title = "Example report",
+                                                )
+                                            ),
+                                    )
+                                ),
+                        )
+                    )
+            )
+
+        val reply = repository.extractResponsesReply(response)
+
+        assertTrue(reply.contains("这是搜索后的回答。"))
+        assertTrue(reply.contains("来源："))
+        assertTrue(reply.contains("[Example report](https://example.com/report)"))
+    }
+
+    @Test
+    fun parseResponsesBody_readsFinalResponseFromSseStream() {
+        val rawBody =
+            """
+            event: response.created
+            data: {"type":"response.created","response":{"status":"in_progress","output":[]}}
+
+            event: response.completed
+            data: {"type":"response.completed","response":{"status":"completed","output":[{"type":"web_search_call"},{"type":"message","content":[{"type":"output_text","text":"搜索后的回答"}]}]}}
+            """.trimIndent()
+
+        val response = repository.parseResponsesBody(rawBody)
+
+        assertEquals("completed", response.status)
+        assertEquals(listOf("web_search_call", "message"), response.output.map { it.type })
+        assertEquals("搜索后的回答", repository.extractResponsesReply(response))
     }
 }

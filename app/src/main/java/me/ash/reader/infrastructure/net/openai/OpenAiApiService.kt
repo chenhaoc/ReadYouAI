@@ -3,6 +3,7 @@ package me.ash.reader.infrastructure.net.openai
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -19,6 +20,11 @@ interface OpenAiApiService {
     suspend fun createChatCompletion(
         @Body request: ChatCompletionRequest
     ): Response<ChatCompletionResponse>
+
+    @POST("responses")
+    suspend fun createRawResponse(
+        @Body request: OpenAiResponsesRequest
+    ): Response<ResponseBody>
 
     companion object {
         fun getInstance(
