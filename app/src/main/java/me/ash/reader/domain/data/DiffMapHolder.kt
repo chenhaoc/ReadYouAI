@@ -39,6 +39,7 @@ class DiffMapHolder @Inject constructor(
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
     private val accountService: AccountService,
     private val rssService: RssService,
+    private val pendingRemoteStateStore: PendingRemoteStateStore,
 ) {
     val diffMap = mutableStateMapOf<String, Diff>()
 
@@ -194,6 +195,24 @@ class DiffMapHolder @Inject constructor(
         val syncedDiff = syncedDiffs[diff.articleId]
         if (syncedDiff == null || syncedDiff.isUnread != diff.isUnread) {
             pendingSyncDiffs[diff.articleId] = diff
+            currentAccount?.id?.let { accountId ->
+                applicationScope.launch(ioDispatcher) {
+                    pendingRemoteStateStore.setReadStatus(
+                        accountId = accountId,
+                        articleIds = setOf(diff.articleId),
+                        isUnread = diff.isUnread,
+                    )
+                }
+            }
+        } else {
+            currentAccount?.id?.let { accountId ->
+                applicationScope.launch(ioDispatcher) {
+                    pendingRemoteStateStore.clearReadStatus(
+                        accountId = accountId,
+                        articleIds = setOf(diff.articleId),
+                    )
+                }
+            }
         }
     }
 
@@ -201,6 +220,18 @@ class DiffMapHolder @Inject constructor(
         applicationScope.launch(ioDispatcher) {
             val markAsReadArticles = diffMap.filter { !it.value.isUnread }.map { it.key }.toSet()
             val markAsUnreadArticles = diffMap.filter { it.value.isUnread }.map { it.key }.toSet()
+            currentAccount?.id?.takeIf { shouldSyncWithRemote }?.let { accountId ->
+                pendingRemoteStateStore.setReadStatus(
+                    accountId = accountId,
+                    articleIds = markAsReadArticles,
+                    isUnread = false,
+                )
+                pendingRemoteStateStore.setReadStatus(
+                    accountId = accountId,
+                    articleIds = markAsUnreadArticles,
+                    isUnread = true,
+                )
+            }
             clearDiffs()
             rssService.get().batchMarkAsRead(articleIds = markAsReadArticles, isUnread = false)
             rssService.get().batchMarkAsRead(articleIds = markAsUnreadArticles, isUnread = true)

@@ -1,5 +1,6 @@
 package me.ash.reader.domain.service
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -57,5 +58,24 @@ class GoogleReaderRssServiceTest {
         assertTrue(content.rawDescription.contains("播放、分享和关注"))
         assertTrue(content.shortDescription.contains("这是一段普通摘要"))
         assertTrue(content.shortDescription.contains("播放、分享和关注"))
+    }
+
+    @Test
+    fun pendingRemoteIds_strips_account_prefix_from_article_ids() {
+        val pendingArticleIds = setOf("1\$remote-a", "2\$remote-b", "remote-c")
+
+        val remoteIds = pendingRemoteIds(pendingArticleIds)
+
+        assertEquals(setOf("remote-a", "remote-b", "remote-c"), remoteIds)
+    }
+
+    @Test
+    fun remoteIdsWithoutPending_filters_pending_local_article_state() {
+        val remoteIds = setOf("remote-a", "remote-b", "remote-c")
+        val pendingArticleIds = setOf("1\$remote-b")
+
+        val filtered = remoteIdsWithoutPending(remoteIds, pendingArticleIds)
+
+        assertEquals(setOf("remote-a", "remote-c"), filtered)
     }
 }

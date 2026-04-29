@@ -26,6 +26,8 @@ import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import me.ash.reader.R
+import me.ash.reader.domain.data.PendingRemoteState
+import me.ash.reader.domain.data.PendingRemoteStateStore
 import me.ash.reader.domain.data.SyncLogger
 import me.ash.reader.domain.model.account.Account
 import me.ash.reader.domain.model.account.AccountType
@@ -44,7 +46,6 @@ import me.ash.reader.infrastructure.di.MainDispatcher
 import me.ash.reader.infrastructure.html.Readability
 import me.ash.reader.infrastructure.html.VideoNoiseCleaner
 import me.ash.reader.infrastructure.net.onFailure
-import me.ash.reader.infrastructure.net.onSuccess
 import me.ash.reader.infrastructure.rss.RssHelper
 import me.ash.reader.infrastructure.rss.provider.greader.GoogleReaderAPI
 import me.ash.reader.infrastructure.rss.provider.greader.GoogleReaderAPI.Companion.dbId
@@ -79,6 +80,7 @@ constructor(
     private val accountService: AccountService,
     private val pendingAiSummaryEnqueuer: PendingAiSummaryEnqueuer,
     private val syncLogger: SyncLogger,
+    private val pendingRemoteStateStore: PendingRemoteStateStore,
 ) :
     AbstractRssRepository(
         articleDao,
@@ -275,6 +277,7 @@ constructor(
             }
             val googleReaderAPI = getGoogleReaderAPI()
             googleReaderAPI.refreshCredentialsIfNeeded()
+            flushPendingRemoteState(googleReaderAPI, accountId)
             val lastMonthAt =
                 Calendar.getInstance()
                     .apply {
@@ -319,6 +322,9 @@ constructor(
                 localAllItems.filter { !it.isUnread }.map { it.id.dollarLast() }.toSet()
 
             val localItemIds = localAllItems.map { it.id.dollarLast() }.toSet()
+            val pendingRemoteState = pendingRemoteStateStore.snapshot(accountId)
+            val pendingReadRemoteIds = pendingRemoteIds(pendingRemoteState.readStatus.keys)
+            val pendingStarredRemoteIds = pendingRemoteIds(pendingRemoteState.starredStatus.keys)
 
             //            launch {
             //                val toBeStarredRemote = localStarredIds - remoteStarredIds.await()
@@ -334,6 +340,7 @@ constructor(
                 val toBeStarredLocal =
                     (localItemIds - localStarredIds)
                         .intersect(remoteStarredIds.await())
+                        .minus(pendingStarredRemoteIds)
                         .map { accountId spacerDollar it }
                         .toSet()
                 articleDao.markAsStarredByIdSet(
@@ -346,6 +353,7 @@ constructor(
             launch {
                 val toBeUnstarredLocal =
                     (localStarredIds - remoteStarredIds.await())
+                        .minus(pendingStarredRemoteIds)
                         .map { accountId spacerDollar it }
                         .toSet()
                 articleDao.markAsStarredByIdSet(
@@ -357,9 +365,11 @@ constructor(
 
             launch {
                 val toBeReadLocal =
-                    remoteReadIds.await().intersect(localUnreadIds).map {
-                        accountId spacerDollar it
-                    }
+                    remoteReadIds
+                        .await()
+                        .intersect(localUnreadIds)
+                        .minus(pendingReadRemoteIds)
+                        .map { accountId spacerDollar it }
                 toBeReadLocal.chunked(1000).forEach {
                     articleDao.markAsReadByIdSet(
                         accountId = accountId,
@@ -371,9 +381,10 @@ constructor(
 
             launch {
                 val toBeUnreadLocal =
-                    localReadIds.intersect(remoteUnreadIds.await()).map {
-                        accountId spacerDollar it
-                    }
+                    localReadIds
+                        .intersect(remoteUnreadIds.await())
+                        .minus(pendingReadRemoteIds)
+                        .map { accountId spacerDollar it }
                 toBeUnreadLocal.chunked(1000).forEach {
                     articleDao.markAsReadByIdSet(
                         accountId = accountId,
@@ -544,6 +555,10 @@ constructor(
                 "account type is invalid"
             }
             val googleReaderAPI = getGoogleReaderAPI()
+            flushPendingRemoteState(googleReaderAPI, accountId)
+            val pendingRemoteState = pendingRemoteStateStore.snapshot(accountId)
+            val pendingReadRemoteIds = pendingRemoteIds(pendingRemoteState.readStatus.keys)
+            val pendingStarredRemoteIds = pendingRemoteIds(pendingRemoteState.starredStatus.keys)
 
             val feed = feedDao.queryById(feedId)!!
 
@@ -615,7 +630,7 @@ constructor(
 
             launch {
                 val remoteReadIds = remoteAllIds.await() - remoteUnreadIds.await()
-                val toBeReadIds = remoteReadIds.intersect(localUnreadIds)
+                val toBeReadIds = remoteReadIds.intersect(localUnreadIds) - pendingReadRemoteIds
 
                 toBeReadIds
                     .map { it.dbId(accountId) }
@@ -630,7 +645,8 @@ constructor(
             }
 
             launch {
-                val toBeUnreadIds = localReadIds.intersect(remoteUnreadIds.await())
+                val toBeUnreadIds =
+                    localReadIds.intersect(remoteUnreadIds.await()) - pendingReadRemoteIds
                 toBeUnreadIds
                     .map { it.dbId(accountId) }
                     .chunked(1000)
@@ -644,7 +660,10 @@ constructor(
             }
 
             launch {
-                val toBeStarred = remoteStarredIds.await().intersect(localIds) - localStarredIds
+                val toBeStarred =
+                    remoteStarredIds.await().intersect(localIds) -
+                        localStarredIds -
+                        pendingStarredRemoteIds
 
                 toBeStarred
                     .map { it.dbId(accountId) }
@@ -659,7 +678,8 @@ constructor(
             }
 
             launch {
-                val toBeUnstarred = localStarredIds - remoteStarredIds.await()
+                val toBeUnstarred =
+                    localStarredIds - remoteStarredIds.await() - pendingStarredRemoteIds
                 toBeUnstarred
                     .map { it.dbId(accountId) }
                     .chunked(1000)
@@ -771,6 +791,92 @@ constructor(
             .flatten()
     }
 
+    private suspend fun flushPendingRemoteState(
+        googleReaderAPI: GoogleReaderAPI,
+        accountId: Int,
+    ) {
+        val pendingRemoteState = pendingRemoteStateStore.snapshot(accountId)
+        syncPendingReadStatus(googleReaderAPI, accountId, pendingRemoteState)
+        syncPendingStarredStatus(googleReaderAPI, accountId, pendingRemoteState)
+    }
+
+    private suspend fun syncPendingReadStatus(
+        googleReaderAPI: GoogleReaderAPI,
+        accountId: Int,
+        pendingRemoteState: PendingRemoteState,
+    ) {
+        syncArticleTag(
+            googleReaderAPI = googleReaderAPI,
+            articleIds = pendingRemoteState.readStatus.filterValues { !it }.keys,
+            mark = GoogleReaderAPI.Stream.Read.tag,
+            unmark = null,
+            logPrefix = "flush pending read status",
+            onChunkSuccess = { pendingRemoteStateStore.clearReadStatus(accountId, it) },
+        )
+        syncArticleTag(
+            googleReaderAPI = googleReaderAPI,
+            articleIds = pendingRemoteState.readStatus.filterValues { it }.keys,
+            mark = null,
+            unmark = GoogleReaderAPI.Stream.Read.tag,
+            logPrefix = "flush pending unread status",
+            onChunkSuccess = { pendingRemoteStateStore.clearReadStatus(accountId, it) },
+        )
+    }
+
+    private suspend fun syncPendingStarredStatus(
+        googleReaderAPI: GoogleReaderAPI,
+        accountId: Int,
+        pendingRemoteState: PendingRemoteState,
+    ) {
+        syncArticleTag(
+            googleReaderAPI = googleReaderAPI,
+            articleIds = pendingRemoteState.starredStatus.filterValues { it }.keys,
+            mark = GoogleReaderAPI.Stream.Starred.tag,
+            unmark = null,
+            logPrefix = "flush pending starred status",
+            onChunkSuccess = { pendingRemoteStateStore.clearStarredStatus(accountId, it) },
+        )
+        syncArticleTag(
+            googleReaderAPI = googleReaderAPI,
+            articleIds = pendingRemoteState.starredStatus.filterValues { !it }.keys,
+            mark = null,
+            unmark = GoogleReaderAPI.Stream.Starred.tag,
+            logPrefix = "flush pending unstarred status",
+            onChunkSuccess = { pendingRemoteStateStore.clearStarredStatus(accountId, it) },
+        )
+    }
+
+    private suspend fun syncArticleTag(
+        googleReaderAPI: GoogleReaderAPI,
+        articleIds: Set<String>,
+        mark: String?,
+        unmark: String?,
+        logPrefix: String,
+        onChunkSuccess: suspend (Set<String>) -> Unit = {},
+    ): Set<String> {
+        val syncedEntries = mutableSetOf<String>()
+        articleIds
+            .takeIf { it.isNotEmpty() }
+            ?.chunked(500)
+            ?.forEachIndexed { index, idList ->
+                Log.d("RLog", "$logPrefix: ${(index * 500) + idList.size}/${articleIds.size} num")
+                val result =
+                    googleReaderAPI
+                        .editTag(
+                            itemIds = idList.map { it.dollarLast() },
+                            mark = mark,
+                            unmark = unmark,
+                        )
+                        .onFailure { it.printStackTrace() }
+                if (result.isSuccess) {
+                    val idSet = idList.toSet()
+                    syncedEntries += idSet
+                    onChunkSuccess(idSet)
+                }
+            }
+        return syncedEntries
+    }
+
     private fun findArticleURL(it: GoogleReaderDTO.Item) =
         it.canonical?.firstOrNull()?.href
             ?: it.alternate?.firstOrNull()?.href
@@ -786,7 +892,7 @@ constructor(
     ) {
         val accountId = accountService.getCurrentAccountId()
         val googleReaderAPI = getGoogleReaderAPI()
-        val markList: List<String> =
+        val markList =
             when {
                 groupId != null -> {
                     if (before == null) {
@@ -803,7 +909,7 @@ constructor(
                                 before,
                             )
                         }
-                        .map { it.id.dollarLast() }
+                        .map { it.id }
                 }
 
                 feedId != null -> {
@@ -812,11 +918,11 @@ constructor(
                         } else {
                             articleDao.queryMetadataByFeedId(accountId, feedId, !isUnread, before)
                         }
-                        .map { it.id.dollarLast() }
+                        .map { it.id }
                 }
 
                 articleId != null -> {
-                    listOf(articleId.dollarLast())
+                    listOf(articleId)
                 }
 
                 else -> {
@@ -825,59 +931,65 @@ constructor(
                         } else {
                             articleDao.queryMetadataAll(accountId, !isUnread, before)
                         }
-                        .map { it.id.dollarLast() }
+                        .map { it.id }
                 }
             }
+        pendingRemoteStateStore.setReadStatus(
+            accountId = accountId,
+            articleIds = markList.toSet(),
+            isUnread = isUnread,
+        )
         super.markAsRead(groupId, feedId, articleId, before, isUnread)
-        markList
-            .takeIf { it.isNotEmpty() }
-            ?.chunked(500)
-            ?.forEachIndexed { index, it ->
-                Log.d("RLog", "sync markAsRead:  ${(index * 500) + it.size}/${markList.size} num")
-                googleReaderAPI.editTag(
-                    itemIds = it,
-                    mark = if (!isUnread) GoogleReaderAPI.Stream.Read.tag else null,
-                    unmark = if (isUnread) GoogleReaderAPI.Stream.Read.tag else null,
-                )
-            }
+        syncArticleTag(
+            googleReaderAPI = googleReaderAPI,
+            articleIds = markList.toSet(),
+            mark = if (!isUnread) GoogleReaderAPI.Stream.Read.tag else null,
+            unmark = if (isUnread) GoogleReaderAPI.Stream.Read.tag else null,
+            logPrefix = "sync markAsRead",
+            onChunkSuccess = { pendingRemoteStateStore.clearReadStatus(accountId, it) },
+        )
     }
 
     override suspend fun syncReadStatus(articleIds: Set<String>, isUnread: Boolean): Set<String> {
         val googleReaderAPI = getGoogleReaderAPI()
-        val syncedEntries = mutableSetOf<String>()
-        articleIds
-            .takeIf { it.isNotEmpty() }
-            ?.chunked(500)
-            ?.forEachIndexed { index, idList ->
-                Log.d(
-                    "RLog",
-                    "sync markAsRead:  ${(index * 500) + idList.size}/${articleIds.size} num",
-                )
-                googleReaderAPI
-                    .editTag(
-                        itemIds = idList.map { it.dollarLast() },
-                        mark = if (!isUnread) GoogleReaderAPI.Stream.Read.tag else null,
-                        unmark = if (isUnread) GoogleReaderAPI.Stream.Read.tag else null,
-                    )
-                    .onFailure { it.printStackTrace() }
-                    .onSuccess {
-                        syncedEntries += idList
-                        println("synced $idList to isUnread: $isUnread")
-                    }
-            }
-        return syncedEntries
+        val accountId = accountService.getCurrentAccountId()
+        pendingRemoteStateStore.setReadStatus(accountId, articleIds, isUnread)
+        return syncArticleTag(
+            googleReaderAPI = googleReaderAPI,
+            articleIds = articleIds,
+            mark = if (!isUnread) GoogleReaderAPI.Stream.Read.tag else null,
+            unmark = if (isUnread) GoogleReaderAPI.Stream.Read.tag else null,
+            logPrefix = "sync markAsRead",
+            onChunkSuccess = { pendingRemoteStateStore.clearReadStatus(accountId, it) },
+        )
     }
 
     override suspend fun markAsStarred(articleId: String, isStarred: Boolean) {
+        val accountId = accountService.getCurrentAccountId()
+        pendingRemoteStateStore.setStarredStatus(
+            accountId = accountId,
+            articleIds = setOf(articleId),
+            isStarred = isStarred,
+        )
         super.markAsStarred(articleId, isStarred)
-        getGoogleReaderAPI()
-            .editTag(
-                itemIds = listOf(articleId.dollarLast()),
-                mark = if (isStarred) GoogleReaderAPI.Stream.Starred.tag else null,
-                unmark = if (!isStarred) GoogleReaderAPI.Stream.Starred.tag else null,
-            )
+        syncArticleTag(
+            googleReaderAPI = getGoogleReaderAPI(),
+            articleIds = setOf(articleId),
+            mark = if (isStarred) GoogleReaderAPI.Stream.Starred.tag else null,
+            unmark = if (!isStarred) GoogleReaderAPI.Stream.Starred.tag else null,
+            logPrefix = "sync markAsStarred",
+            onChunkSuccess = { pendingRemoteStateStore.clearStarredStatus(accountId, it) },
+        )
     }
 }
+
+internal fun pendingRemoteIds(articleIds: Collection<String>): Set<String> =
+    articleIds.map { it.dollarLast() }.toSet()
+
+internal fun remoteIdsWithoutPending(
+    remoteIds: Set<String>,
+    pendingArticleIds: Collection<String>,
+): Set<String> = remoteIds - pendingRemoteIds(pendingArticleIds)
 
 internal data class GoogleReaderArticleContent(
     val rawDescription: String,
