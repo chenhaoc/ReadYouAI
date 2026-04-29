@@ -12,6 +12,7 @@ data class TtsQueueItem(
     val articleId: String,
     val title: String,
     val feedName: String,
+    val publishedAtMillis: Long? = null,
     val imageUrl: String? = null,
     val htmlContent: String? = null,
     val contentType: TtsQueueContentType = TtsQueueContentType.FullArticle,

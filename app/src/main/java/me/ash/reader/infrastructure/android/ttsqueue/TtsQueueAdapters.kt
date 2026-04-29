@@ -55,10 +55,13 @@ constructor(
 ) : TtsQueueArticleRepository {
     override suspend fun get(item: TtsQueueItem): TtsQueuePlayableArticle? {
         if (item.contentType == TtsQueueContentType.AiSummary) {
-            articleDao.queryById(item.articleId) ?: return null
+            val articleWithFeed = articleDao.queryById(item.articleId) ?: return null
             val playableHtml = item.summaryHtmlContent?.takeIf { it.isNotBlank() } ?: return null
             return TtsQueuePlayableArticle(
-                item = item,
+                item =
+                    item.copy(
+                        publishedAtMillis = item.publishedAtMillis ?: articleWithFeed.article.date.time,
+                    ),
                 htmlContent = playableHtml,
                 segmentCharCounts = htmlSegmentCharCounts(playableHtml),
             )
@@ -144,6 +147,7 @@ fun ArticleWithFeed.toQueueItem(): TtsQueueItem =
         articleId = article.id,
         title = article.title,
         feedName = feed.name,
+        publishedAtMillis = article.date.time,
         imageUrl = article.img,
         htmlContent =
             resolvePlayableHtmlContent(
@@ -158,6 +162,7 @@ fun ArticleWithFeed.toSummaryQueueItem(summaryHtmlContent: String, estimatedDura
         articleId = article.id,
         title = article.title,
         feedName = feed.name,
+        publishedAtMillis = article.date.time,
         imageUrl = article.img,
         contentType = TtsQueueContentType.AiSummary,
         summaryHtmlContent = summaryHtmlContent,

@@ -165,12 +165,7 @@ private fun TtsNowPlayingCard(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text =
-                                if (currentItem.contentType == TtsQueueContentType.AiSummary) {
-                                    stringResource(id = R.string.commute_brief_summary_item, currentItem.feedName)
-                                } else {
-                                    currentItem.feedName
-                                },
+                            text = currentItem.queueMetadataText(),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -307,12 +302,7 @@ fun TtsQueueSheet(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text =
-                                if (item.contentType == TtsQueueContentType.AiSummary) {
-                                    stringResource(id = R.string.commute_brief_summary_item, item.feedName)
-                                } else {
-                                    item.feedName
-                                },
+                            text = item.queueMetadataText(),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -686,7 +676,26 @@ private fun TtsQueueState.collectCommuteBriefStats(): CommuteBriefStats? {
     )
 }
 
+@Composable
+private fun TtsQueueItem.queueMetadataText(): String {
+    val source =
+        if (contentType == TtsQueueContentType.AiSummary) {
+            stringResource(id = R.string.commute_brief_summary_item, feedName)
+        } else {
+            feedName
+        }
+    val date = publishedAtMillis?.let(::formatQueueItemDate)
+    return if (date == null) {
+        source
+    } else {
+        stringResource(id = R.string.tts_queue_item_source_date, source, date)
+    }
+}
+
 private fun formatCommuteGeneratedDateTime(timestamp: Long): String =
     SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(timestamp))
+
+private fun formatQueueItemDate(timestamp: Long): String =
+    SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(timestamp))
 
 private fun formatCount(count: Int): String = NumberFormat.getIntegerInstance(Locale.getDefault()).format(count)

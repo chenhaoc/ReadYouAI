@@ -537,6 +537,7 @@
     <string name="commute_brief_generated_short">可用摘要不足，已生成 %1$d 分钟</string>
     <string name="playlist_count">%1$d 项</string>
     <string name="playlist_empty">播放列表为空</string>
+    <string name="tts_queue_item_source_date">%1$s · %2$s</string>
     <string name="reading_stats_summary">本文 %1$d 字，阅读约 %2$d 分钟，音频约 %3$d 分钟</string>
     <string name="tts_playback_channel">TTS 播放</string>
     <string name="tts_playing">正在播放</string>
