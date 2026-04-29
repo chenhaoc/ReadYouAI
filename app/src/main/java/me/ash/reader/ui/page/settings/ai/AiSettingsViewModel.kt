@@ -6,6 +6,7 @@ import androidx.work.WorkManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.launch
+import me.ash.reader.domain.repository.AiChatRepository
 import me.ash.reader.domain.repository.AiSummaryRepository
 import me.ash.reader.domain.service.AccountService
 import me.ash.reader.domain.service.AiSummaryPrecomputeWorker
@@ -15,6 +16,7 @@ import me.ash.reader.infrastructure.net.ApiResult
 @HiltViewModel
 class AiSettingsViewModel @Inject constructor(
     private val aiSummaryRepository: AiSummaryRepository,
+    private val aiChatRepository: AiChatRepository,
     private val accountService: AccountService,
     private val pendingAiSummaryEnqueuer: PendingAiSummaryEnqueuer,
     private val workManager: WorkManager,
@@ -45,6 +47,23 @@ class AiSettingsViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             when (val result = aiSummaryRepository.testAiServiceConnection(baseUrl, apiKey, model)) {
+                is ApiResult.Success -> onSuccess()
+                is ApiResult.BizError -> onError(result.exception.message ?: "Business error")
+                is ApiResult.NetworkError -> onError(result.exception.message ?: "Network error")
+                is ApiResult.UnknownError -> onError(result.throwable.message ?: "Unknown error")
+            }
+        }
+    }
+
+    fun testWebSearch(
+        baseUrl: String,
+        apiKey: String,
+        model: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        viewModelScope.launch {
+            when (val result = aiChatRepository.testWebSearch(baseUrl, apiKey, model)) {
                 is ApiResult.Success -> onSuccess()
                 is ApiResult.BizError -> onError(result.exception.message ?: "Business error")
                 is ApiResult.NetworkError -> onError(result.exception.message ?: "Network error")

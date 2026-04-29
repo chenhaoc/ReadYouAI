@@ -133,6 +133,18 @@ class AiChatRepositoryTest {
     }
 
     @Test
+    fun buildWebSearchTestRequest_matchesAiChatResponsesPath() {
+        val request = repository.buildWebSearchTestRequest(model = "gpt-5.4-mini")
+
+        assertEquals("gpt-5.4-mini", request.model)
+        assertEquals("web_search", request.tools.single().type)
+        assertEquals("auto", request.toolChoice)
+        assertEquals(listOf("user", "user"), request.input.map { it.role })
+        assertTrue(request.instructions.contains("用户要求联网"))
+        assertTrue(request.input.last().content.contains("今天北京天气"))
+    }
+
+    @Test
     fun extractResponsesReply_appendsUrlCitationSources() {
         val response =
             OpenAiResponsesResponse(

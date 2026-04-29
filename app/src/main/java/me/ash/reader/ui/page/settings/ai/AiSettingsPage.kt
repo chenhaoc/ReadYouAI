@@ -97,9 +97,11 @@ fun AiSettingsPage(
     var isLoadingModels by remember { mutableStateOf(false) }
     var fetchError by remember { mutableStateOf<String?>(null) }
     var testConnectionState by remember { mutableStateOf(AiConnectionTestState.Idle) }
+    var testWebSearchState by remember { mutableStateOf(AiConnectionTestState.Idle) }
     
     LaunchedEffect(aiBaseUrl.value, aiApiKey.value, aiModel.value) {
         testConnectionState = AiConnectionTestState.Idle
+        testWebSearchState = AiConnectionTestState.Idle
         if (aiBaseUrl.value.isNotEmpty() && aiApiKey.value.isNotEmpty()) {
             isLoadingModels = true
             fetchError = null
@@ -266,6 +268,46 @@ fun AiSettingsPage(
                         },
                     ) {
                         AiConnectionTestStateIcon(state = testConnectionState)
+                    }
+                    SettingItem(
+                        enabled = testWebSearchState != AiConnectionTestState.Testing,
+                        title = stringResource(R.string.ai_test_web_search),
+                        desc =
+                            stringResource(
+                                when (testWebSearchState) {
+                                    AiConnectionTestState.Idle -> R.string.ai_test_web_search_desc
+                                    AiConnectionTestState.Testing -> R.string.ai_test_web_search_testing
+                                    AiConnectionTestState.Success -> R.string.ai_test_web_search_success
+                                    AiConnectionTestState.Failed -> R.string.ai_test_web_search_retry
+                                }
+                            ),
+                        onClick = {
+                            val baseUrl = aiBaseUrl.value.trim()
+                            val apiKey = aiApiKey.value.trim()
+                            val model = aiModel.value.trim()
+                            if (baseUrl.isBlank() || apiKey.isBlank() || model.isBlank()) {
+                                context.showToast(context.getString(R.string.ai_test_connection_missing_config))
+                                return@SettingItem
+                            }
+                            testWebSearchState = AiConnectionTestState.Testing
+                            aiSettingsViewModel.testWebSearch(
+                                baseUrl = baseUrl,
+                                apiKey = apiKey,
+                                model = model,
+                                onSuccess = {
+                                    testWebSearchState = AiConnectionTestState.Success
+                                    context.showToast(context.getString(R.string.ai_test_web_search_success))
+                                },
+                                onError = { error ->
+                                    testWebSearchState = AiConnectionTestState.Failed
+                                    context.showToast(
+                                        context.getString(R.string.ai_test_web_search_failed, error)
+                                    )
+                                },
+                            )
+                        },
+                    ) {
+                        AiConnectionTestStateIcon(state = testWebSearchState)
                     }
                     Spacer(modifier = Modifier.height(24.dp))
                 }

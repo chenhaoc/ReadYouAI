@@ -18,6 +18,41 @@ import me.ash.reader.infrastructure.net.openai.ResponseTool
 @Singleton
 class AiChatRepository @Inject constructor() {
 
+    suspend fun testWebSearch(
+        baseUrl: String,
+        apiKey: String,
+        model: String,
+    ): ApiResult<Unit> {
+        return try {
+            val service = OpenAiApiService.getInstance(
+                baseUrl = baseUrl,
+                apiKey = apiKey,
+                timeoutSeconds = AI_WEB_SEARCH_TEST_TIMEOUT_SECONDS,
+                callTimeoutSeconds = AI_WEB_SEARCH_TEST_TIMEOUT_SECONDS,
+            )
+            val response = service.createRawResponse(buildWebSearchTestRequest(model))
+            if (response.isSuccessful && response.body() != null) {
+                val rawBody = response.body()!!.string()
+                val body = parseResponsesBody(rawBody)
+                val reply = extractResponsesReply(body)
+                if (reply.isNotBlank()) {
+                    ApiResult.Success(Unit)
+                } else {
+                    val errorMsg =
+                        body.error?.message
+                            ?: body.incompleteDetails?.reason?.let { "Response incomplete: $it" }
+                            ?: "No output text returned from Responses API"
+                    ApiResult.BizError(Exception(errorMsg))
+                }
+            } else {
+                val errorMsg = response.errorBody()?.string() ?: "Unknown error"
+                ApiResult.BizError(Exception(errorMsg))
+            }
+        } catch (error: Exception) {
+            ApiResult.NetworkError(error)
+        }
+    }
+
     suspend fun requestReply(
         baseUrl: String,
         apiKey: String,
@@ -209,6 +244,20 @@ class AiChatRepository @Inject constructor() {
                 ),
             tools = listOf(ResponseTool(type = WEB_SEARCH_TOOL_TYPE)),
             toolChoice = "auto",
+        )
+
+    internal fun buildWebSearchTestRequest(model: String): OpenAiResponsesRequest =
+        buildResponsesRequest(
+            model = model,
+            prompt = "请用简体中文直接回答。",
+            articleTitle = "联网搜索测试",
+            feedName = "ReadYouAI",
+            articleLink = null,
+            articleContent = "",
+            includeFullContent = false,
+            selectedSnippet = null,
+            history = emptyList(),
+            userQuestion = "请联网搜索“今天北京天气”，并用一句话回答搜索是否成功。",
         )
 
     internal fun extractResponsesReply(response: OpenAiResponsesResponse): String {
@@ -441,6 +490,7 @@ class AiChatRepository @Inject constructor() {
     private companion object {
         val gson = Gson()
         const val AI_CHAT_RESPONSES_TIMEOUT_SECONDS = 90L
+        const val AI_WEB_SEARCH_TEST_TIMEOUT_SECONDS = 45L
         const val MAX_WEB_SEARCH_SOURCES = 8
         const val WEB_SEARCH_TOOL_TYPE = "web_search"
     }
