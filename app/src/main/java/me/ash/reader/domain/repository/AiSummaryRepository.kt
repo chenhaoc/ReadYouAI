@@ -3,6 +3,7 @@ package me.ash.reader.domain.repository
 import com.google.gson.JsonParser
 import kotlinx.coroutines.withTimeout
 import me.ash.reader.infrastructure.net.ApiResult
+import me.ash.reader.infrastructure.net.openai.ChatThinkingConfig
 import me.ash.reader.infrastructure.net.openai.OpenAiApiService
 import me.ash.reader.infrastructure.net.openai.ChatCompletionRequest
 import me.ash.reader.infrastructure.net.openai.ChatMessage
@@ -93,6 +94,7 @@ class AiSummaryRepository @Inject constructor() {
                 messages = listOf(ChatMessage(role = "user", content = "Reply with OK only.")),
                 temperature = 0.0,
                 maxTokens = 8,
+                thinking = buildConnectionTestThinkingConfig(baseUrl),
             )
             val response =
                 withTimeout(AI_CONNECTION_TEST_TIMEOUT_SECONDS * 1000L) {
@@ -173,6 +175,14 @@ class AiSummaryRepository @Inject constructor() {
             ),
             ChatMessage(role = "user", content = articleContent),
         )
+
+    internal fun buildConnectionTestThinkingConfig(baseUrl: String): ChatThinkingConfig? =
+        if (baseUrl.trim().contains("api.deepseek.com", ignoreCase = true)) {
+            ChatThinkingConfig(type = "disabled")
+        } else {
+            null
+        }
+
     internal fun buildCommuteBriefRecommendationMessages(
         targetDurationMinutes: Int,
         candidates: List<CommuteBriefRecommendationCandidate>,

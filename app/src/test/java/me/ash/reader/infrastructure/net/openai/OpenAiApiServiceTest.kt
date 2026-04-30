@@ -40,6 +40,7 @@ class OpenAiApiServiceTest {
                     model = "gpt-5.4-mini",
                     messages = listOf(ChatMessage(role = "user", content = "Hi")),
                     maxTokens = 8,
+                    thinking = ChatThinkingConfig(type = "disabled"),
                 )
             )
         val responsesJson =
@@ -54,6 +55,7 @@ class OpenAiApiServiceTest {
             )
 
         assertTrue(chatJson.contains("\"max_tokens\":8"))
+        assertTrue(chatJson.contains("\"thinking\":{\"type\":\"disabled\"}"))
         assertFalse(chatJson.contains("maxTokens"))
         assertTrue(responsesJson.contains("\"tool_choice\":\"auto\""))
         assertTrue(responsesJson.contains("\"search_context_size\":\"medium\""))

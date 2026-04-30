@@ -1,6 +1,7 @@
 package me.ash.reader.domain.repository
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -70,5 +71,18 @@ class AiSummaryRepositoryTest {
         assertTrue(messages.first().content.contains("最多 4 段"))
         assertTrue(messages.first().content.contains("每段只写 1 到 2 句"))
         assertTrue(messages.first().content.contains("发生了什么、关键事实、为什么值得关注"))
+    }
+
+    @Test
+    fun buildConnectionTestThinkingConfig_disablesThinkingForDeepSeekOnly() {
+        assertEquals(
+            "disabled",
+            repository.buildConnectionTestThinkingConfig("https://api.deepseek.com")?.type,
+        )
+        assertEquals(
+            "disabled",
+            repository.buildConnectionTestThinkingConfig("https://api.deepseek.com/")?.type,
+        )
+        assertNull(repository.buildConnectionTestThinkingConfig("https://api.openai.com/v1"))
     }
 }
