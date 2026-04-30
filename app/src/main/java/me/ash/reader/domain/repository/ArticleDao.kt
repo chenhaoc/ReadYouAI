@@ -408,6 +408,15 @@ interface ArticleDao {
 
     @Query(
         """
+        SELECT isUnread FROM article
+        WHERE id = :articleId
+        LIMIT 1
+        """
+    )
+    suspend fun queryIsUnreadByArticleId(articleId: String): Boolean?
+
+    @Query(
+        """
         UPDATE article SET aiSummary = :aiSummary
         WHERE id = :articleId
         """

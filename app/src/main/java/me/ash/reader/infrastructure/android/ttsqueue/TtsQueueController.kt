@@ -58,6 +58,8 @@ interface TtsQueueArticleRepository {
 
     suspend fun getById(articleId: String): TtsQueuePlayableArticle?
 
+    suspend fun isUnread(articleId: String): Boolean
+
     suspend fun markAsRead(articleId: String)
 
     fun observeIsStarred(articleId: String): Flow<Boolean>
@@ -446,18 +448,17 @@ class TtsQueueController(
     }
 
     private suspend fun onPlaybackCompleted() {
-        val completedArticleId = _state.value.currentArticleId
+        val completedItem = _state.value.currentItem
+        val completedArticleId = completedItem?.articleId
         if (completedArticleId != null && shouldStopAfterCurrentArticle(completedArticleId)) {
             stop()
             return
         }
 
-        if (
-            completedArticleId != null &&
-                _state.value.mode == TtsQueueMode.Commute &&
-                markReadOnCommuteComplete()
-        ) {
-            articleRepository.markAsRead(completedArticleId)
+        if (completedArticleId != null && shouldAutoMarkAsReadOnCompletion(completedItem)) {
+            if (articleRepository.isUnread(completedArticleId)) {
+                articleRepository.markAsRead(completedArticleId)
+            }
         }
 
         val advanced =
@@ -477,6 +478,12 @@ class TtsQueueController(
         serviceLauncher.startService()
         playCurrentArticle()
     }
+
+    private fun shouldAutoMarkAsReadOnCompletion(completedItem: TtsQueueItem?): Boolean =
+        when (_state.value.mode) {
+            TtsQueueMode.Commute -> markReadOnCommuteComplete()
+            TtsQueueMode.Normal -> completedItem?.contentType == TtsQueueContentType.FullArticle
+        }
 
     private suspend fun playCurrentArticle() {
         val currentItem = _state.value.currentItem ?: return

@@ -98,10 +98,15 @@ constructor(
         }
     }
 
+    override suspend fun isUnread(articleId: String): Boolean =
+        articleDao.queryIsUnreadByArticleId(articleId) ?: false
+
     override suspend fun markAsRead(articleId: String) {
-        articleDao.markAsReadByArticleId(
-            accountId = accountService.getCurrentAccountId(),
+        rssService.get().markAsRead(
+            groupId = null,
+            feedId = null,
             articleId = articleId,
+            before = null,
             isUnread = false,
         )
     }

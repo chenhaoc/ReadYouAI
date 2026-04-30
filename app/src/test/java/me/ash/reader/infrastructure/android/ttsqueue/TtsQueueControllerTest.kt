@@ -175,7 +175,7 @@ class TtsQueueControllerTest {
     @Test
     fun commute_completion_marks_read_only_when_enabled() = runTest {
         val snapshotStore = FakeSnapshotStore(null)
-        val repository = FakeArticleRepository(emptyMap())
+        val repository = FakeArticleRepository(emptyMap(), unreadArticleIds = setOf("summary-a"))
         val playbackClient = FakePlaybackClient()
         val controller =
             TtsQueueController(
@@ -208,6 +208,52 @@ class TtsQueueControllerTest {
         advanceUntilIdle()
 
         assertEquals(listOf("summary-a"), repository.markedReadArticleIds)
+    }
+
+    @Test
+    fun normal_full_article_completion_marks_read_when_article_is_unread() = runTest {
+        val snapshotStore = FakeSnapshotStore(null)
+        val repository = FakeArticleRepository(mapOf("a" to playableArticle("a")))
+        val playbackClient = FakePlaybackClient()
+        val controller =
+            TtsQueueController(
+                snapshotStore = snapshotStore,
+                articleRepository = repository,
+                playbackClient = playbackClient,
+                serviceLauncher = NoOpServiceLauncher,
+                coroutineScope = backgroundScope,
+            )
+
+        controller.playNow(playableArticle("a").item)
+        advanceUntilIdle()
+
+        controller.handlePlaybackEvent(TtsPlaybackEvent.Completed)
+        advanceUntilIdle()
+
+        assertEquals(listOf("a"), repository.markedReadArticleIds)
+    }
+
+    @Test
+    fun normal_full_article_completion_skips_mark_read_when_article_is_already_read() = runTest {
+        val snapshotStore = FakeSnapshotStore(null)
+        val repository = FakeArticleRepository(mapOf("a" to playableArticle("a")), unreadArticleIds = emptySet())
+        val playbackClient = FakePlaybackClient()
+        val controller =
+            TtsQueueController(
+                snapshotStore = snapshotStore,
+                articleRepository = repository,
+                playbackClient = playbackClient,
+                serviceLauncher = NoOpServiceLauncher,
+                coroutineScope = backgroundScope,
+            )
+
+        controller.playNow(playableArticle("a").item)
+        advanceUntilIdle()
+
+        controller.handlePlaybackEvent(TtsPlaybackEvent.Completed)
+        advanceUntilIdle()
+
+        assertEquals(emptyList<String>(), repository.markedReadArticleIds)
     }
 
     @Test
@@ -652,8 +698,10 @@ private class FakeSnapshotStore(
 
 private class FakeArticleRepository(
     private val articles: Map<String, TtsQueuePlayableArticle>,
+    unreadArticleIds: Set<String> = articles.keys,
 ) : TtsQueueArticleRepository {
     val markedReadArticleIds = mutableListOf<String>()
+    private val unreadArticleIds = unreadArticleIds.toMutableSet()
 
     override suspend fun get(item: TtsQueueItem): TtsQueuePlayableArticle? {
         if (item.contentType == TtsQueueContentType.AiSummary) {
@@ -669,8 +717,11 @@ private class FakeArticleRepository(
 
     override suspend fun getById(articleId: String): TtsQueuePlayableArticle? = articles[articleId]
 
+    override suspend fun isUnread(articleId: String): Boolean = articleId in unreadArticleIds
+
     override suspend fun markAsRead(articleId: String) {
         markedReadArticleIds += articleId
+        unreadArticleIds.remove(articleId)
     }
 
     override fun observeIsStarred(articleId: String): Flow<Boolean> = flowOf(false)
