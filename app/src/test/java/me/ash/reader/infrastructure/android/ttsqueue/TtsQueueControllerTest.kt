@@ -584,6 +584,39 @@ class TtsQueueControllerTest {
     }
 
     @Test
+    fun completed_article_restarts_from_first_segment_when_played_again() = runTest {
+        val snapshotStore = FakeSnapshotStore(null)
+        val repository =
+            FakeArticleRepository(
+                mapOf(
+                    "a" to playableArticle("a", html = "<p>a1</p>\n<p>a2</p>\n<p>a3</p>", segmentCharCounts = listOf(10, 10, 10)),
+                )
+            )
+        val playbackClient = FakePlaybackClient()
+        val controller =
+            TtsQueueController(
+                snapshotStore = snapshotStore,
+                articleRepository = repository,
+                playbackClient = playbackClient,
+                serviceLauncher = NoOpServiceLauncher,
+                coroutineScope = backgroundScope,
+            )
+
+        controller.playNow(playableArticle("a").item)
+        advanceUntilIdle()
+        controller.handlePlaybackEvent(TtsPlaybackEvent.Progress(current = 3, total = 3))
+        advanceUntilIdle()
+        controller.handlePlaybackEvent(TtsPlaybackEvent.Completed)
+        advanceUntilIdle()
+
+        controller.playNow(playableArticle("a").item)
+        advanceUntilIdle()
+
+        assertEquals(listOf(0, 0), playbackClient.playedStartSegmentIndices)
+        assertEquals(0, controller.state.value.currentSegmentIndex)
+    }
+
+    @Test
     fun switching_articles_preserves_each_articles_bookmark() = runTest {
         val snapshotStore = FakeSnapshotStore(null)
         val repository =

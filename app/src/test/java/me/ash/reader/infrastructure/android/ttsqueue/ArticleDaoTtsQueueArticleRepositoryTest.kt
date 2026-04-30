@@ -6,6 +6,7 @@ import me.ash.reader.domain.repository.ArticleDao
 import me.ash.reader.domain.service.AbstractRssRepository
 import me.ash.reader.domain.service.AccountService
 import me.ash.reader.domain.service.RssService
+import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
@@ -60,6 +61,6 @@ class ArticleDaoTtsQueueArticleRepositoryTest {
 
         val result = repository.isUnread("article-1")
 
-        kotlin.test.assertEquals(false, result)
+        assertEquals(false, result)
     }
 }

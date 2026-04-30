@@ -202,16 +202,7 @@ class TtsQueueController(
 
     fun resumeCurrent() {
         if (_state.value.currentArticleId == null) return
-        setActiveState(
-            _state.value.copy(
-                playbackState = TtsQueuePlaybackState.Preparing,
-                currentSegmentStartedAtMillis = null,
-                currentSegmentDurationMs = 0,
-            )
-        )
-        persistAsync()
-        serviceLauncher.startService()
-        coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) { playCurrentArticle() }
+        startCurrentPlayback()
     }
 
     fun pause() {
@@ -455,9 +446,12 @@ class TtsQueueController(
             return
         }
 
-        if (completedArticleId != null && shouldAutoMarkAsReadOnCompletion(completedItem)) {
-            if (articleRepository.isUnread(completedArticleId)) {
-                articleRepository.markAsRead(completedArticleId)
+        if (completedArticleId != null) {
+            resetBookmarkToBeginning(completedArticleId)
+            if (shouldAutoMarkAsReadOnCompletion(completedItem)) {
+                if (articleRepository.isUnread(completedArticleId)) {
+                    articleRepository.markAsRead(completedArticleId)
+                }
             }
         }
 
@@ -550,6 +544,25 @@ class TtsQueueController(
         persistAsync()
         serviceLauncher.startService()
         coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) { playCurrentArticle() }
+    }
+
+    private fun startCurrentPlayback() {
+        setActiveState(
+            _state.value.copy(
+                playbackState = TtsQueuePlaybackState.Preparing,
+                currentSegmentStartedAtMillis = null,
+                currentSegmentDurationMs = 0,
+            )
+        )
+        persistAsync()
+        serviceLauncher.startService()
+        coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) { playCurrentArticle() }
+    }
+
+    private fun resetBookmarkToBeginning(articleId: String) {
+        updateBookmark(articleId) { bookmark ->
+            bookmark.copy(segmentIndex = 0)
+        }
     }
 
     private fun clearSleepTimer() {
