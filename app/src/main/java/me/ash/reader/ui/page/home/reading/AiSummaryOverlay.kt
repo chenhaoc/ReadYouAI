@@ -33,9 +33,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlin.math.max
 import kotlin.math.min
 import me.ash.reader.R
+import me.ash.reader.infrastructure.preference.LocalReadingTextFontSize
 
 @Composable
 fun AiSummaryCard(
@@ -48,6 +50,7 @@ fun AiSummaryCard(
 ) {
     val view = LocalView.current
     val density = LocalDensity.current
+    val readingTextFontSize = LocalReadingTextFontSize.current
     val minVisibleHeight = with(density) { 24.dp.toPx() }
     var lastVisibility by remember { mutableStateOf<Boolean?>(null) }
 
@@ -156,7 +159,10 @@ fun AiSummaryCard(
                 if (summary.isNotEmpty()) {
                     Text(
                         text = summary,
-                        style = MaterialTheme.typography.bodyLarge,
+                        style =
+                            MaterialTheme.typography.bodyLarge.copy(
+                                fontSize = readingTextFontSize.sp,
+                            ),
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
