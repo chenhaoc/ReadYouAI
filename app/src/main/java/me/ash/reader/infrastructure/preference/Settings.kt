@@ -91,6 +91,8 @@ data class Settings(
     val languages: LanguagesPreference = LanguagesPreference.default,
 
     // AI
+    val aiConfigPresets: List<AiConfigPreset> = emptyList(),
+    val aiCurrentPresetId: String = "",
     val aiBaseUrl: AiBaseUrlPreference = AiBaseUrlPreference.default,
     val aiApiKey: AiApiKeyPreference = AiApiKeyPreference.default,
     val aiModel: AiModelPreference = AiModelPreference.default,

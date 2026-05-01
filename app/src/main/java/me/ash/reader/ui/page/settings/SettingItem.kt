@@ -44,6 +44,7 @@ fun SettingItem(
     enabled: Boolean = true,
     title: String,
     desc: String? = null,
+    titleContent: (@Composable (() -> Unit))? = null,
     icon: ImageVector? = null,
     iconPainter: Painter? = null,
     separatedActions: Boolean = false,
@@ -85,7 +86,7 @@ fun SettingItem(
                 }
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text(
+                titleContent?.invoke() ?: Text(
                     text = title,
                     maxLines = if (desc == null) 2 else 1,
                     style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp)

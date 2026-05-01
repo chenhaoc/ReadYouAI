@@ -53,6 +53,11 @@ class SettingsProvider @Inject constructor(
     init {
         coroutineScope.launch(ioDispatcher) {
             preferencesFlow.collect {
+                if (it.readAiConfigPresetState() == null) {
+                    it.readLegacyAiConfigPresetState()?.let { presetState ->
+                        context.writeAiConfigPresetState(presetState)
+                    }
+                }
                 _settingsFlow.value = it.toSettings()
             }
         }

@@ -35,9 +35,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import me.ash.reader.R
-import me.ash.reader.infrastructure.preference.LocalAiBaseUrl
 import me.ash.reader.infrastructure.preference.LocalAiApiKey
+import me.ash.reader.infrastructure.preference.LocalAiBaseUrl
 import me.ash.reader.domain.service.PendingAiSummaryEnqueuer
+import me.ash.reader.infrastructure.preference.LocalSettings
 import me.ash.reader.infrastructure.preference.AiBackgroundSummaryLimitPreference
 import me.ash.reader.infrastructure.preference.LocalAiBackgroundSummary
 import me.ash.reader.infrastructure.preference.LocalAiBackgroundSummaryBackfillOnSync
@@ -46,6 +47,7 @@ import me.ash.reader.infrastructure.preference.LocalAiModel
 import me.ash.reader.infrastructure.preference.LocalAiChatPrompt
 import me.ash.reader.infrastructure.preference.LocalAiSummarizationPrompt
 import me.ash.reader.infrastructure.preference.LocalAiTranslationPrompt
+import me.ash.reader.infrastructure.preference.summary
 import me.ash.reader.ui.component.base.DisplayText
 import me.ash.reader.ui.component.base.FeedbackIconButton
 import me.ash.reader.ui.component.base.RYDialog
@@ -66,8 +68,10 @@ import me.ash.reader.ui.theme.palette.onLight
 fun AiSettingsPage(
     aiSettingsViewModel: AiSettingsViewModel = hiltViewModel(),
     onBack: () -> Unit,
+    navigateToPresetManager: () -> Unit,
 ) {
     val context = LocalContext.current
+    val settings = LocalSettings.current
     val aiBaseUrl = LocalAiBaseUrl.current
     val aiApiKey = LocalAiApiKey.current
     val aiModel = LocalAiModel.current
@@ -80,9 +84,7 @@ fun AiSettingsPage(
     
     val scope = rememberCoroutineScope()
     
-    var baseUrlDialogVisible by remember { mutableStateOf(false) }
-    var apiKeyDialogVisible by remember { mutableStateOf(false) }
-    var modelDialogVisible by remember { mutableStateOf(false) }
+    var presetDialogVisible by remember { mutableStateOf(false) }
     var promptDialogVisible by remember { mutableStateOf(false) }
     var translationPromptDialogVisible by remember { mutableStateOf(false) }
     var chatPromptDialogVisible by remember { mutableStateOf(false) }
@@ -172,18 +174,24 @@ fun AiSettingsPage(
                         text = stringResource(R.string.api_configuration)
                     )
                     SettingItem(
-                        title = stringResource(R.string.ai_base_url),
-                        desc = aiBaseUrl.toDesc(context),
-                        onClick = {
-                            baseUrlDialogVisible = true
-                        }
+                        title = stringResource(R.string.ai_manage_configurations),
+                        desc = stringResource(R.string.ai_manage_configurations_desc),
+                        onClick = navigateToPresetManager,
                     ) {}
                     SettingItem(
-                        title = stringResource(R.string.ai_api_key),
-                        desc = aiApiKey.toDesc(context),
-                        onClick = {
-                            apiKeyDialogVisible = true
-                        }
+                        title = stringResource(R.string.ai_default_configuration),
+                        desc = settings.aiConfigPresets.firstOrNull { it.id == settings.aiCurrentPresetId }?.name
+                            ?: stringResource(R.string.ai_configuration_empty),
+                        onClick = { presetDialogVisible = true },
+                    ) {}
+                    SettingItem(
+                        title = stringResource(R.string.ai_default_configuration_info),
+                        desc = buildString {
+                            append(aiModel.toDesc(context))
+                            append(" · ")
+                            append(aiBaseUrl.toDesc(context))
+                        },
+                        onClick = {},
                     ) {}
                 }
 
@@ -213,18 +221,6 @@ fun AiSettingsPage(
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall
                         )
-                    }
-                }
-
-                if (availableModels.isNotEmpty()) {
-                    item {
-                        SettingItem(
-                            title = stringResource(R.string.ai_model),
-                            desc = aiModel.toDesc(context),
-                            onClick = {
-                                modelDialogVisible = true
-                            }
-                        ) {}
                     }
                 }
 
@@ -397,48 +393,21 @@ fun AiSettingsPage(
         }
     )
 
-    TextFieldDialog(
-        textFieldState = rememberTextFieldState(aiBaseUrl.value),
-        visible = baseUrlDialogVisible,
-        title = stringResource(R.string.ai_base_url),
-        placeholder = stringResource(R.string.ai_base_url_hint),
-        onDismissRequest = { baseUrlDialogVisible = false },
-        onConfirm = { value: String ->
-            aiBaseUrl.copy(value = value).put(context, scope)
-            baseUrlDialogVisible = false
-        }
-    )
-
-    TextFieldDialog(
-        textFieldState = rememberTextFieldState(aiApiKey.value),
-        visible = apiKeyDialogVisible,
-        title = stringResource(R.string.ai_api_key),
-        placeholder = stringResource(R.string.ai_api_key_hint),
-        isPassword = true,
-        onDismissRequest = { apiKeyDialogVisible = false },
-        onConfirm = { value: String ->
-            aiApiKey.copy(value = value).put(context, scope)
-            apiKeyDialogVisible = false
-        }
-    )
-
-    if (availableModels.isNotEmpty()) {
-        RadioDialog(
-            visible = modelDialogVisible,
-            title = stringResource(R.string.ai_model),
-            options = availableModels.map { model ->
-                RadioDialogOption(
-                    text = model,
-                    selected = model == aiModel.value,
-                ) {
-                    aiModel.copy(value = model).put(context, scope)
-                }
-            },
-            onDismissRequest = {
-                modelDialogVisible = false
+    RadioDialog(
+        visible = presetDialogVisible,
+        title = stringResource(R.string.ai_default_configuration),
+        options = settings.aiConfigPresets.map { preset ->
+            RadioDialogOption(
+                text = preset.name,
+                selected = preset.id == settings.aiCurrentPresetId,
+            ) {
+                aiSettingsViewModel.setCurrentPreset(context, preset.id)
             }
-        )
-    }
+        },
+        onDismissRequest = {
+            presetDialogVisible = false
+        },
+    )
 
     RadioDialog(
         visible = backgroundSummaryLimitDialogVisible,

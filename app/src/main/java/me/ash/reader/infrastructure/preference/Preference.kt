@@ -13,6 +13,8 @@ sealed class Preference {
 
 fun Preferences.toSettings(): Settings {
     val defaultSettings = Settings()
+    val presetState = readAiConfigPresetState() ?: readLegacyAiConfigPresetState()
+    val currentPreset = presetState?.presets?.firstOrNull { it.id == presetState.currentPresetId }
     return Settings(
         // Version
         newVersionNumber = NewVersionNumberPreference.fromPreferences(this),
@@ -107,9 +109,11 @@ fun Preferences.toSettings(): Settings {
         languages = LanguagesPreference.fromPreferences(this),
 
         // AI
-        aiBaseUrl = AiBaseUrlPreference.fromPreferences(this),
-        aiApiKey = AiApiKeyPreference.fromPreferences(this),
-        aiModel = AiModelPreference.fromPreferences(this),
+        aiConfigPresets = presetState?.presets.orEmpty(),
+        aiCurrentPresetId = presetState?.currentPresetId.orEmpty(),
+        aiBaseUrl = currentPreset?.let { AiBaseUrlPreference(it.baseUrl) } ?: AiBaseUrlPreference.fromPreferences(this),
+        aiApiKey = currentPreset?.let { AiApiKeyPreference(it.apiKey) } ?: AiApiKeyPreference.fromPreferences(this),
+        aiModel = currentPreset?.let { AiModelPreference(it.model) } ?: AiModelPreference.fromPreferences(this),
         aiSummarizationPrompt = AiSummarizationPromptPreference.fromPreferences(this),
         aiTranslationPrompt = AiTranslationPromptPreference.fromPreferences(this),
         aiChatPrompt = AiChatPromptPreference.fromPreferences(this),

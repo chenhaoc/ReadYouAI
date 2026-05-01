@@ -214,6 +214,8 @@ sealed interface PreferencesKey {
         const val aiBaseUrl = "aiBaseUrl"
         const val aiApiKey = "aiApiKey"
         const val aiModel = "aiModel"
+        const val aiConfigPresets = "aiConfigPresets"
+        const val aiCurrentPresetId = "aiCurrentPresetId"
         const val aiSummarizationPrompt = "aiSummarizationPrompt"
         const val aiTranslationPrompt = "aiTranslationPrompt"
         const val aiChatPrompt = "aiChatPrompt"
@@ -308,6 +310,8 @@ sealed interface PreferencesKey {
                 StringKey(aiBaseUrl),
                 StringKey(aiApiKey),
                 StringKey(aiModel),
+                StringKey(aiConfigPresets),
+                StringKey(aiCurrentPresetId),
                 StringKey(aiSummarizationPrompt),
                 StringKey(aiTranslationPrompt),
                 StringKey(aiChatPrompt),
@@ -414,6 +418,8 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
         const val aiBaseUrl = "aiBaseUrl"
         const val aiApiKey = "aiApiKey"
         const val aiModel = "aiModel"
+        const val aiConfigPresets = "aiConfigPresets"
+        const val aiCurrentPresetId = "aiCurrentPresetId"
         const val aiSummarizationPrompt = "aiSummarizationPrompt"
         const val aiTranslationPrompt = "aiTranslationPrompt"
         const val aiChatPrompt = "aiChatPrompt"
@@ -598,6 +604,8 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
                 aiBaseUrl to DataStoreKey(stringPreferencesKey(aiBaseUrl), String::class.java),
                 aiApiKey to DataStoreKey(stringPreferencesKey(aiApiKey), String::class.java),
                 aiModel to DataStoreKey(stringPreferencesKey(aiModel), String::class.java),
+                aiConfigPresets to DataStoreKey(stringPreferencesKey(aiConfigPresets), String::class.java),
+                aiCurrentPresetId to DataStoreKey(stringPreferencesKey(aiCurrentPresetId), String::class.java),
                 aiSummarizationPrompt to DataStoreKey(stringPreferencesKey(aiSummarizationPrompt), String::class.java),
                 aiTranslationPrompt to DataStoreKey(stringPreferencesKey(aiTranslationPrompt), String::class.java),
                 aiChatPrompt to DataStoreKey(stringPreferencesKey(aiChatPrompt), String::class.java),
@@ -776,6 +784,8 @@ private fun buildDefaultBackupPreferenceValues(): Map<String, Any> {
         PreferencesKey.aiBaseUrl to settings.aiBaseUrl.value,
         PreferencesKey.aiApiKey to settings.aiApiKey.value,
         PreferencesKey.aiModel to settings.aiModel.value,
+        PreferencesKey.aiConfigPresets to "",
+        PreferencesKey.aiCurrentPresetId to "",
         PreferencesKey.aiSummarizationPrompt to settings.aiSummarizationPrompt.value,
         PreferencesKey.aiTranslationPrompt to settings.aiTranslationPrompt.value,
         PreferencesKey.aiChatPrompt to settings.aiChatPrompt.value,

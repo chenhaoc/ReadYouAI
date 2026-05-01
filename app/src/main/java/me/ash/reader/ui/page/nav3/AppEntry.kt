@@ -67,6 +67,7 @@ import me.ash.reader.ui.page.settings.accounts.AccountDetailsPage
 import me.ash.reader.ui.page.settings.accounts.AccountViewModel
 import me.ash.reader.ui.page.settings.accounts.AccountsPage
 import me.ash.reader.ui.page.settings.accounts.AddAccountsPage
+import me.ash.reader.ui.page.settings.ai.AiPresetManagerPage
 import me.ash.reader.ui.page.settings.ai.AiSettingsPage
 import me.ash.reader.ui.page.settings.backuprestore.BackupRestorePage
 import me.ash.reader.ui.page.settings.color.ColorAndStylePage
@@ -379,7 +380,16 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
                         Route.ReadingPageVideo ->
                             NavEntry(key) { ReadingVideoPage(onBack = onBack) }
                         Route.Interaction -> NavEntry(key) { InteractionPage(onBack = onBack) }
-                        Route.AiSettings -> NavEntry(key) { AiSettingsPage(onBack = onBack) }
+                        Route.AiSettings -> NavEntry(key) {
+                            AiSettingsPage(
+                                onBack = onBack,
+                                navigateToPresetManager = { backStack.add(Route.AiPresetManager) },
+                            )
+                        }
+
+                        Route.AiPresetManager -> NavEntry(key) {
+                            AiPresetManagerPage(onBack = onBack)
+                        }
                         Route.BackupRestore ->
                             NavEntry(key) { BackupRestorePage(onBack = onBack) }
                         Route.Languages -> NavEntry(key) { LanguagesPage(onBack = onBack) }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -21,10 +22,12 @@ fun ClipboardTextField(
     isPassword: Boolean = false,
     errorText: String = "",
     imeAction: ImeAction = ImeAction.Done,
+    topSpacing: Dp = 10.dp,
+    bottomSpacing: Dp = 10.dp,
     onConfirm: (String) -> Unit = {},
 ) {
     Column(modifier = Modifier) {
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(topSpacing))
         RYTextField2(
             modifier = modifier,
             readOnly = readOnly,
@@ -39,6 +42,6 @@ fun ClipboardTextField(
                 } else null,
             keyboardOptions = KeyboardOptions(imeAction = imeAction),
         )
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(bottomSpacing))
     }
 }
