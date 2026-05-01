@@ -175,7 +175,7 @@ private fun backupFileLauncher(
     launcher: ManagedActivityResultLauncher<String, Uri?>,
 ) {
     launcher.launch(
-        "Read-You-" +
+        "${context.getString(R.string.read_you)}-" +
             "${context.getCurrentVersion()}-backup-" +
             "${java.util.Date().toString(me.ash.reader.ui.ext.DateFormat.YYYY_MM_DD_DASH_HH_MM_SS_DASH)}.json"
     )
