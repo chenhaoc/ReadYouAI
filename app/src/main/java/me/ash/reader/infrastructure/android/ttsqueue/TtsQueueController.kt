@@ -448,11 +448,10 @@ class TtsQueueController(
 
         if (completedArticleId != null) {
             resetBookmarkToBeginning(completedArticleId)
-            if (shouldAutoMarkAsReadOnCompletion(completedItem)) {
-                if (articleRepository.isUnread(completedArticleId)) {
-                    articleRepository.markAsRead(completedArticleId)
-                }
-            }
+            scheduleAutoMarkAsReadOnCompletion(
+                completedItem = completedItem,
+                completedArticleId = completedArticleId,
+            )
         }
 
         val advanced =
@@ -562,6 +561,18 @@ class TtsQueueController(
     private fun resetBookmarkToBeginning(articleId: String) {
         updateBookmark(articleId) { bookmark ->
             bookmark.copy(segmentIndex = 0)
+        }
+    }
+
+    private fun scheduleAutoMarkAsReadOnCompletion(
+        completedItem: TtsQueueItem?,
+        completedArticleId: String,
+    ) {
+        if (!shouldAutoMarkAsReadOnCompletion(completedItem)) return
+        coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            if (articleRepository.isUnread(completedArticleId)) {
+                articleRepository.markAsRead(completedArticleId)
+            }
         }
     }
 

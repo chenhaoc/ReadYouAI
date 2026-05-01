@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -228,6 +229,46 @@ class TtsQueueControllerTest {
         advanceUntilIdle()
 
         controller.handlePlaybackEvent(TtsPlaybackEvent.Completed)
+        advanceUntilIdle()
+
+        assertEquals(listOf("a"), repository.markedReadArticleIds)
+    }
+
+    @Test
+    fun normal_full_article_completion_starts_next_article_without_waiting_mark_read_sync() = runTest {
+        val snapshotStore = FakeSnapshotStore(null)
+        val markAsReadGate = CompletableDeferred<Unit>()
+        val repository =
+            FakeArticleRepository(
+                articles =
+                    mapOf(
+                        "a" to playableArticle("a", segmentCharCounts = listOf(10)),
+                        "b" to playableArticle("b", segmentCharCounts = listOf(10)),
+                    ),
+                markAsReadGate = markAsReadGate,
+            )
+        val playbackClient = FakePlaybackClient()
+        val controller =
+            TtsQueueController(
+                snapshotStore = snapshotStore,
+                articleRepository = repository,
+                playbackClient = playbackClient,
+                serviceLauncher = NoOpServiceLauncher,
+                coroutineScope = backgroundScope,
+            )
+
+        controller.playNow(playableArticle("a").item)
+        controller.enqueue(playableArticle("b").item)
+        advanceUntilIdle()
+
+        controller.handlePlaybackEvent(TtsPlaybackEvent.Completed)
+        advanceUntilIdle()
+
+        assertEquals("b", controller.state.value.currentArticleId)
+        assertEquals(listOf("a", "b"), playbackClient.playedArticleIds)
+        assertEquals(listOf("a"), repository.markedReadArticleIds)
+
+        markAsReadGate.complete(Unit)
         advanceUntilIdle()
 
         assertEquals(listOf("a"), repository.markedReadArticleIds)
@@ -732,6 +773,7 @@ private class FakeSnapshotStore(
 private class FakeArticleRepository(
     private val articles: Map<String, TtsQueuePlayableArticle>,
     unreadArticleIds: Set<String> = articles.keys,
+    private val markAsReadGate: CompletableDeferred<Unit>? = null,
 ) : TtsQueueArticleRepository {
     val markedReadArticleIds = mutableListOf<String>()
     private val unreadArticleIds = unreadArticleIds.toMutableSet()
@@ -754,6 +796,7 @@ private class FakeArticleRepository(
 
     override suspend fun markAsRead(articleId: String) {
         markedReadArticleIds += articleId
+        markAsReadGate?.await()
         unreadArticleIds.remove(articleId)
     }
 
