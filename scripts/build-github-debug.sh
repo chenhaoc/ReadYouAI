@@ -19,12 +19,13 @@ Usage:
   ./scripts/build-github-debug.sh
   ./scripts/build-github-debug.sh debug
   ./scripts/build-github-debug.sh release
-  ./scripts/build-github-debug.sh <gradle-task>
+  ./scripts/build-github-debug.sh <gradle-task> [gradle-args...]
 
 Notes:
   - The default task is assembleGithubAiDebug.
   - The script now serializes builds across all worktrees of the same repository.
   - Resource profiles such as --profile full|1core are no longer supported.
+  - Extra Gradle task arguments, such as --tests, are passed through to the selected task.
 EOF
 }
 
@@ -41,12 +42,8 @@ for arg in "$@"; do
   esac
 done
 
-if [[ $# -gt 1 ]]; then
-  usage >&2
-  exit 1
-fi
-
-if [[ $# -eq 1 ]]; then
+GRADLE_TASK_ARGS=()
+if [[ $# -gt 0 ]]; then
   case "$1" in
     -h|--help)
       usage
@@ -54,14 +51,18 @@ if [[ $# -eq 1 ]]; then
       ;;
     debug)
       REQUESTED_TASK="${DEBUG_TASK}"
+      shift
       ;;
     release)
       REQUESTED_TASK="${RELEASE_TASK}"
+      shift
       ;;
     *)
       REQUESTED_TASK="$1"
+      shift
       ;;
   esac
+  GRADLE_TASK_ARGS=("$@")
 else
   REQUESTED_TASK="${DEBUG_TASK}"
 fi
@@ -320,6 +321,9 @@ GRADLE_FLAGS=(
   "-Dorg.gradle.jvmargs=${GRADLE_DAEMON_JVMARGS}"
   "${REQUESTED_TASK}"
 )
+if [[ ${#GRADLE_TASK_ARGS[@]} -gt 0 ]]; then
+  GRADLE_FLAGS+=("${GRADLE_TASK_ARGS[@]}")
+fi
 export GRADLE_OPTS="${GRADLE_OPTS:-} -Dorg.gradle.workers.max=${WORKER_COUNT} -Dkotlin.compiler.execution.strategy=daemon -Djava.net.useSystemProxies=false -Dorg.gradle.caching=true"
 
 cd "${ROOT_DIR}"
@@ -331,6 +335,9 @@ echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}"
 echo "Build lock=${BUILD_LOCK_DIR}"
 echo "GRADLE_DAEMON_JVMARGS=${GRADLE_DAEMON_JVMARGS}"
 echo "Gradle task=${REQUESTED_TASK}"
+if [[ ${#GRADLE_TASK_ARGS[@]} -gt 0 ]]; then
+  echo "Gradle task args=${GRADLE_TASK_ARGS[*]}"
+fi
 
 ./gradlew "${GRADLE_FLAGS[@]}"
 
