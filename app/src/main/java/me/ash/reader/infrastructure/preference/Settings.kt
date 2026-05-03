@@ -97,6 +97,7 @@ data class Settings(
     val aiApiKey: AiApiKeyPreference = AiApiKeyPreference.default,
     val aiModel: AiModelPreference = AiModelPreference.default,
     val aiSummarizationPrompt: AiSummarizationPromptPreference = AiSummarizationPromptPreference.default,
+    val aiCommuteBriefRecommendationPrompt: AiCommuteBriefRecommendationPromptPreference = AiCommuteBriefRecommendationPromptPreference.default,
     val aiTranslationPrompt: AiTranslationPromptPreference = AiTranslationPromptPreference.default,
     val aiChatPrompt: AiChatPromptPreference = AiChatPromptPreference.default,
     val aiBackgroundSummary: AiBackgroundSummaryPreference = AiBackgroundSummaryPreference.default,

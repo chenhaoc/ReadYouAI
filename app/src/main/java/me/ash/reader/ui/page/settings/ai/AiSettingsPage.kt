@@ -45,6 +45,7 @@ import me.ash.reader.infrastructure.preference.LocalAiBackgroundSummaryBackfillO
 import me.ash.reader.infrastructure.preference.LocalAiBackgroundSummaryLimit
 import me.ash.reader.infrastructure.preference.LocalAiModel
 import me.ash.reader.infrastructure.preference.LocalAiChatPrompt
+import me.ash.reader.infrastructure.preference.LocalAiCommuteBriefRecommendationPrompt
 import me.ash.reader.infrastructure.preference.LocalAiSummarizationPrompt
 import me.ash.reader.infrastructure.preference.LocalAiTranslationPrompt
 import me.ash.reader.infrastructure.preference.summary
@@ -58,6 +59,7 @@ import me.ash.reader.ui.component.base.RadioDialogOption
 import me.ash.reader.ui.component.base.Subtitle
 import me.ash.reader.ui.component.base.TextFieldDialog
 import me.ash.reader.ui.page.home.reading.resolveAiChatPrompt
+import me.ash.reader.ui.page.home.reading.resolveAiCommuteBriefRecommendationPrompt
 import me.ash.reader.ui.page.home.reading.resolveAiSummarizationPrompt
 import me.ash.reader.ui.page.home.reading.resolveAiTranslationPrompt
 import me.ash.reader.ui.ext.showToast
@@ -76,6 +78,7 @@ fun AiSettingsPage(
     val aiApiKey = LocalAiApiKey.current
     val aiModel = LocalAiModel.current
     val aiSummarizationPrompt = LocalAiSummarizationPrompt.current
+    val aiCommuteBriefRecommendationPrompt = LocalAiCommuteBriefRecommendationPrompt.current
     val aiTranslationPrompt = LocalAiTranslationPrompt.current
     val aiChatPrompt = LocalAiChatPrompt.current
     val aiBackgroundSummary = LocalAiBackgroundSummary.current
@@ -86,12 +89,14 @@ fun AiSettingsPage(
     
     var presetDialogVisible by remember { mutableStateOf(false) }
     var promptDialogVisible by remember { mutableStateOf(false) }
+    var commuteBriefRecommendationPromptDialogVisible by remember { mutableStateOf(false) }
     var translationPromptDialogVisible by remember { mutableStateOf(false) }
     var chatPromptDialogVisible by remember { mutableStateOf(false) }
     var backgroundSummaryLimitDialogVisible by remember { mutableStateOf(false) }
     var backfillConfirmDialogVisible by remember { mutableStateOf(false) }
 
     val summarizationPromptState = rememberTextFieldState()
+    val commuteBriefRecommendationPromptState = rememberTextFieldState()
     val translationPromptState = rememberTextFieldState()
     val chatPromptState = rememberTextFieldState()
     
@@ -128,6 +133,19 @@ fun AiSettingsPage(
         if (promptDialogVisible) {
             summarizationPromptState.setTextAndPlaceCursorAtEnd(
                 resolveAiSummarizationPrompt(aiSummarizationPrompt.value)
+            )
+        }
+    }
+
+    LaunchedEffect(
+        commuteBriefRecommendationPromptDialogVisible,
+        aiCommuteBriefRecommendationPrompt.value,
+    ) {
+        if (commuteBriefRecommendationPromptDialogVisible) {
+            commuteBriefRecommendationPromptState.setTextAndPlaceCursorAtEnd(
+                resolveAiCommuteBriefRecommendationPrompt(
+                    aiCommuteBriefRecommendationPrompt.value,
+                )
             )
         }
     }
@@ -321,6 +339,13 @@ fun AiSettingsPage(
                         }
                     ) {}
                     SettingItem(
+                        title = stringResource(R.string.ai_commute_brief_recommendation_prompt),
+                        desc = aiCommuteBriefRecommendationPrompt.toDesc(context),
+                        onClick = {
+                            commuteBriefRecommendationPromptDialogVisible = true
+                        }
+                    ) {}
+                    SettingItem(
                         title = stringResource(R.string.ai_background_summary),
                         desc = stringResource(R.string.ai_background_summary_desc),
                         onClick = {
@@ -501,6 +526,19 @@ fun AiSettingsPage(
         onConfirm = { value: String ->
             aiTranslationPrompt.copy(value = value).put(context, scope)
             translationPromptDialogVisible = false
+        }
+    )
+
+    TextFieldDialog(
+        textFieldState = commuteBriefRecommendationPromptState,
+        visible = commuteBriefRecommendationPromptDialogVisible,
+        title = stringResource(R.string.ai_commute_brief_recommendation_prompt),
+        placeholder = stringResource(R.string.ai_commute_brief_recommendation_prompt_hint),
+        singleLine = false,
+        onDismissRequest = { commuteBriefRecommendationPromptDialogVisible = false },
+        onConfirm = { value: String ->
+            aiCommuteBriefRecommendationPrompt.copy(value = value).put(context, scope)
+            commuteBriefRecommendationPromptDialogVisible = false
         }
     )
 

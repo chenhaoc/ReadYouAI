@@ -13,6 +13,7 @@ import me.ash.reader.domain.service.AccountService
 import me.ash.reader.infrastructure.android.htmlSegmentCharCounts
 import me.ash.reader.infrastructure.net.ApiResult
 import me.ash.reader.infrastructure.preference.SettingsProvider
+import me.ash.reader.ui.page.home.reading.resolveAiCommuteBriefRecommendationPrompt
 
 private const val DEFAULT_CANDIDATE_LIMIT = 200
 private const val AI_RECOMMENDATION_CANDIDATE_MULTIPLIER = 3
@@ -75,6 +76,9 @@ class CommuteBriefQueueBuilder @Inject constructor(
                         baseUrl = settings.aiBaseUrl.value,
                         apiKey = settings.aiApiKey.value,
                         model = settings.aiModel.value.ifEmpty { "gpt-3.5-turbo" },
+                        prompt = resolveAiCommuteBriefRecommendationPrompt(
+                            settings.aiCommuteBriefRecommendationPrompt.value,
+                        ),
                     )
             }
 
@@ -107,6 +111,7 @@ class CommuteBriefQueueBuilder @Inject constructor(
         baseUrl: String,
         apiKey: String,
         model: String,
+        prompt: String,
     ): CommuteBriefSelection {
         if (baseUrl.isBlank() || apiKey.isBlank()) {
             return CommuteBriefSelection(
@@ -126,6 +131,7 @@ class CommuteBriefQueueBuilder @Inject constructor(
                 baseUrl = baseUrl,
                 apiKey = apiKey,
                 model = model,
+                prompt = prompt,
                 targetDurationMinutes = targetDurationMinutes,
                 candidates = recommendationCandidates.map { it.toRecommendationCandidate() },
             )

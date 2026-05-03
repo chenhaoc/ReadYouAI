@@ -34,6 +34,7 @@ class AiSummaryRepositoryTest {
     fun buildCommuteBriefRecommendationMessages_containsCandidateAndJsonRules() {
         val messages =
             repository.buildCommuteBriefRecommendationMessages(
+                prompt = "请从候选文章中挑选更值得收听的文章。",
                 targetDurationMinutes = 30,
                 candidates =
                     listOf(
@@ -48,6 +49,9 @@ class AiSummaryRepositoryTest {
                     ),
             )
 
+        assertTrue(messages.first().content.contains("请从候选文章中挑选更值得收听的文章。"))
+        assertTrue(messages.first().content.contains("目标总时长约 30 分钟"))
+        assertTrue(messages.first().content.contains("只输出 JSON"))
         assertTrue(messages.first().content.contains("articleIds"))
         assertTrue(messages.last().content.contains("id: a1"))
         assertTrue(messages.last().content.contains("重要科技新闻"))

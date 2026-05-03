@@ -17,6 +17,7 @@ class AiSummaryRepository @Inject constructor() {
         baseUrl: String,
         apiKey: String,
         model: String,
+        prompt: String,
         targetDurationMinutes: Int,
         candidates: List<CommuteBriefRecommendationCandidate>,
     ): ApiResult<List<String>> {
@@ -30,6 +31,7 @@ class AiSummaryRepository @Inject constructor() {
             val request = ChatCompletionRequest(
                 model = model,
                 messages = buildCommuteBriefRecommendationMessages(
+                    prompt = prompt,
                     targetDurationMinutes = targetDurationMinutes,
                     candidates = candidates,
                 ),
@@ -184,6 +186,7 @@ class AiSummaryRepository @Inject constructor() {
         }
 
     internal fun buildCommuteBriefRecommendationMessages(
+        prompt: String,
         targetDurationMinutes: Int,
         candidates: List<CommuteBriefRecommendationCandidate>,
     ): List<ChatMessage> =
@@ -192,15 +195,10 @@ class AiSummaryRepository @Inject constructor() {
                 role = "system",
                 content =
                     buildString {
-                        appendLine("你是科技新闻通勤简报编辑。")
-                        appendLine("请从候选文章中挑选更值得在通勤中收听的文章。")
-                        appendLine("目标总时长约 ${targetDurationMinutes} 分钟。")
-                        appendLine("选择标准：")
-                        appendLine("- 优先选择信息量高、影响范围大、适合科技新闻收听的内容")
-                        appendLine("- 避免重复主题或同一事件的轻微更新占满列表")
-                        appendLine("- 保持一定来源多样性")
-                        appendLine("- 降低碎片新闻、纯转述、标题党优先级")
-                        appendLine("输出要求：")
+                        appendLine(prompt)
+                        appendLine()
+                        appendLine("补充要求：")
+                        appendLine("- 目标总时长约 ${targetDurationMinutes} 分钟")
                         appendLine("- 只输出 JSON，不要 Markdown，不要解释")
                         appendLine("- JSON 格式必须是：{\"articleIds\":[\"id1\",\"id2\"]}")
                         appendLine("- articleIds 按推荐收听顺序排列，只能使用候选中已有 id")

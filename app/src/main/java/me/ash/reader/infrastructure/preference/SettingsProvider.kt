@@ -154,6 +154,7 @@ class SettingsProvider @Inject constructor(
             LocalAiApiKey provides settings.aiApiKey,
             LocalAiModel provides settings.aiModel,
             LocalAiSummarizationPrompt provides settings.aiSummarizationPrompt,
+            LocalAiCommuteBriefRecommendationPrompt provides settings.aiCommuteBriefRecommendationPrompt,
             LocalAiTranslationPrompt provides settings.aiTranslationPrompt,
             LocalAiChatPrompt provides settings.aiChatPrompt,
             LocalAiBackgroundSummary provides settings.aiBackgroundSummary,

@@ -115,6 +115,7 @@ fun Preferences.toSettings(): Settings {
         aiApiKey = currentPreset?.let { AiApiKeyPreference(it.apiKey) } ?: AiApiKeyPreference.fromPreferences(this),
         aiModel = currentPreset?.let { AiModelPreference(it.model) } ?: AiModelPreference.fromPreferences(this),
         aiSummarizationPrompt = AiSummarizationPromptPreference.fromPreferences(this),
+        aiCommuteBriefRecommendationPrompt = AiCommuteBriefRecommendationPromptPreference.fromPreferences(this),
         aiTranslationPrompt = AiTranslationPromptPreference.fromPreferences(this),
         aiChatPrompt = AiChatPromptPreference.fromPreferences(this),
         aiBackgroundSummary = AiBackgroundSummaryPreference.fromPreferences(this),
