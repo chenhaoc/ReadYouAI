@@ -220,7 +220,6 @@ sealed interface PreferencesKey {
         const val aiCommuteBriefRecommendationPrompt = "aiCommuteBriefRecommendationPrompt"
         const val aiTranslationPrompt = "aiTranslationPrompt"
         const val aiChatPrompt = "aiChatPrompt"
-        const val aiAutoSummary = "aiAutoSummary"
         const val aiBackgroundSummary = "aiBackgroundSummary"
         const val aiBackgroundSummaryLimit = "aiBackgroundSummaryLimit"
         const val aiBackgroundSummaryBackfillOnSync = "aiBackgroundSummaryBackfillOnSync"
@@ -426,7 +425,6 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
         const val aiCommuteBriefRecommendationPrompt = "aiCommuteBriefRecommendationPrompt"
         const val aiTranslationPrompt = "aiTranslationPrompt"
         const val aiChatPrompt = "aiChatPrompt"
-        const val aiAutoSummary = "aiAutoSummary"
         const val aiBackgroundSummary = "aiBackgroundSummary"
         const val aiBackgroundSummaryLimit = "aiBackgroundSummaryLimit"
         const val aiBackgroundSummaryBackfillOnSync = "aiBackgroundSummaryBackfillOnSync"
@@ -614,8 +612,6 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
                     DataStoreKey(stringPreferencesKey(aiCommuteBriefRecommendationPrompt), String::class.java),
                 aiTranslationPrompt to DataStoreKey(stringPreferencesKey(aiTranslationPrompt), String::class.java),
                 aiChatPrompt to DataStoreKey(stringPreferencesKey(aiChatPrompt), String::class.java),
-                aiAutoSummary to
-                    DataStoreKey(booleanPreferencesKey(aiAutoSummary), Boolean::class.java),
                 aiBackgroundSummary to
                     DataStoreKey(
                         booleanPreferencesKey(aiBackgroundSummary),
