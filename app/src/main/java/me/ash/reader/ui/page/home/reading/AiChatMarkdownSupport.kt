@@ -400,11 +400,39 @@ private fun closeListTag(type: HtmlListType): String =
     }
 
 private fun buildAiChatInlineHtml(text: String): String {
-    fun parseSegment(source: String): String =
+    fun parseSegment(
+        source: String,
+        allowAutolinks: Boolean = true,
+    ): String =
         buildString {
             var index = 0
             while (index < source.length) {
                 when {
+                    allowAutolinks &&
+                        (source.startsWith("<http://", index) || source.startsWith("<https://", index)) -> {
+                        val urlEnd = source.indexOf('>', startIndex = index + 1)
+                        if (urlEnd != -1) {
+                            val url = source.substring(index + 1, urlEnd)
+                            append("""<a href="${escapeHtmlAttribute(url)}">${escapeHtml(url)}</a>""")
+                            index = urlEnd + 1
+                            continue
+                        }
+                    }
+
+                    allowAutolinks &&
+                        (source.startsWith("http://", index) || source.startsWith("https://", index)) -> {
+                        val end = findInlineUrlEnd(source, index)
+                        val candidate = source.substring(index, end)
+                        val url = trimTrailingUrlPunctuation(candidate)
+                        if (url.isNotBlank()) {
+                            val suffix = candidate.substring(url.length)
+                            append("""<a href="${escapeHtmlAttribute(url)}">${escapeHtml(url)}</a>""")
+                            append(escapeHtml(suffix))
+                            index = end
+                            continue
+                        }
+                    }
+
                     source.startsWith("***", index) || source.startsWith("___", index) -> {
                         val delimiter = source.substring(index, index + 3)
                         val end = source.indexOf(delimiter, startIndex = index + 3)
@@ -465,7 +493,10 @@ private fun buildAiChatInlineHtml(text: String): String {
                         ) {
                             val urlEnd = source.indexOf(')', startIndex = urlStart + 1)
                             if (urlEnd != -1) {
-                                val label = parseSegment(source.substring(index + 1, labelEnd))
+                                val label = parseSegment(
+                                    source.substring(index + 1, labelEnd),
+                                    allowAutolinks = false,
+                                )
                                 val url = escapeHtmlAttribute(source.substring(urlStart + 1, urlEnd))
                                 append("""<a href="$url">$label</a>""")
                                 index = urlEnd + 1
@@ -520,3 +551,50 @@ private fun splitTableRow(line: String): List<String> =
 private fun escapeHtml(text: String): String = Entities.escape(text)
 
 private fun escapeHtmlAttribute(text: String): String = Entities.escape(text)
+
+private fun trimTrailingUrlPunctuation(candidate: String): String {
+    var url = candidate
+    while (url.isNotEmpty()) {
+        val trailing = url.last()
+        url =
+            when (trailing) {
+                ',', '.', ';', ':', '!', '?', '，', '。', '；', '：', '！', '？' ->
+                    url.dropLast(1)
+
+                ')', ']', '}', '）', '】', '》' ->
+                    if (shouldTrimTrailingClosingDelimiter(url, trailing)) {
+                        url.dropLast(1)
+                    } else {
+                        return url
+                    }
+
+                else -> return url
+            }
+    }
+    return url
+}
+
+private fun shouldTrimTrailingClosingDelimiter(
+    url: String,
+    closingDelimiter: Char,
+): Boolean {
+    val openingDelimiter =
+        when (closingDelimiter) {
+            ')' -> '('
+            ']' -> '['
+            '}' -> '{'
+            '）' -> '（'
+            '】' -> '【'
+            '》' -> '《'
+            else -> return false
+        }
+    return url.count { it == closingDelimiter } > url.count { it == openingDelimiter }
+}
+
+private fun findInlineUrlEnd(source: String, startIndex: Int): Int {
+    var end = startIndex
+    while (end < source.length && !source[end].isWhitespace() && source[end] != '<') {
+        end += 1
+    }
+    return end
+}

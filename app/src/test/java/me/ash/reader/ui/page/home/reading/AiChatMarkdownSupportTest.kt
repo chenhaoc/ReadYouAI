@@ -1,6 +1,7 @@
 package me.ash.reader.ui.page.home.reading
 
 import me.ash.reader.domain.model.ai.AiChatMessage
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -78,6 +79,44 @@ class AiChatMarkdownSupportTest {
         assertTrue(html.contains("<em>斜体</em>"))
         assertTrue(html.contains("<code>代码</code>"))
         assertTrue(html.contains("""<a href="https://openai.com">OpenAI</a>"""))
+    }
+
+    @Test
+    fun buildAiChatMarkdownHtml_supportsBareAndAngleBracketLinks() {
+        val html =
+            buildAiChatMarkdownHtml(
+                """
+                访问 https://openai.com/docs 获取文档，或看 <https://example.com/article>.
+                """.trimIndent()
+            )
+
+        assertTrue(html.contains("""<a href="https://openai.com/docs">https://openai.com/docs</a>"""))
+        assertTrue(html.contains("""<a href="https://example.com/article">https://example.com/article</a>."""))
+    }
+
+    @Test
+    fun buildAiChatMarkdownHtml_doesNotAutolinkBareUrlsInsideLinkLabels() {
+        val html =
+            buildAiChatMarkdownHtml(
+                """
+                [https://openai.com](https://example.com)
+                """.trimIndent()
+            )
+
+        assertTrue(html.contains("""<a href="https://example.com">https://openai.com</a>"""))
+        assertFalse(html.contains("""<a href="https://openai.com">"""))
+    }
+
+    @Test
+    fun buildAiChatMarkdownHtml_preservesBalancedTrailingParenthesesInBareUrls() {
+        val html =
+            buildAiChatMarkdownHtml(
+                """
+                参考 https://en.wikipedia.org/wiki/Foo_(bar)
+                """.trimIndent()
+            )
+
+        assertTrue(html.contains("""<a href="https://en.wikipedia.org/wiki/Foo_(bar)">https://en.wikipedia.org/wiki/Foo_(bar)</a>"""))
     }
 
     @Test
