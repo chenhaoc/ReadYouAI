@@ -81,6 +81,7 @@ import timber.log.Timber
 
 private const val TAG = "FlowViewModel"
 private const val MAX_LIST_TRANSLATION_CONCURRENCY = 5
+private const val PENDING_AI_SUMMARY_FLUSH_DELAY_MILLIS = 600L
 
 private enum class SummaryTrigger {
     MANUAL,
@@ -348,9 +349,11 @@ constructor(
     private var translationStateJob: Job? = null
     private var aiChatSessionJob: Job? = null
     private var initDataJob: Job? = null
+    private var pendingAiSummaryFlushJob: Job? = null
     private val pendingListTranslationArticleIds = linkedSetOf<String>()
     private val listTranslationJobs = mutableMapOf<String, Job>()
     private val activeListTranslationArticleIds = mutableSetOf<String>()
+    private val pendingAiSummaryWrites = LinkedHashMap<String, String>()
 
     private val currentArticle: Article?
         get() = readingUiState.value.articleWithFeed?.article
@@ -359,6 +362,7 @@ constructor(
         get() = readingUiState.value.articleWithFeed?.feed
 
     fun initData(articleId: String, listIndex: Int? = null) {
+        cancelPendingAiSummaryFlush()
         cancelTranslationJob()
         aiChatSessionJob?.cancel()
         aiChatSessionJob = null
@@ -409,6 +413,7 @@ constructor(
         initDataJob = null
         _readingUiState.update { ReadingUiState() }
         _readerState.update { ReaderState() }
+        schedulePendingAiSummaryFlush()
     }
 
     suspend fun ReaderState.renderContent(articleWithFeed: ArticleWithFeed): ReaderState {
@@ -599,13 +604,11 @@ constructor(
 
             when (result) {
                 is me.ash.reader.infrastructure.net.ApiResult.Success -> {
-                    articleDao.updateAiSummary(articleId = articleId, aiSummary = result.data)
+                    rememberPendingAiSummary(articleId = articleId, aiSummary = result.data)
                     val updatedArticleWithFeed =
-                        rssService.get().findArticleById(articleId)
-                            ?: readingUiState.value.articleWithFeed?.copy(
-                                article =
-                                    (currentArticle ?: return@launch).copy(aiSummary = result.data)
-                            )
+                        readingUiState.value.articleWithFeed?.copy(
+                            article = (currentArticle ?: return@launch).copy(aiSummary = result.data)
+                        )
                     updateAiSummaryStateIfCurrent(articleId) { state ->
                         val shouldExpandInlineSummary = isAiSummaryCardVisible.value
                         state.copy(
@@ -892,17 +895,18 @@ constructor(
     }
 
     private suspend fun openArticle(item: ArticleWithFeed) {
+        val articleWithPendingSummary = item.withPendingAiSummary(aiSummary = pendingAiSummary(item.article.id))
         _readingUiState.update {
             it.copy(
-                articleWithFeed = item,
-                isStarred = item.article.isStarred,
+                articleWithFeed = articleWithPendingSummary,
+                isStarred = articleWithPendingSummary.article.isStarred,
                 isUnread = false,
-                aiSummary = item.article.aiSummary,
+                aiSummary = articleWithPendingSummary.article.aiSummary,
                 isAiSummaryLoading = false,
                 isAiSummaryInlineLoading = false,
                 aiSummaryError = null,
-                isAiSummaryExpanded = item.article.aiSummary != null,
-                shouldRenderAiSummaryInline = item.article.aiSummary != null,
+                isAiSummaryExpanded = articleWithPendingSummary.article.aiSummary != null,
+                shouldRenderAiSummaryInline = articleWithPendingSummary.article.aiSummary != null,
                 shouldShowAiSummaryReadyPrompt = false,
                 hasAutoAiSummaryAttempted = false,
                 translatedContentBlocks = null,
@@ -923,29 +927,32 @@ constructor(
         }
         _readerState.update {
             it.copy(
-                    articleId = item.article.id,
-                    feedName = item.feed.name,
-                    title = item.article.title,
-                    author = item.article.author,
-                    link = item.article.link,
-                    publishedDate = item.article.date,
+                    articleId = articleWithPendingSummary.article.id,
+                    feedName = articleWithPendingSummary.feed.name,
+                    title = articleWithPendingSummary.article.title,
+                    author = articleWithPendingSummary.article.author,
+                    link = articleWithPendingSummary.article.link,
+                    publishedDate = articleWithPendingSummary.article.date,
                 )
                 .prefetchArticleId()
-                .renderContent(item)
+                .renderContent(articleWithPendingSummary)
         }
-        syncTranslationStateForContent(_readerState.value.content.text ?: item.article.rawDescription)
+        syncTranslationStateForContent(
+            _readerState.value.content.text ?: articleWithPendingSummary.article.rawDescription
+        )
     }
 
     private fun refreshOpenedArticle(item: ArticleWithFeed) {
-        val articleId = item.article.id
+        val articleWithPendingSummary = item.withPendingAiSummary(aiSummary = pendingAiSummary(item.article.id))
+        val articleId = articleWithPendingSummary.article.id
         _readingUiState.update {
             if (it.articleWithFeed?.article?.id != articleId) {
                 it
             } else {
                 it.copy(
-                    articleWithFeed = item,
-                    isStarred = item.article.isStarred,
-                    aiSummary = item.article.aiSummary,
+                    articleWithFeed = articleWithPendingSummary,
+                    isStarred = articleWithPendingSummary.article.isStarred,
+                    aiSummary = articleWithPendingSummary.article.aiSummary,
                 )
             }
         }
@@ -954,15 +961,17 @@ constructor(
                 it
             } else {
                 it.copy(
-                    feedName = item.feed.name,
-                    title = item.article.title,
-                    author = item.article.author,
-                    link = item.article.link,
-                    publishedDate = item.article.date,
+                    feedName = articleWithPendingSummary.feed.name,
+                    title = articleWithPendingSummary.article.title,
+                    author = articleWithPendingSummary.article.author,
+                    link = articleWithPendingSummary.article.link,
+                    publishedDate = articleWithPendingSummary.article.date,
                 )
             }
         }
-        syncTranslationStateForContent(_readerState.value.content.text ?: item.article.rawDescription)
+        syncTranslationStateForContent(
+            _readerState.value.content.text ?: articleWithPendingSummary.article.rawDescription
+        )
     }
 
     private fun translationContentStateForContent(
@@ -1296,6 +1305,46 @@ constructor(
         translationJob = null
     }
 
+    private fun rememberPendingAiSummary(articleId: String, aiSummary: String) {
+        synchronized(pendingAiSummaryWrites) { pendingAiSummaryWrites[articleId] = aiSummary }
+    }
+
+    private fun pendingAiSummary(articleId: String): String? =
+        synchronized(pendingAiSummaryWrites) { pendingAiSummaryWrites[articleId] }
+
+    private fun cancelPendingAiSummaryFlush() {
+        pendingAiSummaryFlushJob?.cancel()
+        pendingAiSummaryFlushJob = null
+    }
+
+    private fun schedulePendingAiSummaryFlush() {
+        val hasPendingEntries = synchronized(pendingAiSummaryWrites) { pendingAiSummaryWrites.isNotEmpty() }
+        if (!hasPendingEntries) return
+        cancelPendingAiSummaryFlush()
+        pendingAiSummaryFlushJob =
+            applicationScope.launch(ioDispatcher) {
+                delay(PENDING_AI_SUMMARY_FLUSH_DELAY_MILLIS)
+                flushPendingAiSummaries()
+            }
+    }
+
+    private suspend fun flushPendingAiSummaries() {
+        val snapshot = synchronized(pendingAiSummaryWrites) { pendingAiSummaryWrites.toMap() }
+        snapshot.forEach { (articleId, aiSummary) ->
+            runCatching {
+                articleDao.updateAiSummary(articleId = articleId, aiSummary = aiSummary)
+            }.onFailure {
+                Timber.tag(TAG).w(it, "Failed to flush pending AI summary for %s", articleId)
+            }.onSuccess {
+                synchronized(pendingAiSummaryWrites) {
+                    if (pendingAiSummaryWrites[articleId] == aiSummary) {
+                        pendingAiSummaryWrites.remove(articleId)
+                    }
+                }
+            }
+        }
+    }
+
     private fun clearListTranslationTargets(cancelActive: Boolean) {
         pendingListTranslationArticleIds.clear()
         if (cancelActive) {
@@ -1330,6 +1379,12 @@ constructor(
         return currentArticle?.id == articleId &&
             readerStateStateFlow.value.articleId == articleId &&
             readingUiState.value.articleWithFeed?.article?.id == articleId
+    }
+
+    override fun onCleared() {
+        cancelPendingAiSummaryFlush()
+        applicationScope.launch(ioDispatcher) { flushPendingAiSummaries() }
+        super.onCleared()
     }
 
     private fun serializeTranslatedBlocks(
@@ -1498,6 +1553,13 @@ internal fun dateJumpInitialKey(articleOffset: Int): Int =
         articleOffset - 1
     } else {
         0
+    }
+
+internal fun ArticleWithFeed.withPendingAiSummary(aiSummary: String?): ArticleWithFeed =
+    if (aiSummary == null || article.aiSummary == aiSummary) {
+        this
+    } else {
+        copy(article = article.copy(aiSummary = aiSummary))
     }
 
 data class FlowUiState(val pagerData: PagerData, val nextFilterState: FilterState? = null)

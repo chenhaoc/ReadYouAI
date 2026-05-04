@@ -1,6 +1,12 @@
 package me.ash.reader.ui.page.adaptive
 
+import java.util.Date
+import me.ash.reader.domain.model.article.Article
+import me.ash.reader.domain.model.article.ArticleWithFeed
+import me.ash.reader.domain.model.feed.Feed
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -114,4 +120,47 @@ class ReadingUiStateTest {
 
         assertTrue(state.shouldAutoGenerateTranslation)
     }
+
+    @Test
+    fun withPendingAiSummaryOverridesStoredSummaryWhenPendingValueExists() {
+        val article = articleWithFeed(aiSummary = null)
+
+        val updated = article.withPendingAiSummary("pending")
+
+        assertNotSame(article, updated)
+        assertTrue(updated.article.aiSummary == "pending")
+    }
+
+    @Test
+    fun withPendingAiSummaryKeepsOriginalWhenPendingValueMatchesStoredSummary() {
+        val article = articleWithFeed(aiSummary = "ready")
+
+        val updated = article.withPendingAiSummary("ready")
+
+        assertSame(article, updated)
+    }
+
+    private fun articleWithFeed(aiSummary: String?): ArticleWithFeed =
+        ArticleWithFeed(
+            article =
+                Article(
+                    id = "article-1",
+                    date = Date(0L),
+                    title = "title",
+                    rawDescription = "",
+                    shortDescription = "",
+                    link = "https://example.com/article-1",
+                    feedId = "feed-1",
+                    accountId = 1,
+                    aiSummary = aiSummary,
+                ),
+            feed =
+                Feed(
+                    id = "feed-1",
+                    name = "Feed",
+                    url = "https://example.com/feed.xml",
+                    groupId = "group-1",
+                    accountId = 1,
+                ),
+        )
 }
