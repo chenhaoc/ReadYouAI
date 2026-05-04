@@ -34,6 +34,7 @@ import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,8 +42,10 @@ import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -74,6 +77,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import me.ash.reader.R
 import me.ash.reader.domain.data.PagerData
+import me.ash.reader.domain.model.article.ArticleDateJumpItem
 import me.ash.reader.domain.model.article.ArticleFlowItem
 import me.ash.reader.domain.model.article.ArticleWithFeed
 import me.ash.reader.infrastructure.preference.LocalFlowArticleListDateStickyHeader
@@ -99,6 +103,7 @@ import me.ash.reader.ui.component.scrollbar.VerticalScrollIndicatorFactory
 import me.ash.reader.ui.component.scrollbar.drawVerticalScrollIndicator
 import me.ash.reader.ui.component.scrollbar.scrollIndicator
 import me.ash.reader.ui.ext.collectAsStateValue
+import me.ash.reader.ui.ext.formatAsString
 import me.ash.reader.ui.ext.openURL
 import me.ash.reader.ui.motion.Direction
 import me.ash.reader.ui.motion.sharedXAxisTransitionSlow
@@ -168,15 +173,25 @@ fun FlowPage(
     val focusRequester = remember { FocusRequester() }
     var markAsRead by remember { mutableStateOf(false) }
     var onSearch by rememberSaveable { mutableStateOf(false) }
+    var isDateJumpSheetOpen by rememberSaveable { mutableStateOf(false) }
+    var dateJumpItems by remember { mutableStateOf<List<ArticleDateJumpItem>>(emptyList()) }
+    var pendingDateJumpLabel by remember { mutableStateOf<String?>(null) }
+    var pendingDateJumpPagerData by remember { mutableStateOf<PagerData?>(null) }
 
     var currentPullToLoadState: PullToLoadState? by remember { mutableStateOf(null) }
     var currentLoadAction: LoadAction? by remember { mutableStateOf(null) }
 
     val settleSpec = remember { spring<Float>(dampingRatio = Spring.DampingRatioLowBouncy) }
+    val dateJumpSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val lastVisibleIndex =
         remember(listState) {
             snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
+                .filterNotNull()
+        }
+    val firstVisibleIndex =
+        remember(listState) {
+            snapshotFlow { listState.layoutInfo.visibleItemsInfo.firstOrNull()?.index }
                 .filterNotNull()
         }
 
@@ -238,9 +253,13 @@ fun FlowPage(
         }
     }
 
+    var pagingItems: LazyPagingItems<ArticleFlowItem>? by remember { mutableStateOf(null) }
+
     val topAppBarState = rememberTopAppBarState()
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topAppBarState)
+    val canJumpDate =
+        pagingItems?.itemSnapshotList?.items?.any { it is ArticleFlowItem.Date } == true
 
     val scrollAppBarToCollapsed =
         remember(topAppBarState) {
@@ -263,7 +282,29 @@ fun FlowPage(
 
     val readerState = viewModel.readerStateStateFlow.collectAsStateValue()
 
-    var pagingItems: LazyPagingItems<ArticleFlowItem>? by remember { mutableStateOf(null) }
+    LaunchedEffect(pendingDateJumpLabel, pagingItems, flowUiState.pagerData) {
+        val targetLabel = pendingDateJumpLabel ?: return@LaunchedEffect
+        val sourcePagerData = pendingDateJumpPagerData ?: return@LaunchedEffect
+        if (flowUiState.pagerData == sourcePagerData) return@LaunchedEffect
+        val currentPagingItems = pagingItems ?: return@LaunchedEffect
+        repeat(40) {
+            val index =
+                currentPagingItems.itemSnapshotList.items.lazyListIndexOfDate(
+                    dateString = targetLabel,
+                    isStickyHeaderEnabled = articleListDateStickyHeader.value,
+                )
+            if (index != -1) {
+                scrollAppBarToCollapsed()
+                listState.scrollToItem(index)
+                pendingDateJumpLabel = null
+                pendingDateJumpPagerData = null
+                return@LaunchedEffect
+            }
+            delay(50)
+        }
+        pendingDateJumpLabel = null
+        pendingDateJumpPagerData = null
+    }
 
     if (isTwoPane) {
         LaunchedEffect(readerState) {
@@ -383,6 +424,23 @@ fun FlowPage(
                                                 markAsRead = true
                                                 onSearch = false
                                             }
+                                    }
+                                }
+                            }
+                            RYExtensibleVisibility(visible = canJumpDate) {
+                                FeedbackIconButton(
+                                    imageVector = Icons.Rounded.DateRange,
+                                    contentDescription = stringResource(R.string.jump_to_date),
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                ) {
+                                    scope.launch {
+                                        val items = viewModel.queryDateJumpItems()
+                                        if (items.isNotEmpty()) {
+                                            dateJumpItems = items
+                                            onSearch = false
+                                            markAsRead = false
+                                            isDateJumpSheetOpen = true
+                                        }
                                     }
                                 }
                             }
@@ -536,7 +594,14 @@ fun FlowPage(
                     }
 
                     if (settings.flowArticleListDateStickyHeader.value) {
-                        LaunchedEffect(lastVisibleIndex) {
+                        LaunchedEffect(firstVisibleIndex, pagingItems) {
+                            firstVisibleIndex.collect {
+                                if (it in 0..25 && pagingItems.itemCount > 0) {
+                                    pagingItems.get(0)
+                                }
+                            }
+                        }
+                        LaunchedEffect(lastVisibleIndex, pagingItems) {
                             lastVisibleIndex.collect {
                                 if (it in (pagingItems.itemCount - 25..pagingItems.itemCount - 1)) {
                                     pagingItems.get(it)
@@ -770,10 +835,26 @@ fun FlowPage(
                         ),
             )
         }
+        if (isDateJumpSheetOpen) {
+            ModalBottomSheet(
+                onDismissRequest = { isDateJumpSheetOpen = false },
+                sheetState = dateJumpSheetState,
+            ) {
+                FlowDateJumpSheet(
+                    items = dateJumpItems,
+                    onSelect = { item ->
+                        pendingDateJumpPagerData = flowUiState.pagerData
+                        pendingDateJumpLabel = item.date.formatAsString(context)
+                        isDateJumpSheetOpen = false
+                        viewModel.requestDateJump(item.articleOffset)
+                    },
+                )
+            }
+        }
     }
 }
 
-private fun List<ArticleFlowItem>.lazyListIndexOfArticle(
+internal fun List<ArticleFlowItem>.lazyListIndexOfArticle(
     articleId: String,
     isStickyHeaderEnabled: Boolean,
 ): Int {
@@ -789,6 +870,34 @@ private fun List<ArticleFlowItem>.lazyListIndexOfArticle(
             is ArticleFlowItem.Date -> {
                 if (isStickyHeaderEnabled && item.showSpacer) {
                     extraItemsBeforeArticle += 1
+                }
+            }
+        }
+    }
+    return -1
+}
+
+internal fun List<ArticleFlowItem>.lazyListIndexOfDate(
+    dateString: String,
+    isStickyHeaderEnabled: Boolean,
+): Int {
+    var extraItemsBeforeDate = 0
+    forEachIndexed { index, item ->
+        when (item) {
+            is ArticleFlowItem.Article -> Unit
+
+            is ArticleFlowItem.Date -> {
+                if (item.date == dateString) {
+                    val targetSpacerOffset =
+                        if (isStickyHeaderEnabled && item.showSpacer) {
+                            1
+                        } else {
+                            0
+                        }
+                    return index + extraItemsBeforeDate + targetSpacerOffset
+                }
+                if (isStickyHeaderEnabled && item.showSpacer) {
+                    extraItemsBeforeDate += 1
                 }
             }
         }

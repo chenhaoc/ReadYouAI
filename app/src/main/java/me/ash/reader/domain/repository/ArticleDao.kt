@@ -12,6 +12,7 @@ import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 import me.ash.reader.domain.model.article.Article
+import me.ash.reader.domain.model.article.ArticleDateBucketRow
 import me.ash.reader.domain.model.article.ArticleMeta
 import me.ash.reader.domain.model.article.ArticleWithFeed
 import me.ash.reader.domain.model.feed.Feed
@@ -557,6 +558,40 @@ interface ArticleDao {
     fun queryArticleWithFeedWhenIsUnread(
         accountId: Int, isUnread: Boolean, sortAscending: Boolean = false
     ): PagingSource<Int, ArticleWithFeed>
+
+    @Query(
+        """
+        SELECT
+            MIN(a.date) AS date,
+            COUNT(*) AS articleCount
+        FROM article AS a
+        LEFT JOIN feed AS b ON b.id = a.feedId
+        WHERE a.accountId = :accountId
+        AND (:groupId IS NULL OR b.groupId = :groupId)
+        AND (:feedId IS NULL OR a.feedId = :feedId)
+        AND (:filterIndex != 0 OR a.isStarred = 1)
+        AND (:filterIndex != 1 OR a.isUnread = 1)
+        AND (
+            :searchContent IS NULL
+            OR :searchContent = ''
+            OR a.title LIKE '%' || :searchContent || '%'
+            OR a.shortDescription LIKE '%' || :searchContent || '%'
+            OR a.fullContent LIKE '%' || :searchContent || '%'
+        )
+        GROUP BY strftime('%Y-%m-%d', a.date / 1000, 'unixepoch', 'localtime')
+        ORDER BY
+            CASE WHEN :sortAscending = 1 THEN MIN(a.date) END ASC,
+            CASE WHEN :sortAscending = 0 THEN MIN(a.date) END DESC
+        """
+    )
+    suspend fun queryArticleDateBuckets(
+        accountId: Int,
+        groupId: String?,
+        feedId: String?,
+        filterIndex: Int,
+        searchContent: String?,
+        sortAscending: Boolean = false,
+    ): List<ArticleDateBucketRow>
 
     @Transaction
     @RewriteQueriesToDropUnusedColumns

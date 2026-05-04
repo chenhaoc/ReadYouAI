@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
 import me.ash.reader.domain.model.account.Account
 import me.ash.reader.domain.model.article.ArchivedArticle
+import me.ash.reader.domain.model.article.ArticleDateJumpItem
 import me.ash.reader.domain.model.article.Article
 import me.ash.reader.domain.model.article.ArticleWithFeed
 import me.ash.reader.domain.model.feed.Feed
@@ -317,6 +318,35 @@ abstract class AbstractRssRepository(
 
     open suspend fun renameGroup(group: Group) {
         groupDao.update(group)
+    }
+
+    open suspend fun queryArticleDateJumpItems(
+        groupId: String?,
+        feedId: String?,
+        filterIndex: Int,
+        searchContent: String?,
+        sortAscending: Boolean = false,
+    ): List<ArticleDateJumpItem> {
+        val accountId = accountService.getCurrentAccountId()
+        var articleOffset = 0
+        return articleDao
+            .queryArticleDateBuckets(
+                accountId = accountId,
+                groupId = groupId,
+                feedId = feedId,
+                filterIndex = filterIndex,
+                searchContent = searchContent?.trim()?.takeIf { it.isNotEmpty() },
+                sortAscending = sortAscending,
+            )
+            .map { row ->
+                ArticleDateJumpItem(
+                    date = row.date,
+                    articleCount = row.articleCount,
+                    articleOffset = articleOffset,
+                ).also {
+                    articleOffset += row.articleCount
+                }
+            }
     }
 
     open suspend fun renameFeed(feed: Feed) {

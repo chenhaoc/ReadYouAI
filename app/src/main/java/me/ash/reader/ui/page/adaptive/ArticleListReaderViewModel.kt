@@ -35,6 +35,7 @@ import me.ash.reader.domain.data.GroupWithFeedsListUseCase
 import me.ash.reader.domain.data.PagerData
 import me.ash.reader.domain.model.ai.AiChatMessage
 import me.ash.reader.domain.model.article.Article
+import me.ash.reader.domain.model.article.ArticleDateJumpItem
 import me.ash.reader.domain.model.article.ArticleFlowItem
 import me.ash.reader.domain.model.article.ArticleWithFeed
 import me.ash.reader.domain.model.feed.Feed
@@ -213,6 +214,28 @@ constructor(
                     isUnread = isUnread,
                 )
         }
+    }
+
+    suspend fun queryDateJumpItems(): List<ArticleDateJumpItem> {
+        val flowState = flowUiState.value ?: return emptyList()
+        val filterState = flowState.pagerData.filterState
+        val sortAscending =
+            filterState.filter.isUnread() && settingsProvider.settings.flowSortUnreadArticles.value
+        return withContext(ioDispatcher) {
+            rssService
+                .get()
+                .queryArticleDateJumpItems(
+                    groupId = filterState.group?.id,
+                    feedId = filterState.feed?.id,
+                    filterIndex = filterState.filter.index,
+                    searchContent = filterState.searchContent,
+                    sortAscending = sortAscending,
+                )
+        }
+    }
+
+    fun requestDateJump(initialKey: Int) {
+        articleListUseCase.requestDateJump(dateJumpInitialKey(initialKey))
     }
 
     fun updateStarredStatus(articleId: String?, isStarred: Boolean) {
@@ -1467,6 +1490,15 @@ constructor(
         }
     }
 }
+
+internal fun dateJumpInitialKey(articleOffset: Int): Int =
+    // Load one article before the target date when possible so Paging can materialize
+    // the date separator/header for sticky mode during the first refresh window.
+    if (articleOffset > 0) {
+        articleOffset - 1
+    } else {
+        0
+    }
 
 data class FlowUiState(val pagerData: PagerData, val nextFilterState: FilterState? = null)
 

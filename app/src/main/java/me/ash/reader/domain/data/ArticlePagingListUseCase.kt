@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import me.ash.reader.domain.model.article.ArticleFlowItem
 import me.ash.reader.domain.model.article.mapPagingFlowItem
@@ -42,12 +43,16 @@ constructor(
     private val filterStateUseCase: FilterStateUseCase,
     private val accountService: AccountService,
 ) {
+    @Volatile
+    private var pendingInitialKey: Int? = null
 
     private val mutablePagerFlow =
         MutableStateFlow<PagerData>(
             PagerData(filterState = filterStateUseCase.filterStateFlow.value)
         )
     val pagerFlow: StateFlow<PagerData> = mutablePagerFlow
+
+    private val jumpRequestVersion = MutableStateFlow(0)
 
     var itemSnapshotList by
         mutableStateOf(
@@ -72,13 +77,17 @@ constructor(
                 .combine(accountService.currentAccountIdFlow) { filterState, accountId ->
                     filterState
                 }
+                .combine(jumpRequestVersion) { filterState, _ -> filterState }
                 .collect { filterState ->
                     val searchContent = filterState.searchContent
+                    val initialKey = pendingInitialKey
+                    pendingInitialKey = null
 
                     mutablePagerFlow.value =
                         PagerData(
                             Pager(
-                                    config = PagingConfig(pageSize = 50, enablePlaceholders = false)
+                                    config = PagingConfig(pageSize = 50, enablePlaceholders = false),
+                                    initialKey = initialKey,
                                 ) {
                                     if (!searchContent.isNullOrBlank()) {
                                         rssService
@@ -119,6 +128,11 @@ constructor(
                 pager.collectLatest { pagingDataPresenter.collectFrom(it) }
             }
         }
+    }
+
+    fun requestDateJump(initialKey: Int) {
+        pendingInitialKey = initialKey
+        jumpRequestVersion.update { it + 1 }
     }
 }
 

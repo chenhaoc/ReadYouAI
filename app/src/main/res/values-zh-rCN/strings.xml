@@ -12,6 +12,9 @@
     <plurals name="starred_desc">
         <item quantity="other">%1$d 项已加星标</item>
     </plurals>
+    <plurals name="jump_to_date_articles">
+        <item quantity="other">%1$d 篇文章</item>
+    </plurals>
     <string name="feeds">分组</string>
     <string name="syncing">正在同步…</string>
     <string name="loading">加载中…</string>
@@ -29,6 +32,9 @@
     <string name="settings">设置</string>
     <string name="refresh">刷新</string>
     <string name="search">搜索</string>
+    <string name="jump_to_date">跳转到日期</string>
+    <string name="jump_to_date_summary">共 %1$d 个日期</string>
+    <string name="jump_to_date_special_day">%1$s（%2$s）</string>
     <string name="searching">搜索中…</string>
     <string name="subscribe">订阅</string>
     <string name="already_subscribed">已有订阅</string>
