@@ -29,6 +29,17 @@
     <string name="refresh">重新整理</string>
     <string name="search">搜尋</string>
     <string name="date_actions">日期操作</string>
+    <string name="mark_read_by_date_title">批次標為已讀</string>
+    <string name="mark_read_by_date_summary">按日期選擇要標記的文章</string>
+    <string name="mark_read_pick_current">目前</string>
+    <string name="mark_read_pick_newer">較新</string>
+    <string name="mark_read_pick_older">較舊</string>
+    <string name="mark_read_current_position">目前定位</string>
+    <string name="select_all">全選</string>
+    <plurals name="mark_read_selected_dates">
+        <item quantity="one">已選 %1$d 個日期，共 %2$d 篇</item>
+        <item quantity="other">已選 %1$d 個日期，共 %2$d 篇</item>
+    </plurals>
     <string name="searching">搜尋中…</string>
     <string name="subscribe">訂閱</string>
     <string name="already_subscribed">已有訂閱</string>

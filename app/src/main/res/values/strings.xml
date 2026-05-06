@@ -43,6 +43,17 @@
     <string name="jump_to_date_summary">Showing %1$d dates</string>
     <string name="jump_to_date_special_day">%1$s (%2$s)</string>
     <string name="date_actions">Date actions</string>
+    <string name="mark_read_by_date_title">Mark as read by date</string>
+    <string name="mark_read_by_date_summary">Choose dates to mark as read</string>
+    <string name="mark_read_pick_current">Current</string>
+    <string name="mark_read_pick_newer">Newer</string>
+    <string name="mark_read_pick_older">Older</string>
+    <string name="mark_read_current_position">Current position</string>
+    <string name="select_all">Select all</string>
+    <plurals name="mark_read_selected_dates">
+        <item quantity="one">Selected %1$d date, %2$d articles</item>
+        <item quantity="other">Selected %1$d dates, %2$d articles</item>
+    </plurals>
     <string name="searching">Searching…</string>
     <string name="subscribe">Subscribe</string>
     <string name="already_subscribed">Already subscribed</string>

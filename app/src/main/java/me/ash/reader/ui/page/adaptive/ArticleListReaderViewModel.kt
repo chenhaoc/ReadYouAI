@@ -277,6 +277,22 @@ constructor(
         }
     }
 
+    fun markDateArticlesAsRead(dates: Collection<Date>) {
+        viewModelScope.launch(ioDispatcher) {
+            val collected = mutableListOf<ArticleWithFeed>()
+            dates
+                .distinctBy { it.toLocalDayRange().first.time }
+                .forEach { date ->
+                    collected += queryCurrentDateArticles(date)
+                }
+            val items = collected.distinctBy { it.article.id }.filter { diffMapHolder.checkIfUnread(it) }
+            if (items.isNotEmpty()) {
+                diffMapHolder.updateDiff(articleWithFeed = items.toTypedArray(), isUnread = false)
+                diffMapHolder.commitDiffsToDb()
+            }
+        }
+    }
+
     fun requestDateJump(initialKey: Int) {
         articleListUseCase.requestDateJump(dateJumpInitialKey(initialKey))
     }

@@ -36,6 +36,17 @@
     <string name="jump_to_date_summary">共 %1$d 个日期</string>
     <string name="jump_to_date_special_day">%1$s（%2$s）</string>
     <string name="date_actions">日期操作</string>
+    <string name="mark_read_by_date_title">批量标为已读</string>
+    <string name="mark_read_by_date_summary">按日期选择要标记的文章</string>
+    <string name="mark_read_pick_current">当前</string>
+    <string name="mark_read_pick_newer">较新</string>
+    <string name="mark_read_pick_older">较旧</string>
+    <string name="mark_read_current_position">当前定位</string>
+    <string name="select_all">全选</string>
+    <plurals name="mark_read_selected_dates">
+        <item quantity="one">已选 %1$d 个日期，共 %2$d 篇</item>
+        <item quantity="other">已选 %1$d 个日期，共 %2$d 篇</item>
+    </plurals>
     <string name="searching">搜索中…</string>
     <string name="subscribe">订阅</string>
     <string name="already_subscribed">已有订阅</string>
