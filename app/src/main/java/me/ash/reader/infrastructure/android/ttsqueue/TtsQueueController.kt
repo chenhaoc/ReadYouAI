@@ -151,6 +151,22 @@ class TtsQueueController(
         persistAsync()
     }
 
+    fun appendCommuteQueue(items: List<TtsQueueItem>) {
+        if (items.isEmpty()) return
+        updateQueue(TtsQueueMode.Commute) { state ->
+            val updated =
+                items.fold(state.copy(commuteMeta = null)) { acc, item ->
+                    TtsQueueReducer.append(acc, item)
+                }
+            if (updated.currentArticleId == null) {
+                updated.copy(currentArticleId = updated.items.firstOrNull()?.articleId)
+            } else {
+                updated
+            }
+        }
+        persistAsync()
+    }
+
     fun replaceCommuteQueue(items: List<TtsQueueItem>, meta: TtsCommuteQueueMeta?) {
         playbackClient.stop()
         sleepTimerJob?.cancel()

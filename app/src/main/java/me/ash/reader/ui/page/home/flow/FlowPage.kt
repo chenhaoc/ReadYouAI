@@ -175,6 +175,7 @@ fun FlowPage(
     var onSearch by rememberSaveable { mutableStateOf(false) }
     var isDateJumpSheetOpen by rememberSaveable { mutableStateOf(false) }
     var dateJumpItems by remember { mutableStateOf<List<ArticleDateJumpItem>>(emptyList()) }
+    var dateActionItem by remember { mutableStateOf<ArticleDateJumpItem?>(null) }
     var pendingDateJumpLabel by remember { mutableStateOf<String?>(null) }
     var pendingDateJumpPagerData by remember { mutableStateOf<PagerData?>(null) }
 
@@ -183,6 +184,7 @@ fun FlowPage(
 
     val settleSpec = remember { spring<Float>(dampingRatio = Spring.DampingRatioLowBouncy) }
     val dateJumpSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val dateActionSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val lastVisibleIndex =
         remember(listState) {
@@ -847,6 +849,40 @@ fun FlowPage(
                         pendingDateJumpLabel = item.date.formatAsString(context)
                         isDateJumpSheetOpen = false
                         viewModel.requestDateJump(item.articleOffset)
+                    },
+                    onLongPress = { item ->
+                        dateActionItem = item
+                        isDateJumpSheetOpen = false
+                    },
+                )
+            }
+        }
+        dateActionItem?.let { item ->
+            ModalBottomSheet(
+                onDismissRequest = { dateActionItem = null },
+                sheetState = dateActionSheetState,
+            ) {
+                FlowDateActionsSheet(
+                    item = item,
+                    onAddToPlaylist = {
+                        dateActionItem = null
+                        viewModel.addDateArticlesToPlaylist(item.date)
+                    },
+                    onAppendToSummaryList = {
+                        dateActionItem = null
+                        viewModel.appendDateArticlesToSummaryList(item.date)
+                    },
+                    onReplaceSummaryList = {
+                        dateActionItem = null
+                        viewModel.replaceDateArticlesToSummaryList(item.date)
+                    },
+                    onMarkAsRead = {
+                        dateActionItem = null
+                        viewModel.updateDateArticlesReadStatus(item.date, isUnread = false)
+                    },
+                    onMarkAsUnread = {
+                        dateActionItem = null
+                        viewModel.updateDateArticlesReadStatus(item.date, isUnread = true)
                     },
                 )
             }

@@ -1,6 +1,8 @@
 package me.ash.reader.ui.page.home.flow
 
-import androidx.compose.foundation.clickable
+import android.content.Context
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,10 +25,12 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FlowDateJumpSheet(
     items: List<ArticleDateJumpItem>,
     onSelect: (ArticleDateJumpItem) -> Unit,
+    onLongPress: ((ArticleDateJumpItem) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     LazyColumn(modifier = Modifier.fillMaxWidth()) {
@@ -53,7 +57,11 @@ fun FlowDateJumpSheet(
             ListItem(
                 modifier =
                     Modifier.fillMaxWidth()
-                        .clickable { onSelect(item) }
+                        .combinedClickable(
+                            onClick = { onSelect(item) },
+                            onLongClick = onLongPress?.let { { it(item) } },
+                            onLongClickLabel = stringResource(R.string.options),
+                        )
                         .padding(horizontal = 8.dp),
                 headlineContent = { Text(text = dateText) },
                 supportingContent = {
@@ -77,7 +85,7 @@ fun FlowDateJumpSheet(
     }
 }
 
-private fun Date.toDateJumpLabel(context: android.content.Context): String {
+internal fun Date.toDateJumpLabel(context: Context): String {
     val locale = Locale.getDefault()
     val dateFormatter = DateFormat.getDateInstance(DateFormat.FULL, locale)
     val fullDate = dateFormatter.format(this)

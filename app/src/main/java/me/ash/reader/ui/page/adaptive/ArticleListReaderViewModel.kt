@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.Calendar
 import java.util.Date
 import javax.inject.Inject
 import kotlin.collections.any
@@ -46,15 +47,20 @@ import me.ash.reader.domain.repository.ArticleDao
 import me.ash.reader.domain.repository.AiSummaryRepository
 import me.ash.reader.domain.repository.AiTranslationRepository
 import me.ash.reader.domain.service.GoogleReaderRssService
+import me.ash.reader.domain.service.AccountService
 import me.ash.reader.domain.service.LocalRssService
 import me.ash.reader.domain.service.RssService
 import me.ash.reader.domain.service.SyncWorker
 import me.ash.reader.infrastructure.android.AndroidImageDownloader
 import me.ash.reader.infrastructure.android.TextToSpeechManager
+import me.ash.reader.infrastructure.android.htmlSegmentCharCounts
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueController
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueuePlaybackState
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueueState
+import me.ash.reader.infrastructure.android.ttsqueue.buildSummaryHtmlContent
+import me.ash.reader.infrastructure.android.ttsqueue.charsToMs
 import me.ash.reader.infrastructure.android.ttsqueue.toQueueItem
+import me.ash.reader.infrastructure.android.ttsqueue.toSummaryQueueItem
 import me.ash.reader.infrastructure.di.ApplicationScope
 import me.ash.reader.infrastructure.di.IODispatcher
 import me.ash.reader.infrastructure.preference.PullToLoadNextFeedPreference
@@ -105,6 +111,7 @@ class ArticleListReaderViewModel
 @Inject
 constructor(
     private val rssService: RssService,
+    private val accountService: AccountService,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
     @ApplicationScope private val applicationScope: CoroutineScope,
     val diffMapHolder: DiffMapHolder,
@@ -220,8 +227,7 @@ constructor(
     suspend fun queryDateJumpItems(): List<ArticleDateJumpItem> {
         val flowState = flowUiState.value ?: return emptyList()
         val filterState = flowState.pagerData.filterState
-        val sortAscending =
-            filterState.filter.isUnread() && settingsProvider.settings.flowSortUnreadArticles.value
+        val sortAscending = shouldSortAscending(filterState)
         return withContext(ioDispatcher) {
             rssService
                 .get()
@@ -235,9 +241,83 @@ constructor(
         }
     }
 
+    fun addDateArticlesToPlaylist(date: Date) {
+        viewModelScope.launch(ioDispatcher) {
+            queryCurrentDateArticles(date).forEach(::addArticleToPlaylist)
+        }
+    }
+
+    fun appendDateArticlesToSummaryList(date: Date) {
+        viewModelScope.launch(ioDispatcher) {
+            val items = queryCurrentDateArticles(date).mapNotNull { it.toDateSummaryQueueItemOrNull() }
+            if (items.isNotEmpty()) {
+                ttsQueueController.appendCommuteQueue(items)
+            }
+        }
+    }
+
+    fun replaceDateArticlesToSummaryList(date: Date) {
+        viewModelScope.launch(ioDispatcher) {
+            val items = queryCurrentDateArticles(date).mapNotNull { it.toDateSummaryQueueItemOrNull() }
+            if (items.isNotEmpty()) {
+                ttsQueueController.replaceCommuteQueue(items, meta = null)
+            }
+        }
+    }
+
+    fun updateDateArticlesReadStatus(date: Date, isUnread: Boolean) {
+        viewModelScope.launch(ioDispatcher) {
+            val items =
+                queryCurrentDateArticles(date)
+                    .filter { diffMapHolder.checkIfUnread(it) != isUnread }
+                    .distinctBy { it.article.id }
+            if (items.isNotEmpty()) {
+                diffMapHolder.updateDiff(articleWithFeed = items.toTypedArray(), isUnread = isUnread)
+            }
+        }
+    }
+
     fun requestDateJump(initialKey: Int) {
         articleListUseCase.requestDateJump(dateJumpInitialKey(initialKey))
     }
+
+    private fun shouldSortAscending(filterState: FilterState): Boolean =
+        filterState.filter.isUnread() && settingsProvider.settings.flowSortUnreadArticles.value
+
+    private suspend fun queryCurrentDateArticles(date: Date): List<ArticleWithFeed> {
+        val flowState = flowUiState.value ?: return emptyList()
+        val filterState = flowState.pagerData.filterState
+        val (start, end) = date.toLocalDayRange()
+        return articleDao
+            .queryArticleWithFeedByDateRange(
+                accountId = accountService.getCurrentAccountId(),
+                groupId = filterState.group?.id,
+                feedId = filterState.feed?.id,
+                filterIndex = filterState.filter.index,
+                searchContent = filterState.searchContent?.trim()?.takeIf { it.isNotEmpty() },
+                start = start,
+                end = end,
+                sortAscending = shouldSortAscending(filterState),
+            ).map { articleWithFeed ->
+                articleWithFeed.withPendingAiSummary(aiSummary = pendingAiSummary(articleWithFeed.article.id))
+            }
+    }
+
+    private fun ArticleWithFeed.toDateSummaryQueueItemOrNull() =
+        article.aiSummary
+            ?.takeIf { it.isNotBlank() }
+            ?.let { summary ->
+                val summaryHtml =
+                    buildSummaryHtmlContent(
+                        title = article.title,
+                        feedName = feed.name,
+                        summary = summary,
+                    )
+                toSummaryQueueItem(
+                    summaryHtmlContent = summaryHtml,
+                    estimatedDurationMs = charsToMs(htmlSegmentCharCounts(summaryHtml).sum()),
+                )
+            }
 
     fun updateStarredStatus(articleId: String?, isStarred: Boolean) {
         applicationScope.launch(ioDispatcher) {
@@ -1561,6 +1641,20 @@ internal fun ArticleWithFeed.withPendingAiSummary(aiSummary: String?): ArticleWi
     } else {
         copy(article = article.copy(aiSummary = aiSummary))
     }
+
+internal fun Date.toLocalDayRange(): Pair<Date, Date> {
+    val calendar =
+        Calendar.getInstance().apply {
+            time = this@toLocalDayRange
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+    val start = calendar.time
+    calendar.add(Calendar.DAY_OF_MONTH, 1)
+    return start to calendar.time
+}
 
 data class FlowUiState(val pagerData: PagerData, val nextFilterState: FilterState? = null)
 

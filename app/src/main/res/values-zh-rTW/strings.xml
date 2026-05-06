@@ -28,6 +28,7 @@
     <string name="settings">設定</string>
     <string name="refresh">重新整理</string>
     <string name="search">搜尋</string>
+    <string name="date_actions">日期操作</string>
     <string name="searching">搜尋中…</string>
     <string name="subscribe">訂閱</string>
     <string name="already_subscribed">已有訂閱</string>
@@ -76,6 +77,8 @@
     <string name="mark_as_read">標為已讀</string>
     <string name="mark_all_as_read">全部標為已讀</string>
     <string name="mark_as_unread">標為未讀</string>
+    <string name="mark_date_articles_as_read">全部標為已讀</string>
+    <string name="mark_date_articles_as_unread">全部標為未讀</string>
     <string name="mark_as_starred">加上星號</string>
     <string name="mark_as_unstar">移除星號</string>
     <string name="mark_as_read_one_day">將逾 1 天的文章標為已讀</string>
@@ -366,4 +369,6 @@
     <string name="export_backup_desc">將偏好設定、帳戶、AI 配置與訂閱來源儲存為 JSON</string>
     <string name="import_backup_desc">從 JSON 還原偏好設定、帳戶、AI 配置與訂閱來源</string>
     <string name="backup_scope_desc">包含應用偏好設定、帳戶資訊、AI 配置、分組與訂閱來源。不包含文章內容或快取。備份檔為明文，可能包含帳戶憑證與 API 金鑰。</string>
+    <string name="append_to_summary_list">追加摘要列表</string>
+    <string name="replace_summary_list">取代摘要列表</string>
 </resources>

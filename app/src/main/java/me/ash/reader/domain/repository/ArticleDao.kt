@@ -603,6 +603,46 @@ interface ArticleDao {
         a.translationBlocksZh, a.translationSourceHash, a.updateAt 
         FROM article AS a
         LEFT JOIN feed AS b ON b.id = a.feedId
+        WHERE a.accountId = :accountId
+        AND a.date >= :start
+        AND a.date < :end
+        AND (:groupId IS NULL OR b.groupId = :groupId)
+        AND (:feedId IS NULL OR a.feedId = :feedId)
+        AND (:filterIndex != 0 OR a.isStarred = 1)
+        AND (:filterIndex != 1 OR a.isUnread = 1)
+        AND (
+            :searchContent IS NULL
+            OR :searchContent = ''
+            OR a.title LIKE '%' || :searchContent || '%'
+            OR a.shortDescription LIKE '%' || :searchContent || '%'
+            OR a.fullContent LIKE '%' || :searchContent || '%'
+        )
+        ORDER BY
+            CASE WHEN :sortAscending = 1 THEN a.date END ASC,
+            CASE WHEN :sortAscending = 0 THEN a.date END DESC
+        """
+    )
+    suspend fun queryArticleWithFeedByDateRange(
+        accountId: Int,
+        groupId: String?,
+        feedId: String?,
+        filterIndex: Int,
+        searchContent: String?,
+        start: Date,
+        end: Date,
+        sortAscending: Boolean = false,
+    ): List<ArticleWithFeed>
+
+    @Transaction
+    @RewriteQueriesToDropUnusedColumns
+    @Query(
+        """
+        SELECT a.id, a.date, a.title, a.author, a.rawDescription, 
+        a.shortDescription, a.fullContent, a.img, a.link, a.feedId, 
+        a.accountId, a.isUnread, a.isStarred, a.isReadLater, a.aiSummary,
+        a.translationBlocksZh, a.translationSourceHash, a.updateAt 
+        FROM article AS a
+        LEFT JOIN feed AS b ON b.id = a.feedId
         LEFT JOIN `group` AS c ON c.id = b.groupId
         WHERE c.id = :groupId
         AND a.accountId = :accountId

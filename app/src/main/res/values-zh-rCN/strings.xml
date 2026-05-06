@@ -35,6 +35,7 @@
     <string name="jump_to_date">跳转到日期</string>
     <string name="jump_to_date_summary">共 %1$d 个日期</string>
     <string name="jump_to_date_special_day">%1$s（%2$s）</string>
+    <string name="date_actions">日期操作</string>
     <string name="searching">搜索中…</string>
     <string name="subscribe">订阅</string>
     <string name="already_subscribed">已有订阅</string>
@@ -83,6 +84,8 @@
     <string name="mark_as_read">标记为已读</string>
     <string name="mark_all_as_read">全部标记为已读</string>
     <string name="mark_as_unread">标记为未读</string>
+    <string name="mark_date_articles_as_read">全部标为已读</string>
+    <string name="mark_date_articles_as_unread">全部标为未读</string>
     <string name="mark_as_starred">标记为已加星标</string>
     <string name="mark_as_unstar">标记为未加星标</string>
     <string name="mark_as_read_one_day">将逾 1 天前的文章标为已读</string>
@@ -542,6 +545,8 @@
     <string name="added_to_playlist">已加入播放列表</string>
     <string name="play_now">立即播放</string>
     <string name="playlist">播放列表</string>
+    <string name="append_to_summary_list">追加摘要列表</string>
+    <string name="replace_summary_list">替换摘要列表</string>
     <string name="playlist_mode_title">全文模式 ▾</string>
     <string name="commute_brief_mode_title">摘要模式 ▾</string>
     <string name="normal_mode">全文模式</string>
