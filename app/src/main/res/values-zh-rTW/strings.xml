@@ -382,4 +382,10 @@
     <string name="backup_scope_desc">包含應用偏好設定、帳戶資訊、AI 配置、分組與訂閱來源。不包含文章內容或快取。備份檔為明文，可能包含帳戶憑證與 API 金鑰。</string>
     <string name="append_to_summary_list">追加摘要列表</string>
     <string name="replace_summary_list">取代摘要列表</string>
+    <string name="added_count_to_playlist">已加入播放清單 %1$d 項</string>
+    <string name="appended_count_to_summary_list">已追加到摘要列表 %1$d 項</string>
+    <string name="replaced_with_count_in_summary_list">已用 %1$d 項取代摘要列表</string>
+    <string name="marked_count_as_read">已標為已讀 %1$d 篇</string>
+    <string name="marked_count_as_unread">已標為未讀 %1$d 篇</string>
+    <string name="no_articles_to_process">沒有可處理的文章</string>
 </resources>

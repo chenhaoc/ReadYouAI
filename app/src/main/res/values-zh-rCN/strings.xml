@@ -554,10 +554,16 @@
     <string name="auto_translate">自动翻译</string>
     <string name="add_to_playlist">加入播放列表</string>
     <string name="added_to_playlist">已加入播放列表</string>
+    <string name="added_count_to_playlist">已加入播放列表 %1$d 项</string>
     <string name="play_now">立即播放</string>
     <string name="playlist">播放列表</string>
     <string name="append_to_summary_list">追加摘要列表</string>
     <string name="replace_summary_list">替换摘要列表</string>
+    <string name="appended_count_to_summary_list">已追加到摘要列表 %1$d 项</string>
+    <string name="replaced_with_count_in_summary_list">已用 %1$d 项替换摘要列表</string>
+    <string name="marked_count_as_read">已标为已读 %1$d 篇</string>
+    <string name="marked_count_as_unread">已标为未读 %1$d 篇</string>
+    <string name="no_articles_to_process">没有可处理的文章</string>
     <string name="playlist_mode_title">全文模式 ▾</string>
     <string name="commute_brief_mode_title">摘要模式 ▾</string>
     <string name="normal_mode">全文模式</string>

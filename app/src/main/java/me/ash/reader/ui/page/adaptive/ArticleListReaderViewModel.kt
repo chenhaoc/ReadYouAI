@@ -14,6 +14,7 @@ import javax.inject.Inject
 import kotlin.collections.any
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -241,31 +242,41 @@ constructor(
         }
     }
 
-    fun addDateArticlesToPlaylist(date: Date) {
+    fun addDateArticlesToPlaylist(date: Date, onComplete: (Int) -> Unit = {}) {
         viewModelScope.launch(ioDispatcher) {
-            queryCurrentDateArticles(date).forEach(::addArticleToPlaylist)
+            val items = queryCurrentDateArticles(date)
+            items.forEach(::addArticleToPlaylist)
+            withContext(Dispatchers.Main) {
+                onComplete(items.size)
+            }
         }
     }
 
-    fun appendDateArticlesToSummaryList(date: Date) {
+    fun appendDateArticlesToSummaryList(date: Date, onComplete: (Int) -> Unit = {}) {
         viewModelScope.launch(ioDispatcher) {
             val items = queryCurrentDateArticles(date).mapNotNull { it.toDateSummaryQueueItemOrNull() }
             if (items.isNotEmpty()) {
                 ttsQueueController.appendCommuteQueue(items)
             }
+            withContext(Dispatchers.Main) {
+                onComplete(items.size)
+            }
         }
     }
 
-    fun replaceDateArticlesToSummaryList(date: Date) {
+    fun replaceDateArticlesToSummaryList(date: Date, onComplete: (Int) -> Unit = {}) {
         viewModelScope.launch(ioDispatcher) {
             val items = queryCurrentDateArticles(date).mapNotNull { it.toDateSummaryQueueItemOrNull() }
             if (items.isNotEmpty()) {
                 ttsQueueController.replaceCommuteQueue(items, meta = null)
             }
+            withContext(Dispatchers.Main) {
+                onComplete(items.size)
+            }
         }
     }
 
-    fun updateDateArticlesReadStatus(date: Date, isUnread: Boolean) {
+    fun updateDateArticlesReadStatus(date: Date, isUnread: Boolean, onComplete: (Int) -> Unit = {}) {
         viewModelScope.launch(ioDispatcher) {
             val items =
                 queryCurrentDateArticles(date)
@@ -274,10 +285,13 @@ constructor(
             if (items.isNotEmpty()) {
                 diffMapHolder.updateDiff(articleWithFeed = items.toTypedArray(), isUnread = isUnread)
             }
+            withContext(Dispatchers.Main) {
+                onComplete(items.size)
+            }
         }
     }
 
-    fun markDateArticlesAsRead(dates: Collection<Date>) {
+    fun markDateArticlesAsRead(dates: Collection<Date>, onComplete: (Int) -> Unit = {}) {
         viewModelScope.launch(ioDispatcher) {
             val collected = mutableListOf<ArticleWithFeed>()
             dates
@@ -289,6 +303,9 @@ constructor(
             if (items.isNotEmpty()) {
                 diffMapHolder.updateDiff(articleWithFeed = items.toTypedArray(), isUnread = false)
                 diffMapHolder.commitDiffsToDb()
+            }
+            withContext(Dispatchers.Main) {
+                onComplete(items.size)
             }
         }
     }

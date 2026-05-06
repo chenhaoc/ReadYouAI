@@ -105,6 +105,7 @@ import me.ash.reader.ui.component.scrollbar.scrollIndicator
 import me.ash.reader.ui.ext.collectAsStateValue
 import me.ash.reader.ui.ext.formatAsString
 import me.ash.reader.ui.ext.openURL
+import me.ash.reader.ui.ext.showToast
 import me.ash.reader.ui.motion.Direction
 import me.ash.reader.ui.motion.sharedXAxisTransitionSlow
 import me.ash.reader.ui.motion.sharedYAxisTransitionExpressive
@@ -179,7 +180,6 @@ fun FlowPage(
     var markReadDateItems by remember { mutableStateOf<List<ArticleDateJumpItem>>(emptyList()) }
     var markReadSelectedDateKeys by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var markReadCurrentDateKey by remember { mutableStateOf<Long?>(null) }
-    var dateActionItem by remember { mutableStateOf<ArticleDateJumpItem?>(null) }
     var pendingDateJumpLabel by remember { mutableStateOf<String?>(null) }
     var pendingDateJumpPagerData by remember { mutableStateOf<PagerData?>(null) }
 
@@ -189,7 +189,6 @@ fun FlowPage(
     val settleSpec = remember { spring<Float>(dampingRatio = Spring.DampingRatioLowBouncy) }
     val dateJumpSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val markReadByDateSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val dateActionSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val lastVisibleIndex =
         remember(listState) {
@@ -251,6 +250,10 @@ fun FlowPage(
 
     val onPlayNow: ((ArticleWithFeed) -> Unit)? = remember {
         { articleWithFeed -> viewModel.playArticleNow(articleWithFeed) }
+    }
+
+    val showEmptyActionToast = remember(context) {
+        { context.showToast(context.getString(R.string.no_articles_to_process)) }
     }
 
     LaunchedEffect(onSearch) {
@@ -862,9 +865,50 @@ fun FlowPage(
                         isDateJumpSheetOpen = false
                         viewModel.requestDateJump(item.articleOffset)
                     },
-                    onLongPress = { item ->
-                        dateActionItem = item
-                        isDateJumpSheetOpen = false
+                    onAddToPlaylist = { item ->
+                        viewModel.addDateArticlesToPlaylist(item.date) { count ->
+                            if (count > 0) {
+                                context.showToast(context.getString(R.string.added_count_to_playlist, count))
+                            } else {
+                                showEmptyActionToast()
+                            }
+                        }
+                    },
+                    onAppendToSummaryList = { item ->
+                        viewModel.appendDateArticlesToSummaryList(item.date) { count ->
+                            if (count > 0) {
+                                context.showToast(context.getString(R.string.appended_count_to_summary_list, count))
+                            } else {
+                                showEmptyActionToast()
+                            }
+                        }
+                    },
+                    onReplaceSummaryList = { item ->
+                        viewModel.replaceDateArticlesToSummaryList(item.date) { count ->
+                            if (count > 0) {
+                                context.showToast(context.getString(R.string.replaced_with_count_in_summary_list, count))
+                            } else {
+                                showEmptyActionToast()
+                            }
+                        }
+                    },
+                    onMarkAsRead = { item ->
+                        viewModel.updateDateArticlesReadStatus(item.date, isUnread = false) { count ->
+                            if (count > 0) {
+                                context.showToast(context.getString(R.string.marked_count_as_read, count))
+                            } else {
+                                showEmptyActionToast()
+                            }
+                        }
+                    },
+                    onMarkAsUnread = { item ->
+                        viewModel.updateDateArticlesReadStatus(item.date, isUnread = true) { count ->
+                            if (count > 0) {
+                                context.showToast(context.getString(R.string.marked_count_as_unread, count))
+                            } else {
+                                showEmptyActionToast()
+                            }
+                        }
                     },
                 )
             }
@@ -911,37 +955,13 @@ fun FlowPage(
                                 .filter { it.dayKey in markReadSelectedDateKeys }
                                 .map { it.date }
                         isMarkReadByDateSheetOpen = false
-                        viewModel.markDateArticlesAsRead(selectedDates)
-                    },
-                )
-            }
-        }
-        dateActionItem?.let { item ->
-            ModalBottomSheet(
-                onDismissRequest = { dateActionItem = null },
-                sheetState = dateActionSheetState,
-            ) {
-                FlowDateActionsSheet(
-                    item = item,
-                    onAddToPlaylist = {
-                        dateActionItem = null
-                        viewModel.addDateArticlesToPlaylist(item.date)
-                    },
-                    onAppendToSummaryList = {
-                        dateActionItem = null
-                        viewModel.appendDateArticlesToSummaryList(item.date)
-                    },
-                    onReplaceSummaryList = {
-                        dateActionItem = null
-                        viewModel.replaceDateArticlesToSummaryList(item.date)
-                    },
-                    onMarkAsRead = {
-                        dateActionItem = null
-                        viewModel.updateDateArticlesReadStatus(item.date, isUnread = false)
-                    },
-                    onMarkAsUnread = {
-                        dateActionItem = null
-                        viewModel.updateDateArticlesReadStatus(item.date, isUnread = true)
+                        viewModel.markDateArticlesAsRead(selectedDates) { count ->
+                            if (count > 0) {
+                                context.showToast(context.getString(R.string.marked_count_as_read, count))
+                            } else {
+                                showEmptyActionToast()
+                            }
+                        }
                     },
                 )
             }

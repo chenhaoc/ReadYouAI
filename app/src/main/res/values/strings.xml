@@ -598,10 +598,16 @@
     <string name="auto_translate">Auto translate</string>
     <string name="add_to_playlist">Add to playlist</string>
     <string name="added_to_playlist">Added to playlist</string>
+    <string name="added_count_to_playlist">Added %1$d items to playlist</string>
     <string name="play_now">Play now</string>
     <string name="playlist">Playlist</string>
     <string name="append_to_summary_list">Append summary list</string>
     <string name="replace_summary_list">Replace summary list</string>
+    <string name="appended_count_to_summary_list">Appended %1$d items to summary list</string>
+    <string name="replaced_with_count_in_summary_list">Replaced summary list with %1$d items</string>
+    <string name="marked_count_as_read">Marked %1$d items as read</string>
+    <string name="marked_count_as_unread">Marked %1$d items as unread</string>
+    <string name="no_articles_to_process">No articles to process</string>
     <string name="playlist_mode_title">Full text mode ▾</string>
     <string name="commute_brief_mode_title">Summary mode ▾</string>
     <string name="normal_mode">Full text mode</string>
