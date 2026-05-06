@@ -1,5 +1,7 @@
 package me.ash.reader.ui.page.home.reading.queue
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
@@ -26,12 +28,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlin.math.abs
 import kotlin.math.roundToInt
+
+private val floatingButtonSize = 56.dp
+private val floatingButtonEdgePadding = 0.dp
+private const val dockedFloatingButtonScale = 0.5f
 
 enum class TtsFloatingButtonDockSide {
     Left,
@@ -107,14 +116,12 @@ fun TtsFloatingPlayerButton(
     if (!visible) return
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val buttonSize = 56.dp
-        val edgePadding = 16.dp
         val density = LocalDensity.current
         val containerWidthPx = constraints.maxWidth.toFloat()
         val containerHeightPx = constraints.maxHeight.toFloat()
-        val buttonWidthPx = with(density) { buttonSize.toPx() }
-        val buttonHeightPx = with(density) { buttonSize.toPx() }
-        val edgePaddingPx = with(density) { edgePadding.toPx() }
+        val buttonWidthPx = with(density) { floatingButtonSize.toPx() }
+        val buttonHeightPx = with(density) { floatingButtonSize.toPx() }
+        val edgePaddingPx = with(density) { floatingButtonEdgePadding.toPx() }
         val bottomPaddingPx = with(density) { bottomPadding.toPx() }
         val topInsetPx =
             with(density) { WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx() }
@@ -135,8 +142,34 @@ fun TtsFloatingPlayerButton(
         var horizontalOffsetPx by remember { mutableFloatStateOf(0f) }
         var verticalOffsetPx by remember { mutableFloatStateOf(0f) }
         var dragging by remember { mutableStateOf(false) }
+        val buttonScale by
+            animateFloatAsState(
+                targetValue = if (dragging) 1f else dockedFloatingButtonScale,
+                animationSpec = spring(stiffness = 500f, dampingRatio = 0.85f),
+                label = "ttsFloatingPlayerButtonScale",
+            )
+        val resolvedDockSide =
+            resolveDockSideFromOffset(
+                offsetPx = horizontalOffsetPx,
+                containerWidthPx = containerWidthPx,
+                buttonWidthPx = buttonWidthPx,
+            )
+        val verticalTransformOrigin =
+            when {
+                abs(verticalOffsetPx - verticalOffsetRange.start) <= 1f -> 0f
+                abs(verticalOffsetPx - verticalOffsetRange.endInclusive) <= 1f -> 1f
+                else -> 0.5f
+            }
 
-        LaunchedEffect(dockSide, verticalRatio, containerWidthPx, containerHeightPx, topInsetPx, bottomInsetPx, bottomPaddingPx) {
+        LaunchedEffect(
+            dockSide,
+            verticalRatio,
+            containerWidthPx,
+            containerHeightPx,
+            topInsetPx,
+            bottomInsetPx,
+            bottomPaddingPx,
+        ) {
             if (!dragging) {
                 horizontalOffsetPx =
                     anchoredButtonOffsetPx(
@@ -167,7 +200,15 @@ fun TtsFloatingPlayerButton(
                                 y = verticalOffsetPx.roundToInt(),
                             )
                         }
-                        .pointerInput(dockSide, verticalRatio, containerWidthPx, containerHeightPx, topInsetPx, bottomInsetPx, bottomPaddingPx) {
+                        .pointerInput(
+                            dockSide,
+                            verticalRatio,
+                            containerWidthPx,
+                            containerHeightPx,
+                            topInsetPx,
+                            bottomInsetPx,
+                            bottomPaddingPx,
+                        ) {
                             detectDragGestures(
                                 onDragStart = { dragging = true },
                                 onDragCancel = {
@@ -233,7 +274,20 @@ fun TtsFloatingPlayerButton(
                             onClick = onClick,
                             onLongClick = onLongClick,
                         )
-                        .size(buttonSize),
+                        .size(floatingButtonSize)
+                        .graphicsLayer {
+                            scaleX = buttonScale
+                            scaleY = buttonScale
+                            transformOrigin =
+                                TransformOrigin(
+                                    pivotFractionX =
+                                        when (resolvedDockSide) {
+                                            TtsFloatingButtonDockSide.Left -> 0f
+                                            TtsFloatingButtonDockSide.Right -> 1f
+                                        },
+                                    pivotFractionY = verticalTransformOrigin,
+                                )
+                        },
             ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),

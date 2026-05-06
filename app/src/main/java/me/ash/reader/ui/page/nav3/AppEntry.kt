@@ -151,12 +151,6 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
             TtsFloatingButtonDockSide.valueOf(settings.readingTtsMiniPlayerDockSide)
         }.getOrDefault(TtsFloatingButtonDockSide.Right)
     val currentRoute = backStack.lastOrNull()
-    val floatingButtonBottomPadding =
-        when (currentRoute) {
-            Route.Feeds,
-            is Route.Reading -> 88.dp
-            else -> 24.dp
-        }
 
     val onBack: () -> Unit = {
         if (backStack.size == 1) backStack[0] = Route.Feeds else backStack.removeLastOrNull()
@@ -418,7 +412,7 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
                     currentRoute != Route.Startup,
             dockSide = dockSide,
             verticalRatio = settings.readingTtsMiniPlayerVerticalRatio,
-            bottomPadding = floatingButtonBottomPadding,
+            bottomPadding = 0.dp,
             onPositionChange = { side, verticalRatio ->
                 scope.launch {
                     context.dataStore.edit {
