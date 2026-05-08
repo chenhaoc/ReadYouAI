@@ -194,6 +194,11 @@ private fun TtsNowPlayingCard(
                     onTogglePlay = onTogglePlay,
                     onNextArticle = onNext,
                     onNextSegment = onNextSegment,
+                    segmentButtonSize = 30.dp,
+                    articleButtonSize = 62.dp,
+                    articleIconSize = 36.dp,
+                    outerButtonSpacing = 16.dp,
+                    innerButtonSpacing = 6.dp,
                 )
 
                 TtsPlaybackTimelineRow(

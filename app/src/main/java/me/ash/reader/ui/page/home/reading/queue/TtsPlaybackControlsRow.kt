@@ -2,8 +2,10 @@ package me.ash.reader.ui.page.home.reading.queue
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
@@ -19,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import me.ash.reader.infrastructure.android.ttsqueue.TtsQueuePlaybackState
 
@@ -34,16 +37,22 @@ internal fun TtsPlaybackControlsRow(
     onNextArticle: () -> Unit,
     onNextSegment: () -> Unit,
     modifier: Modifier = Modifier,
+    segmentButtonSize: Dp = 34.dp,
+    articleButtonSize: Dp = 54.dp,
+    articleIconSize: Dp = 34.dp,
+    playButtonSize: Dp = 64.dp,
+    outerButtonSpacing: Dp = 4.dp,
+    innerButtonSpacing: Dp = 4.dp,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+        horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         OutlinedIconButton(
             onClick = onPreviousSegment,
             enabled = controlEnabled && canSkipToPreviousSegment,
-            modifier = Modifier.size(34.dp),
+            modifier = Modifier.size(segmentButtonSize),
         ) {
             Icon(
                 imageVector = Icons.Rounded.FastRewind,
@@ -52,21 +61,23 @@ internal fun TtsPlaybackControlsRow(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        Spacer(modifier = Modifier.width(outerButtonSpacing))
         IconButton(
             onClick = onPreviousArticle,
             enabled = controlEnabled,
-            modifier = Modifier.size(54.dp),
+            modifier = Modifier.size(articleButtonSize),
         ) {
             Icon(
                 imageVector = Icons.Rounded.SkipPrevious,
                 contentDescription = null,
-                modifier = Modifier.size(34.dp),
+                modifier = Modifier.size(articleIconSize),
             )
         }
+        Spacer(modifier = Modifier.width(innerButtonSpacing))
         FilledIconButton(
             onClick = onTogglePlay,
             enabled = controlEnabled,
-            modifier = Modifier.size(64.dp),
+            modifier = Modifier.size(playButtonSize),
         ) {
             Icon(
                 imageVector =
@@ -79,21 +90,23 @@ internal fun TtsPlaybackControlsRow(
                 modifier = Modifier.size(34.dp),
             )
         }
+        Spacer(modifier = Modifier.width(innerButtonSpacing))
         IconButton(
             onClick = onNextArticle,
             enabled = controlEnabled,
-            modifier = Modifier.size(54.dp),
+            modifier = Modifier.size(articleButtonSize),
         ) {
             Icon(
                 imageVector = Icons.Rounded.SkipNext,
                 contentDescription = null,
-                modifier = Modifier.size(30.dp),
+                modifier = Modifier.size(articleIconSize),
             )
         }
+        Spacer(modifier = Modifier.width(outerButtonSpacing))
         OutlinedIconButton(
             onClick = onNextSegment,
             enabled = controlEnabled && canSkipToNextSegment,
-            modifier = Modifier.size(34.dp),
+            modifier = Modifier.size(segmentButtonSize),
         ) {
             Icon(
                 imageVector = Icons.Rounded.FastForward,
