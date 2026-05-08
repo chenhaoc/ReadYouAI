@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -63,6 +64,7 @@ import me.ash.reader.ui.component.base.RYDialog
 
 private const val MS_PER_MINUTE = 60_000L
 private const val MODE_SWITCH_AFTER_MENU_CLOSE_DELAY_MS = 120L
+private const val QUEUE_SHEET_HORIZONTAL_PADDING_DP = 14
 
 @Composable
 private fun TtsNowPlayingCard(
@@ -75,12 +77,14 @@ private fun TtsNowPlayingCard(
     onNext: () -> Unit,
     onNextSegment: () -> Unit,
     onToggleCurrentStarred: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val currentItem = state.currentItem
     val playbackControlEnabled =
         currentItem != null && state.playbackState != TtsQueuePlaybackState.Preparing
 
     Card(
+        modifier = modifier,
         colors =
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -246,6 +250,7 @@ fun TtsQueueSheet(
             },
             onClear = onClear,
             onSetSleepTimer = onSetSleepTimer,
+            modifier = Modifier.padding(horizontal = QUEUE_SHEET_HORIZONTAL_PADDING_DP.dp),
         )
 
         TtsNowPlayingCard(
@@ -264,17 +269,31 @@ fun TtsQueueSheet(
             onNext = onNext,
             onNextSegment = onNextSegment,
             onToggleCurrentStarred = onToggleCurrentStarred,
+            modifier = Modifier.padding(horizontal = QUEUE_SHEET_HORIZONTAL_PADDING_DP.dp),
         )
 
         if (state.items.isEmpty()) {
             return@Column
         }
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn {
             items(state.items, key = { "${it.contentType}-${it.articleId}" }) { item ->
                 val isCurrent = item.articleId == state.currentArticleId
+                val highlightColor =
+                    if (isCurrent) {
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                    } else {
+                        Color.Transparent
+                    }
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(highlightColor)
+                            .padding(
+                                horizontal = QUEUE_SHEET_HORIZONTAL_PADDING_DP.dp,
+                                vertical = 4.dp,
+                            ),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(
@@ -304,7 +323,12 @@ fun TtsQueueSheet(
                         Text(
                             text = item.queueMetadataText(),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color =
+                                if (isCurrent) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -352,6 +376,7 @@ private fun QueueHeader(
     onGenerateCommuteBrief: () -> Unit,
     onClear: () -> Unit,
     onSetSleepTimer: (TtsSleepTimerOption) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var modeMenuExpanded by remember { mutableStateOf(false) }
     var pendingModeSwitch by remember { mutableStateOf<TtsQueueMode?>(null) }
@@ -364,7 +389,7 @@ private fun QueueHeader(
         }
     }
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -435,8 +435,7 @@ fun AppEntry(backStack: NavBackStack<NavKey>) {
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .safeDrawingPadding()
-                            .padding(horizontal = 14.dp),
+                            .safeDrawingPadding(),
                 ) {
                     TtsQueueSheet(
                         state = queueState,
